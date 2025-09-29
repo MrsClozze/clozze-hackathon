@@ -55,7 +55,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Upload File Button */}
-      <div className="absolute bottom-20 left-0 right-0 px-4">
+      <div className="absolute bottom-32 left-0 right-0 px-4 mb-4">
         <button className="w-full bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-3 rounded-lg text-sm font-medium transition-colors">
           Upload File
         </button>
