@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
 import { useUser } from "@/contexts/UserContext";
+import { useTheme } from "next-themes";
 
 const navigationItems = [
   { name: "Home", href: "/", icon: Home },
@@ -25,6 +26,7 @@ const navigationItems = [
 
 export default function Sidebar() {
   const { user } = useUser();
+  const { theme } = useTheme();
   
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-nav-background border-r border-border z-40">
@@ -33,7 +35,7 @@ export default function Sidebar() {
         <img 
           src={clozzeLogo} 
           alt="Clozze" 
-          className="w-48 h-auto"
+          className={`w-48 h-auto transition-all ${theme === 'light' ? 'invert brightness-0' : ''}`}
         />
       </div>
 
