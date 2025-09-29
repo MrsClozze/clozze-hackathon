@@ -12,9 +12,10 @@ export default function Header() {
         </button>
 
         {/* Upload File Button */}
-        <button className="flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white hover:bg-black/90 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border border-white/10">
-          <Upload className="h-4 w-4" />
-          Upload File
+        <button className="flex items-center gap-2 relative bg-black/20 backdrop-blur-md text-white hover:bg-black/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border border-white/20 hover:border-white/30 shadow-lg hover:shadow-xl before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-purple-500/10 before:via-blue-500/10 before:to-cyan-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700 skew-x-12"></div>
+          <Upload className="h-4 w-4 relative z-10" />
+          <span className="relative z-10">Upload File</span>
         </button>
 
         {/* Notifications */}
