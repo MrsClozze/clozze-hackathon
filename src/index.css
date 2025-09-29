@@ -19,15 +19,15 @@
     --card-foreground: 0 0% 95%;
     --card-border: 0 0% 18%;
 
-    /* Premium Gold Accent */
-    --accent-gold: 45 100% 65%;
-    --accent-gold-foreground: 0 0% 10%;
-    --accent-gold-muted: 45 80% 55%;
+    /* Premium Purple Accent */
+    --accent-gold: 240 100% 73%;
+    --accent-gold-foreground: 0 0% 98%;
+    --accent-gold-muted: 240 85% 68%;
 
     /* Interactive Elements */
-    --primary: 45 100% 65%;
-    --primary-foreground: 0 0% 10%;
-    --primary-hover: 45 90% 60%;
+    --primary: 240 100% 73%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 240 90% 68%;
 
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 85%;
@@ -44,12 +44,12 @@
     /* Form Elements */
     --input: 0 0% 15%;
     --input-border: 0 0% 25%;
-    --input-focus: 45 100% 65%;
+    --input-focus: 240 100% 73%;
 
     /* Borders & Rings */
     --border: 0 0% 18%;
     --border-subtle: 0 0% 12%;
-    --ring: 45 100% 65%;
+    --ring: 240 100% 73%;
 
     /* Typography Hierarchy */
     --text-heading: 0 0% 98%;
@@ -65,12 +65,12 @@
     /* Shadows & Elevation */
     --shadow-card: 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
     --shadow-elevated: 0 8px 30px -8px hsla(0, 0%, 0%, 0.6);
-    --shadow-premium: 0 0 0 1px hsla(45, 100%, 65%, 0.1), 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
+    --shadow-premium: 0 0 0 1px hsla(240, 100%, 73%, 0.1), 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
 
     /* Navigation */
     --nav-background: 0 0% 6%;
     --nav-item: 0 0% 15%;
-    --nav-item-active: 45 100% 65%;
+    --nav-item-active: 240 100% 73%;
     --nav-item-hover: 0 0% 18%;
 
     /* Animations */
