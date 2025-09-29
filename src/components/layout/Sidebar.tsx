@@ -10,6 +10,7 @@ import {
   Megaphone 
 } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
+import clozzeLogoBlack from "@/assets/clozze-logo-black.png";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "next-themes";
 
@@ -33,9 +34,9 @@ export default function Sidebar() {
       {/* Logo Section */}
       <div className="p-6 border-b border-border flex justify-center">
         <img 
-          src={clozzeLogo} 
+          src={theme === 'light' ? clozzeLogoBlack : clozzeLogo}
           alt="Clozze" 
-          className={`w-48 h-auto transition-all ${theme === 'light' ? 'invert brightness-0' : ''}`}
+          className="w-48 h-auto"
         />
       </div>
 
