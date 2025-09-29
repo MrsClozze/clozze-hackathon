@@ -12,10 +12,12 @@ export default function Header() {
         </button>
 
         {/* Upload File Button */}
-        <button className="flex items-center gap-2 relative bg-black/20 backdrop-blur-md text-white hover:bg-black/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border border-white/20 hover:border-white/30 shadow-lg hover:shadow-xl before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-purple-500/10 before:via-blue-500/10 before:to-cyan-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700 skew-x-12"></div>
-          <Upload className="h-4 w-4 relative z-10" />
-          <span className="relative z-10">Upload File</span>
+        <button className="flex items-center gap-2 relative bg-gradient-to-r from-purple-600/30 via-pink-500/30 to-cyan-400/30 backdrop-blur-md text-white hover:from-purple-500/50 hover:via-pink-400/50 hover:to-cyan-300/50 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 border-2 border-transparent hover:border-white/50 shadow-2xl hover:shadow-purple-500/25 before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 overflow-hidden group animate-pulse hover:animate-none">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
+          <div className="absolute inset-0 bg-gradient-to-45 from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 rounded-lg opacity-20 group-hover:opacity-40 blur-sm transition-opacity duration-300"></div>
+          <Upload className="h-4 w-4 relative z-10 drop-shadow-lg" />
+          <span className="relative z-10 font-bold text-shadow-lg">Upload File</span>
         </button>
 
         {/* Notifications */}
