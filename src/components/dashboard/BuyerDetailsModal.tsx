@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit2, Save, X, CheckCircle2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { useState } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
@@ -41,6 +42,8 @@ interface BuyerDetailsModalProps {
 export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedBuyer, setEditedBuyer] = useState<BuyerData | null>(null);
+  const [isPendingOpen, setIsPendingOpen] = useState(true);
+  const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const { tasks, openTaskModal } = useTasks();
 
   if (!buyer) return null;
@@ -297,96 +300,85 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
                 <p className="text-sm">No tasks associated with this buyer</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {/* All Tasks Section */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold text-text-muted uppercase tracking-wide">All Tasks ({associatedTasks.length})</h4>
-                  {associatedTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => openTaskModal(task)}
-                      className="flex items-center justify-between p-3 bg-muted/30 rounded-md border hover:border-accent-gold/50 hover:bg-muted/50 transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2
-                          className={`h-5 w-5 ${
-                            task.status === "completed"
-                              ? "text-success"
-                              : task.status === "in-progress"
-                              ? "text-warning"
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                        <div>
-                          <p className="font-medium">{task.title}</p>
-                          <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
-                        </div>
+              <div className="space-y-3">
+                {/* Pending Tasks Folder */}
+                {associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length > 0 && (
+                  <Collapsible open={isPendingOpen} onOpenChange={setIsPendingOpen}>
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/30 hover:bg-warning/15 transition-all cursor-pointer">
+                        <Folder className="h-5 w-5 text-warning" />
+                        {isPendingOpen ? (
+                          <ChevronDown className="h-4 w-4 text-warning" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-warning" />
+                        )}
+                        <span className="font-semibold text-warning uppercase tracking-wide text-sm">
+                          Pending Tasks ({associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length})
+                        </span>
                       </div>
-                      <Badge
-                        variant={
-                          task.status === "completed"
-                            ? "default"
-                            : task.status === "in-progress"
-                            ? "secondary"
-                            : "outline"
-                        }
-                      >
-                        {task.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Completed Tasks Section */}
-                {associatedTasks.filter(t => t.status === "completed").length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-success uppercase tracking-wide">Completed Tasks ({associatedTasks.filter(t => t.status === "completed").length})</h4>
-                    {associatedTasks.filter(task => task.status === "completed").map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => openTaskModal(task)}
-                        className="flex items-center justify-between p-3 bg-success/5 rounded-md border border-success/20 hover:border-success/40 hover:bg-success/10 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                          <div>
-                            <p className="font-medium">{task.title}</p>
-                            <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2 pl-4">
+                      {associatedTasks.filter(task => task.status === "pending" || task.status === "in-progress").map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={() => openTaskModal(task)}
+                          className="flex items-center justify-between p-3 bg-warning/5 rounded-md border border-warning/20 hover:border-warning/40 hover:bg-warning/10 transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <CheckCircle2
+                              className={`h-5 w-5 ${
+                                task.status === "in-progress" ? "text-warning" : "text-muted-foreground"
+                              }`}
+                            />
+                            <div>
+                              <p className="font-medium">{task.title}</p>
+                              <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                            </div>
                           </div>
+                          <Badge variant={task.status === "in-progress" ? "secondary" : "outline"}>
+                            {task.status}
+                          </Badge>
                         </div>
-                        <Badge variant="default">{task.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
 
-                {/* Pending Tasks Section */}
-                {associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-warning uppercase tracking-wide">Pending Tasks ({associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length})</h4>
-                    {associatedTasks.filter(task => task.status === "pending" || task.status === "in-progress").map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => openTaskModal(task)}
-                        className="flex items-center justify-between p-3 bg-warning/5 rounded-md border border-warning/20 hover:border-warning/40 hover:bg-warning/10 transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <CheckCircle2
-                            className={`h-5 w-5 ${
-                              task.status === "in-progress" ? "text-warning" : "text-muted-foreground"
-                            }`}
-                          />
-                          <div>
-                            <p className="font-medium">{task.title}</p>
-                            <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
-                          </div>
-                        </div>
-                        <Badge variant={task.status === "in-progress" ? "secondary" : "outline"}>
-                          {task.status}
-                        </Badge>
+                {/* Completed Tasks Folder */}
+                {associatedTasks.filter(t => t.status === "completed").length > 0 && (
+                  <Collapsible open={isCompletedOpen} onOpenChange={setIsCompletedOpen}>
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center gap-2 p-3 bg-success/10 rounded-lg border border-success/30 hover:bg-success/15 transition-all cursor-pointer">
+                        <Folder className="h-5 w-5 text-success" />
+                        {isCompletedOpen ? (
+                          <ChevronDown className="h-4 w-4 text-success" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-success" />
+                        )}
+                        <span className="font-semibold text-success uppercase tracking-wide text-sm">
+                          Completed Tasks ({associatedTasks.filter(t => t.status === "completed").length})
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-2 pl-4">
+                      {associatedTasks.filter(task => task.status === "completed").map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={() => openTaskModal(task)}
+                          className="flex items-center justify-between p-3 bg-success/5 rounded-md border border-success/20 hover:border-success/40 hover:bg-success/10 transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <CheckCircle2 className="h-5 w-5 text-success" />
+                            <div>
+                              <p className="font-medium">{task.title}</p>
+                              <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                            </div>
+                          </div>
+                          <Badge variant="default">{task.status}</Badge>
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </div>
             )}
