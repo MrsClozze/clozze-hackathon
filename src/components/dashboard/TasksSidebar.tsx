@@ -101,7 +101,7 @@ export default function TasksSidebar() {
               
               {task.hasAIAssist && (
                 <div className="mt-2 text-xs">
-                  <span className="text-accent-gold">Email client with AI assist?</span>
+                  <span className="text-accent-gold">Email or text with AI assist?</span>
                 </div>
               )}
             </div>
