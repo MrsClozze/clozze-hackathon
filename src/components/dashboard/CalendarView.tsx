@@ -75,27 +75,27 @@ export default function CalendarView() {
               <div className="flex flex-col gap-3 mt-4">
                 <Button 
                   variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-blue-50 hover:border-blue-600 transition-all duration-200 hover:scale-[1.02]"
+                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-blue-600/5 hover:border-blue-600/30 transition-all duration-200"
                 >
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <Mail className="h-4 w-4 text-white" />
                   </div>
                   <span className="font-medium">Google Calendar</span>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-gray-50 hover:border-gray-600 transition-all duration-200 hover:scale-[1.02]"
+                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-gray-600/5 hover:border-gray-600/30 transition-all duration-200"
                 >
-                  <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                  <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
                     <Calendar className="h-4 w-4 text-white" />
                   </div>
                   <span className="font-medium">iCalendar</span>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 hover:scale-[1.02]"
+                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-blue-500/5 hover:border-blue-500/30 transition-all duration-200"
                 >
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                     <Globe className="h-4 w-4 text-white" />
                   </div>
                   <span className="font-medium">Outlook</span>
