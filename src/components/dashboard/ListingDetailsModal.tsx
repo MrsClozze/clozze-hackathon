@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Edit2, Save, X, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
+import { useTasks } from "@/contexts/TasksContext";
+import TaskDetailsModal from "./TaskDetailsModal";
 
 interface ListingData {
   id: number;
@@ -48,6 +50,7 @@ interface ListingDetailsModalProps {
 export default function ListingDetailsModal({ open, onOpenChange, listing }: ListingDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedListing, setEditedListing] = useState<ListingData | null>(null);
+  const { tasks, openTaskModal } = useTasks();
 
   if (!listing) return null;
 
@@ -76,13 +79,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
     }
   };
 
-  // Mock tasks associated with this listing
-  const associatedTasks = [
-    { id: 1, title: "Schedule professional photos", status: "completed", dueDate: "2024-03-01" },
-    { id: 2, title: "List property on MLS", status: "completed", dueDate: "2024-03-05" },
-    { id: 3, title: "Schedule open house", status: "in-progress", dueDate: "2024-03-18" },
-    { id: 4, title: "Review purchase offers", status: "pending", dueDate: "2024-03-25" },
-  ];
+  const associatedTasks = tasks.filter((task) => task.listingId === listing.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -468,33 +465,52 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
           {/* Associated Tasks */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-text-heading">Associated Tasks</h3>
-            <div className="space-y-2">
-              {associatedTasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className={`h-5 w-5 ${
-                      task.status === 'completed' ? 'text-success' : 
-                      task.status === 'in-progress' ? 'text-warning' : 
-                      'text-muted-foreground'
-                    }`} />
-                    <div>
-                      <p className="font-medium">{task.title}</p>
-                      <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+            {associatedTasks.length === 0 ? (
+              <div className="text-center py-8 text-text-muted">
+                <p className="text-sm">No tasks associated with this listing</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {associatedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => openTaskModal(task)}
+                    className="flex items-center justify-between p-3 bg-muted/30 rounded-md border hover:border-accent-gold/50 hover:bg-muted/50 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2
+                        className={`h-5 w-5 ${
+                          task.status === "completed"
+                            ? "text-success"
+                            : task.status === "in-progress"
+                            ? "text-warning"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                      <div>
+                        <p className="font-medium">{task.title}</p>
+                        <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                      </div>
                     </div>
+                    <Badge
+                      variant={
+                        task.status === "completed"
+                          ? "default"
+                          : task.status === "in-progress"
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {task.status}
+                    </Badge>
                   </div>
-                  <Badge variant={
-                    task.status === 'completed' ? 'default' : 
-                    task.status === 'in-progress' ? 'secondary' : 
-                    'outline'
-                  }>
-                    {task.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
+      <TaskDetailsModal />
     </Dialog>
   );
 }

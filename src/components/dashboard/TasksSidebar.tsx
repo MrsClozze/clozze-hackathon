@@ -1,76 +1,7 @@
-import { Plus, Clock, AlertTriangle, Mail, MessageSquare, Edit2, Save, X } from "lucide-react";
+import { Plus, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-
-const todoTasks = [
-  {
-    id: 1,
-    title: "Schedule Property Viewing",
-    date: "Dec 15, 2024",
-    address: "123 Elm Street",
-    assignee: "Sarah Johnson",
-    hasAIAssist: true,
-    priority: "high",
-    notes: "",
-  },
-  {
-    id: 2,
-    title: "Prepare Contract",
-    date: "Dec 18, 2024",
-    address: "456 Oak Avenue",
-    assignee: "Michael Brown",
-    hasAIAssist: false,
-    priority: "high",
-    notes: "",
-  },
-  {
-    id: 3,
-    title: "Schedule Property Inspector",
-    date: "Dec 20, 2024",
-    address: "456 Oak Avenue",
-    assignee: "ABC Inspections",
-    hasAIAssist: true,
-    priority: "medium",
-    notes: "",
-  },
-  {
-    id: 4,
-    title: "Review Documents",
-    date: "Dec 22, 2024",
-    address: "789 Pine Lane",
-    assignee: "Emily Davis",
-    hasAIAssist: false,
-    priority: "medium",
-    notes: "",
-  },
-];
-
-const completedTasks = [];
+import { useTasks } from "@/contexts/TasksContext";
+import TaskDetailsModal from "./TaskDetailsModal";
 
 const urgentTasks = [
   {
@@ -88,44 +19,10 @@ const urgentTasks = [
 ];
 
 export default function TasksSidebar() {
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<typeof todoTasks[0] | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTask, setEditedTask] = useState<typeof todoTasks[0] | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [showPartnerChoice, setShowPartnerChoice] = useState(false);
+  const { tasks, openTaskModal } = useTasks();
 
-  const handleContactClick = (task: typeof todoTasks[0], e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedTask(task);
-    setIsContactModalOpen(true);
-  };
-
-  const handleTaskClick = (task: typeof todoTasks[0]) => {
-    setSelectedTask(task);
-    setEditedTask(task);
-    setIsEditing(false);
-    setShowPartnerChoice(false);
-    setIsTaskDetailsModalOpen(true);
-  };
-
-  const handleEditToggle = () => {
-    setIsEditing(!isEditing);
-    if (!isEditing) {
-      setEditedTask(selectedTask);
-    }
-  };
-
-  const handleSaveTask = () => {
-    setSelectedTask(editedTask);
-    setIsEditing(false);
-  };
-
-  const handleCancelEdit = () => {
-    setEditedTask(selectedTask);
-    setIsEditing(false);
-  };
+  const todoTasks = tasks.filter((task) => task.status !== "completed");
+  const completedTasks = tasks.filter((task) => task.status === "completed");
 
   return (
     <div className="w-80 flex-shrink-0 space-y-6">
@@ -144,7 +41,7 @@ export default function TasksSidebar() {
           {todoTasks.map((task) => (
             <div
               key={task.id}
-              onClick={() => handleTaskClick(task)}
+              onClick={() => openTaskModal(task)}
               className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-2">
@@ -152,38 +49,25 @@ export default function TasksSidebar() {
                   {task.title}
                 </h3>
                 <div className="flex items-center gap-1 ml-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    task.priority === 'high' ? 'bg-destructive' : 'bg-warning'
-                  }`} />
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      task.priority === "high" ? "bg-destructive" : "bg-warning"
+                    }`}
+                  />
                   <span className="bg-accent-gold text-accent-gold-foreground px-1 py-0.5 rounded text-[10px] font-medium">
                     EXAMPLE
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-1 text-xs text-text-muted">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   {task.date}
                 </div>
-                <div>{task.address}</div>
-                <div>{task.assignee}</div>
+                {task.address && <div>{task.address}</div>}
+                {task.assignee && <div>{task.assignee}</div>}
               </div>
-              
-              {task.hasAIAssist && (
-                <div className="mt-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="h-6 px-2 text-xs text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
-                    onClick={(e) => handleContactClick(task, e)}
-                  >
-                    <Mail className="h-3 w-3" />
-                    <MessageSquare className="h-3 w-3" />
-                    Email or Text with AI Assist
-                  </Button>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -192,14 +76,32 @@ export default function TasksSidebar() {
       {/* Completed Tasks */}
       <div>
         <h2 className="text-xl font-semibold text-text-heading mb-4">Completed Tasks</h2>
-        
+
         {completedTasks.length === 0 ? (
           <div className="text-center py-8 text-text-muted">
             <p className="text-sm">No completed tasks yet</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Completed tasks would be rendered here */}
+            {completedTasks.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => openTaskModal(task)}
+                className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer group opacity-60"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-medium text-text-heading text-sm leading-tight line-through">
+                    {task.title}
+                  </h3>
+                </div>
+                <div className="space-y-1 text-xs text-text-muted">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {task.date}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -228,294 +130,7 @@ export default function TasksSidebar() {
         </div>
       </div>
 
-      {/* Task Details Modal */}
-      <Dialog open={isTaskDetailsModalOpen} onOpenChange={(open) => {
-        setIsTaskDetailsModalOpen(open);
-        if (!open) {
-          setIsEditing(false);
-          setShowPartnerChoice(false);
-        }
-      }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <div className="flex items-center justify-between pr-8">
-              <div className="flex-1">
-                <DialogTitle className="text-xl">
-                  {isEditing ? "Edit Task" : selectedTask?.title}
-                </DialogTitle>
-                <DialogDescription>
-                  {isEditing ? "Update task details" : "Complete task details and information"}
-                </DialogDescription>
-              </div>
-              {!isEditing && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleEditToggle}
-                  className="gap-2 flex-shrink-0"
-                >
-                  <Edit2 className="h-4 w-4" />
-                  Edit
-                </Button>
-              )}
-            </div>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Task Title */}
-            <div>
-              <Label className="text-sm font-medium text-text-muted mb-1">Task Title</Label>
-              {isEditing ? (
-                <Input
-                  value={editedTask?.title || ""}
-                  onChange={(e) => setEditedTask(editedTask ? {...editedTask, title: e.target.value} : null)}
-                  className="mt-1"
-                />
-              ) : (
-                <div className="text-sm mt-1">{selectedTask?.title}</div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Date */}
-              <div>
-                <Label className="text-sm font-medium text-text-muted mb-1">Date</Label>
-                {isEditing ? (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal mt-1",
-                          !editedTask?.date && "text-muted-foreground"
-                        )}
-                      >
-                        <Clock className="mr-2 h-4 w-4" />
-                        {editedTask?.date || "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => {
-                          setSelectedDate(date);
-                          if (date && editedTask) {
-                            setEditedTask({...editedTask, date: format(date, "MMM dd, yyyy")});
-                          }
-                        }}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm mt-1">
-                    <Clock className="h-4 w-4 text-accent-gold" />
-                    {selectedTask?.date}
-                  </div>
-                )}
-              </div>
-
-              {/* Priority */}
-              <div>
-                <Label className="text-sm font-medium text-text-muted mb-1">Priority</Label>
-                {isEditing ? (
-                  <Select
-                    value={editedTask?.priority}
-                    onValueChange={(value: "high" | "medium" | "low") => 
-                      setEditedTask(editedTask ? {...editedTask, priority: value} : null)
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className={`w-3 h-3 rounded-full ${
-                      selectedTask?.priority === 'high' ? 'bg-destructive' : 'bg-warning'
-                    }`} />
-                    <span className="text-sm capitalize">{selectedTask?.priority}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Address */}
-            <div>
-              <Label className="text-sm font-medium text-text-muted mb-1">Address</Label>
-              {isEditing ? (
-                <Input
-                  value={editedTask?.address || ""}
-                  onChange={(e) => setEditedTask(editedTask ? {...editedTask, address: e.target.value} : null)}
-                  className="mt-1"
-                />
-              ) : (
-                <div className="text-sm mt-1">{selectedTask?.address}</div>
-              )}
-            </div>
-            
-            {/* Assigned To / Contact */}
-            <div>
-              <Label className="text-sm font-medium text-text-muted mb-1">Assigned To</Label>
-              {isEditing ? (
-                <div className="space-y-2 mt-1">
-                  <Input
-                    value={editedTask?.assignee || ""}
-                    onChange={(e) => setEditedTask(editedTask ? {...editedTask, assignee: e.target.value} : null)}
-                    placeholder="Enter contact name"
-                  />
-                  
-                  {/* Special Partner Flow for Pre-Approval */}
-                  {editedTask?.title.toLowerCase().includes("pre-approved") && (
-                    <div className="space-y-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => setShowPartnerChoice(!showPartnerChoice)}
-                      >
-                        {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
-                      </Button>
-                      
-                      {showPartnerChoice && (
-                        <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto flex-col gap-2 py-3"
-                            onClick={() => {
-                              // Handle own contact
-                              setShowPartnerChoice(false);
-                            }}
-                          >
-                            <div className="font-medium text-xs">Use My Own Contact</div>
-                            <div className="text-[10px] text-muted-foreground">Your lender</div>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto flex-col gap-2 py-3"
-                            onClick={() => {
-                              if (editedTask) {
-                                setEditedTask({...editedTask, assignee: "Preferred Partner - [Lender Name]"});
-                              }
-                              setShowPartnerChoice(false);
-                            }}
-                          >
-                            <div className="font-medium text-xs">Use Preferred Partner</div>
-                            <div className="text-[10px] text-muted-foreground">Our lender</div>
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-sm mt-1">{selectedTask?.assignee}</div>
-              )}
-            </div>
-
-            {/* Notes Section */}
-            <div>
-              <Label className="text-sm font-medium text-text-muted mb-1">Notes</Label>
-              {isEditing ? (
-                <Textarea
-                  value={editedTask?.notes || ""}
-                  onChange={(e) => setEditedTask(editedTask ? {...editedTask, notes: e.target.value} : null)}
-                  placeholder="Add any additional notes or details..."
-                  className="mt-1 min-h-[100px] resize-none"
-                />
-              ) : (
-                <div className="text-sm mt-1 min-h-[60px] p-3 rounded-md bg-muted/30 border">
-                  {selectedTask?.notes || "No notes added"}
-                </div>
-              )}
-            </div>
-
-            {/* Edit Actions */}
-            {isEditing && (
-              <div className="flex gap-2 pt-2">
-                <Button
-                  size="sm"
-                  onClick={handleSaveTask}
-                  className="flex-1 bg-accent-gold text-accent-gold-foreground hover:bg-accent-gold/90"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </div>
-            )}
-
-            {/* AI Assist Section */}
-            {!isEditing && selectedTask?.hasAIAssist && (
-              <div className="pt-4 border-t border-border">
-                <div className="text-sm font-medium text-text-muted mb-3">AI Assistance Available</div>
-                <Button 
-                  size="sm" 
-                  className="w-full bg-accent-gold text-accent-gold-foreground hover:bg-accent-gold/90"
-                  onClick={(e) => {
-                    setIsTaskDetailsModalOpen(false);
-                    handleContactClick(selectedTask, e);
-                  }}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Contact with AI Assist
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Contact Modal */}
-      <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Contact with AI Assist</DialogTitle>
-            <DialogDescription>
-              Choose how you'd like to contact {selectedTask?.assignee} about "{selectedTask?.title}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-4">
-            <Button
-              variant="outline"
-              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
-            >
-              <Mail className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-medium">Send Email</div>
-                <div className="text-xs text-text-muted">AI will draft an email for you</div>
-              </div>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
-            >
-              <MessageSquare className="h-6 w-6" />
-              <div className="text-center">
-                <div className="font-medium">Send Text Message</div>
-                <div className="text-xs text-text-muted">AI will draft a text for you</div>
-              </div>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TaskDetailsModal />
     </div>
   );
 }
