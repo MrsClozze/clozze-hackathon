@@ -1,6 +1,14 @@
 import { AlertTriangle, Clock, Calendar, Mail, MessageSquare } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const urgentTasks = [
   {
@@ -55,6 +63,14 @@ const urgentTasks = [
 ];
 
 export default function UrgentTasksSidebar() {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<typeof urgentTasks[0] | null>(null);
+
+  const handleContactClick = (task: typeof urgentTasks[0]) => {
+    setSelectedTask(task);
+    setIsContactModalOpen(true);
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'bg-destructive';
@@ -116,26 +132,16 @@ export default function UrgentTasksSidebar() {
                   <p className="text-xs text-text-subtle">
                     Contact: {task.contactName}
                   </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1 text-xs py-1 h-7"
-                    >
-                      <Mail className="h-3 w-3" />
-                      Email
-                      <span className="text-accent-gold text-[10px]">(AI Assist)</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1 text-xs py-1 h-7"
-                    >
-                      <MessageSquare className="h-3 w-3" />
-                      Text
-                      <span className="text-accent-gold text-[10px]">(AI Assist)</span>
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1 text-xs py-1 h-7"
+                    onClick={() => handleContactClick(task)}
+                  >
+                    <Mail className="h-3 w-3" />
+                    <MessageSquare className="h-3 w-3" />
+                    Email or Text with AI Assist
+                  </Button>
                 </div>
               )}
             </div>
@@ -151,6 +157,40 @@ export default function UrgentTasksSidebar() {
           </Button>
         </div>
       </BentoCard>
+
+      {/* Contact Modal */}
+      <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contact with AI Assist</DialogTitle>
+            <DialogDescription>
+              Choose how you'd like to contact {selectedTask?.contactName} about "{selectedTask?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
+            >
+              <Mail className="h-6 w-6" />
+              <div className="text-center">
+                <div className="font-medium">Send Email</div>
+                <div className="text-xs text-text-muted">AI will draft an email for you</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
+            >
+              <MessageSquare className="h-6 w-6" />
+              <div className="text-center">
+                <div className="font-medium">Send Text Message</div>
+                <div className="text-xs text-text-muted">AI will draft a text for you</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
