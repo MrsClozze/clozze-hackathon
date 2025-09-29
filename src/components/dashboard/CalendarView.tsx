@@ -1,6 +1,14 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Mail, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const calendarEvents = [
   { date: 1, title: "Listing Appt", color: "bg-blue-500", textColor: "text-white" },
@@ -46,14 +54,55 @@ export default function CalendarView() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold text-text-heading">Calendar</h2>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="gap-2 text-sm"
-          >
-            <Calendar className="h-4 w-4" />
-            Connect calendar
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 text-sm"
+              >
+                <Calendar className="h-4 w-4" />
+                Connect calendar
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-card border border-card-border">
+              <DialogHeader>
+                <DialogTitle className="text-text-heading">Connect Calendar</DialogTitle>
+                <DialogDescription className="text-text-muted">
+                  Choose a calendar service to sync your events with Clozze.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-3 mt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-3 justify-start h-12 px-4"
+                >
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-medium">Connect Google Calendar</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-3 justify-start h-12 px-4"
+                >
+                  <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
+                    <Calendar className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-medium">Connect iCal</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-3 justify-start h-12 px-4"
+                >
+                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <Globe className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-medium">Connect Outlook</span>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm">
