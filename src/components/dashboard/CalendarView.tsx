@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const calendarEvents = [
@@ -44,7 +44,17 @@ export default function CalendarView() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-text-heading">Calendar</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold text-text-heading">Calendar</h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2 text-sm"
+          >
+            <Calendar className="h-4 w-4" />
+            Connect calendar
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm">
             <ChevronLeft className="h-4 w-4" />
