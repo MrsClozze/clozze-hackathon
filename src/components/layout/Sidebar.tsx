@@ -10,6 +10,7 @@ import {
   Megaphone 
 } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
+import { useUser } from "@/contexts/UserContext";
 
 const navigationItems = [
   { name: "Home", href: "/", icon: Home },
@@ -23,6 +24,8 @@ const navigationItems = [
 ];
 
 export default function Sidebar() {
+  const { user } = useUser();
+  
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-nav-background border-r border-border z-40">
       {/* Logo Section */}
@@ -59,11 +62,11 @@ export default function Sidebar() {
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
         <div className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-card-elevated transition-colors">
           <div className="w-8 h-8 bg-accent-gold rounded-full flex items-center justify-center">
-            <span className="text-sm font-semibold text-accent-gold-foreground">U</span>
+            <span className="text-sm font-semibold text-accent-gold-foreground">{user.initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-heading truncate">Guy Hawkins</p>
-            <p className="text-xs text-text-muted truncate">Title</p>
+            <p className="text-sm font-medium text-text-heading truncate">{user.name}</p>
+            <p className="text-xs text-text-muted truncate">{user.title}</p>
           </div>
         </div>
         

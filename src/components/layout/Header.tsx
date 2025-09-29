@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Sun, Upload, Bell, ChevronDown } from "lucide-react";
 import UploadFileModal from "@/components/dashboard/UploadFileModal";
+import { useUser } from "@/contexts/UserContext";
 
 export default function Header() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const { user } = useUser();
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-end px-6 z-50">
@@ -34,11 +36,11 @@ export default function Header() {
         {/* User Profile */}
         <div className="flex items-center gap-2 hover:bg-card px-3 py-2 rounded-lg transition-colors cursor-pointer">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-sm font-semibold text-primary-foreground">J</span>
+            <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
           </div>
           <div className="text-left">
-            <p className="text-sm font-medium text-text-heading">John Doe</p>
-            <p className="text-xs text-text-muted">Trial</p>
+            <p className="text-sm font-medium text-text-heading">{user.name}</p>
+            <p className="text-xs text-text-muted">{user.title}</p>
           </div>
           <ChevronDown className="h-4 w-4 text-text-muted" />
         </div>
