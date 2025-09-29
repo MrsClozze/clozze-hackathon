@@ -1,5 +1,13 @@
-import { Plus, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Clock, AlertTriangle, Mail, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const todoTasks = [
   {
@@ -58,6 +66,14 @@ const urgentTasks = [
 ];
 
 export default function TasksSidebar() {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<typeof todoTasks[0] | null>(null);
+
+  const handleContactClick = (task: typeof todoTasks[0]) => {
+    setSelectedTask(task);
+    setIsContactModalOpen(true);
+  };
+
   return (
     <div className="w-80 flex-shrink-0 space-y-6">
       {/* To-Do List */}
@@ -106,8 +122,11 @@ export default function TasksSidebar() {
                     size="sm" 
                     variant="outline" 
                     className="h-6 px-2 text-xs text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
+                    onClick={() => handleContactClick(task)}
                   >
-                    Email or text with AI assist?
+                    <Mail className="h-3 w-3" />
+                    <MessageSquare className="h-3 w-3" />
+                    Email or Text with AI Assist
                   </Button>
                 </div>
               )}
@@ -154,6 +173,40 @@ export default function TasksSidebar() {
           ))}
         </div>
       </div>
+
+      {/* Contact Modal */}
+      <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contact with AI Assist</DialogTitle>
+            <DialogDescription>
+              Choose how you'd like to contact {selectedTask?.assignee} about "{selectedTask?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
+            >
+              <Mail className="h-6 w-6" />
+              <div className="text-center">
+                <div className="font-medium">Send Email</div>
+                <div className="text-xs text-text-muted">AI will draft an email for you</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30"
+            >
+              <MessageSquare className="h-6 w-6" />
+              <div className="text-center">
+                <div className="font-medium">Send Text Message</div>
+                <div className="text-xs text-text-muted">AI will draft a text for you</div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
