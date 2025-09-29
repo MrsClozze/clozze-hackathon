@@ -80,7 +80,7 @@ export default function CalendarView() {
                   <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <Mail className="h-4 w-4 text-white" />
                   </div>
-                  <span className="font-medium">Connect Google Calendar</span>
+                  <span className="font-medium">Google Calendar</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -89,7 +89,7 @@ export default function CalendarView() {
                   <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center">
                     <Calendar className="h-4 w-4 text-white" />
                   </div>
-                  <span className="font-medium">Connect iCal</span>
+                  <span className="font-medium">iCalendar</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -98,7 +98,7 @@ export default function CalendarView() {
                   <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                     <Globe className="h-4 w-4 text-white" />
                   </div>
-                  <span className="font-medium">Connect Outlook</span>
+                  <span className="font-medium">Outlook</span>
                 </Button>
               </div>
             </DialogContent>
