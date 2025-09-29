@@ -54,12 +54,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Upload File Button */}
-      <div className="p-4 pb-2">
-        <button className="w-full backdrop-blur-3xl bg-white/20 border border-white/30 text-white hover:bg-white/30 hover:border-white/40 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 shadow-2xl hover:shadow-white/10 ring-1 ring-white/20 hover:ring-white/30 backdrop-saturate-200">
-          Upload File
-        </button>
-      </div>
 
       {/* User Profile Section */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
