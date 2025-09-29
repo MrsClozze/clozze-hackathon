@@ -3,6 +3,7 @@ import { Plus, MapPin, DollarSign } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import AddListingModal from "./AddListingModal";
+import ListingDetailsModal from "./ListingDetailsModal";
 import property1 from "@/assets/property-1.jpg";
 import property2 from "@/assets/property-2.jpg";
 import property3 from "@/assets/property-3.jpg";
@@ -17,6 +18,27 @@ const activeListings = [
     daysOnMarket: 14,
     commission: 73500,
     image: property1,
+    sellerFirstName: "Robert",
+    sellerLastName: "Martinez",
+    sellerEmail: "robert.martinez@email.com",
+    sellerPhone: "(555) 111-2222",
+    zipcode: "90210",
+    county: "Los Angeles County",
+    bedrooms: 4,
+    bathrooms: 3.5,
+    sqFeet: 3200,
+    appraisalPrice: 2400000,
+    multiUnit: "no",
+    listingStartDate: "2024-01-15",
+    listingEndDate: "2024-07-15",
+    brokerageName: "Clozze Real Estate",
+    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
+    agentName: "John Smith",
+    agentEmail: "john.smith@clozze.com",
+    commissionPercentage: 6.0,
+    totalCommission: 147000,
+    agentCommission: 73500,
+    brokerageCommission: 73500,
   },
   {
     id: 2,
@@ -27,6 +49,27 @@ const activeListings = [
     daysOnMarket: 7,
     commission: 172500,
     image: property2,
+    sellerFirstName: "Jennifer",
+    sellerLastName: "Thompson",
+    sellerEmail: "jennifer.thompson@email.com",
+    sellerPhone: "(555) 222-3333",
+    zipcode: "90265",
+    county: "Los Angeles County",
+    bedrooms: 5,
+    bathrooms: 4.5,
+    sqFeet: 4800,
+    appraisalPrice: 5800000,
+    multiUnit: "no",
+    listingStartDate: "2024-01-20",
+    listingEndDate: "2024-07-20",
+    brokerageName: "Clozze Real Estate",
+    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
+    agentName: "John Smith",
+    agentEmail: "john.smith@clozze.com",
+    commissionPercentage: 6.0,
+    totalCommission: 345000,
+    agentCommission: 172500,
+    brokerageCommission: 172500,
   },
   {
     id: 3,
@@ -37,11 +80,39 @@ const activeListings = [
     daysOnMarket: 21,
     commission: 56700,
     image: property3,
+    sellerFirstName: "David",
+    sellerLastName: "Anderson",
+    sellerEmail: "david.anderson@email.com",
+    sellerPhone: "(555) 333-4444",
+    zipcode: "90401",
+    county: "Los Angeles County",
+    bedrooms: 3,
+    bathrooms: 2.5,
+    sqFeet: 2400,
+    appraisalPrice: 1850000,
+    multiUnit: "no",
+    listingStartDate: "2024-01-05",
+    listingEndDate: "2024-07-05",
+    brokerageName: "Clozze Real Estate",
+    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
+    agentName: "John Smith",
+    agentEmail: "john.smith@clozze.com",
+    commissionPercentage: 6.0,
+    totalCommission: 113400,
+    agentCommission: 56700,
+    brokerageCommission: 56700,
   },
 ];
 
 export default function ActiveListingsCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<typeof activeListings[0] | null>(null);
+
+  const handleListingClick = (listing: typeof activeListings[0]) => {
+    setSelectedListing(listing);
+    setIsDetailsModalOpen(true);
+  };
 
   return (
     <div>
@@ -58,11 +129,17 @@ export default function ActiveListingsCard() {
       </div>
 
       <AddListingModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <ListingDetailsModal
+        open={isDetailsModalOpen}
+        onOpenChange={setIsDetailsModalOpen}
+        listing={selectedListing}
+      />
       
       <div className="grid grid-cols-3 gap-4">
         {activeListings.map((listing) => (
           <div
             key={listing.id}
+            onClick={() => handleListingClick(listing)}
             className="relative group cursor-pointer rounded-lg overflow-hidden bg-card border border-card-border hover:border-accent-gold/30 transition-all duration-200"
           >
             {/* Property Image */}
