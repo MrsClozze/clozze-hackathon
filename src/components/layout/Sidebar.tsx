@@ -54,11 +54,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Glass Effect Buttons */}
-      <div className="absolute bottom-40 left-0 right-0 px-4 space-y-3">
-        <button className="w-full backdrop-blur-xl bg-white/10 border border-white/20 text-text-heading hover:bg-white/20 hover:border-white/30 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg hover:shadow-xl">
-          Add Task
-        </button>
+      {/* Upload File Button */}
+      <div className="absolute bottom-40 left-0 right-0 px-4">
         <button className="w-full backdrop-blur-xl bg-white/10 border border-white/20 text-text-heading hover:bg-white/20 hover:border-white/30 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 shadow-lg hover:shadow-xl">
           Upload File
         </button>
