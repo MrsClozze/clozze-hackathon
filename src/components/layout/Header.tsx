@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Sun, Upload, Bell, ChevronDown } from "lucide-react";
+import { Sun, Moon, Upload, Bell, ChevronDown } from "lucide-react";
 import UploadFileModal from "@/components/dashboard/UploadFileModal";
 import { useUser } from "@/contexts/UserContext";
+import { useTheme } from "next-themes";
 
 export default function Header() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const { user } = useUser();
+  const { theme, setTheme } = useTheme();
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-end px-6 z-50">
@@ -14,8 +16,15 @@ export default function Header() {
       {/* Right Side - Controls */}
       <div className="flex items-center gap-4">
         {/* Theme Toggle */}
-        <button className="p-2 hover:bg-card rounded-lg transition-colors">
-          <Sun className="h-5 w-5 text-text-muted" />
+        <button 
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="p-2 hover:bg-card rounded-lg transition-colors"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 text-text-muted" />
+          ) : (
+            <Moon className="h-5 w-5 text-text-muted" />
+          )}
         </button>
 
         {/* Upload File Button */}
