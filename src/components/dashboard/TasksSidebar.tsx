@@ -21,7 +21,25 @@ const urgentTasks = [
 export default function TasksSidebar() {
   const { tasks, openTaskModal } = useTasks();
 
-  const todoTasks = tasks.filter((task) => task.status !== "completed");
+  // Filter out completed tasks
+  const incompleteTasks = tasks.filter((task) => task.status !== "completed");
+  
+  // Sort by priority (high > medium > low) and then by date (earliest first)
+  const sortedTasks = [...incompleteTasks].sort((a, b) => {
+    // Priority weight: high = 3, medium = 2, low = 1
+    const priorityWeight = { high: 3, medium: 2, low: 1 };
+    const priorityDiff = priorityWeight[b.priority] - priorityWeight[a.priority];
+    
+    if (priorityDiff !== 0) return priorityDiff;
+    
+    // If priorities are equal, sort by date (earlier dates first)
+    const dateA = new Date(a.dueDate || a.date);
+    const dateB = new Date(b.dueDate || b.date);
+    return dateA.getTime() - dateB.getTime();
+  });
+  
+  // Show only top 6 most urgent tasks
+  const todoTasks = sortedTasks.slice(0, 6);
   const completedTasks = tasks.filter((task) => task.status === "completed");
 
   return (
