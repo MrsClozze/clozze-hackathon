@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ const todoTasks = [
     assignee: "Sarah Johnson",
     hasAIAssist: true,
     priority: "high",
+    notes: "",
   },
   {
     id: 2,
@@ -44,6 +46,7 @@ const todoTasks = [
     assignee: "Michael Brown",
     hasAIAssist: false,
     priority: "high",
+    notes: "",
   },
   {
     id: 3,
@@ -53,6 +56,7 @@ const todoTasks = [
     assignee: "ABC Inspections",
     hasAIAssist: true,
     priority: "medium",
+    notes: "",
   },
   {
     id: 4,
@@ -62,6 +66,7 @@ const todoTasks = [
     assignee: "Emily Davis",
     hasAIAssist: false,
     priority: "medium",
+    notes: "",
   },
 ];
 
@@ -233,8 +238,8 @@ export default function TasksSidebar() {
       }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex-1">
                 <DialogTitle className="text-xl">
                   {isEditing ? "Edit Task" : selectedTask?.title}
                 </DialogTitle>
@@ -247,7 +252,7 @@ export default function TasksSidebar() {
                   size="sm"
                   variant="outline"
                   onClick={handleEditToggle}
-                  className="gap-2"
+                  className="gap-2 flex-shrink-0"
                 >
                   <Edit2 className="h-4 w-4" />
                   Edit
@@ -414,6 +419,23 @@ export default function TasksSidebar() {
                 </div>
               ) : (
                 <div className="text-sm mt-1">{selectedTask?.assignee}</div>
+              )}
+            </div>
+
+            {/* Notes Section */}
+            <div>
+              <Label className="text-sm font-medium text-text-muted mb-1">Notes</Label>
+              {isEditing ? (
+                <Textarea
+                  value={editedTask?.notes || ""}
+                  onChange={(e) => setEditedTask(editedTask ? {...editedTask, notes: e.target.value} : null)}
+                  placeholder="Add any additional notes or details..."
+                  className="mt-1 min-h-[100px] resize-none"
+                />
+              ) : (
+                <div className="text-sm mt-1 min-h-[60px] p-3 rounded-md bg-muted/30 border">
+                  {selectedTask?.notes || "No notes added"}
+                </div>
               )}
             </div>
 
