@@ -67,11 +67,18 @@ const urgentTasks = [
 
 export default function TasksSidebar() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<typeof todoTasks[0] | null>(null);
 
-  const handleContactClick = (task: typeof todoTasks[0]) => {
+  const handleContactClick = (task: typeof todoTasks[0], e: React.MouseEvent) => {
+    e.stopPropagation();
     setSelectedTask(task);
     setIsContactModalOpen(true);
+  };
+
+  const handleTaskClick = (task: typeof todoTasks[0]) => {
+    setSelectedTask(task);
+    setIsTaskDetailsModalOpen(true);
   };
 
   return (
@@ -91,7 +98,8 @@ export default function TasksSidebar() {
           {todoTasks.map((task) => (
             <div
               key={task.id}
-              className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/30 transition-all duration-200"
+              onClick={() => handleTaskClick(task)}
+              className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-medium text-text-heading text-sm leading-tight">
@@ -122,7 +130,7 @@ export default function TasksSidebar() {
                     size="sm" 
                     variant="outline" 
                     className="h-6 px-2 text-xs text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
-                    onClick={() => handleContactClick(task)}
+                    onClick={(e) => handleContactClick(task, e)}
                   >
                     <Mail className="h-3 w-3" />
                     <MessageSquare className="h-3 w-3" />
@@ -173,6 +181,66 @@ export default function TasksSidebar() {
           ))}
         </div>
       </div>
+
+      {/* Task Details Modal */}
+      <Dialog open={isTaskDetailsModalOpen} onOpenChange={setIsTaskDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{selectedTask?.title}</DialogTitle>
+            <DialogDescription>
+              Complete task details and information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm font-medium text-text-muted mb-1">Date</div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-accent-gold" />
+                  {selectedTask?.date}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-text-muted mb-1">Priority</div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${
+                    selectedTask?.priority === 'high' ? 'bg-destructive' : 'bg-warning'
+                  }`} />
+                  <span className="text-sm capitalize">{selectedTask?.priority}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <div className="text-sm font-medium text-text-muted mb-1">Address</div>
+              <div className="text-sm">{selectedTask?.address}</div>
+            </div>
+            
+            <div>
+              <div className="text-sm font-medium text-text-muted mb-1">Assigned To</div>
+              <div className="text-sm">{selectedTask?.assignee}</div>
+            </div>
+
+            {selectedTask?.hasAIAssist && (
+              <div className="pt-4 border-t border-border">
+                <div className="text-sm font-medium text-text-muted mb-3">AI Assistance Available</div>
+                <Button 
+                  size="sm" 
+                  className="w-full bg-accent-gold text-accent-gold-foreground hover:bg-accent-gold/90"
+                  onClick={(e) => {
+                    setIsTaskDetailsModalOpen(false);
+                    handleContactClick(selectedTask, e);
+                  }}
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Contact with AI Assist
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Contact Modal */}
       <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
