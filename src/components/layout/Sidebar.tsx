@@ -30,7 +30,7 @@ export default function Sidebar() {
         <img 
           src={clozzeLogo} 
           alt="Clozze" 
-          className="h-64 w-auto"
+          className="w-48 h-auto"
         />
       </div>
 
