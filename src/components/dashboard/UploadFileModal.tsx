@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, Loader2, CheckCircle } from "lucide-react";
+import { Upload, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import docusignLogo from "@/assets/docusign-logo.png";
 
 interface UploadFileModalProps {
   open: boolean;
@@ -167,14 +168,13 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
             {/* DocuSign Integration */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Load from DocuSign</h3>
-              <Button
-                variant="outline"
-                className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
-                onClick={handleDocuSignUpload}
-              >
-                <FileText className="h-6 w-6 mr-3" />
-                Load document from DocuSign
-              </Button>
+            <Button
+              variant="outline"
+              className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
+              onClick={handleDocuSignUpload}
+            >
+              <img src={docusignLogo} alt="DocuSign" className="h-8 object-contain" />
+            </Button>
             </div>
           </div>
         )}
