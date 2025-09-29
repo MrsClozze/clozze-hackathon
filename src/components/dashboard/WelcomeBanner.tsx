@@ -15,14 +15,9 @@ export default function WelcomeBanner() {
         
         <div className="flex-1">
           <h3 className="font-semibold text-text-heading mb-2">Welcome to Clozze!</h3>
-          <p className="text-sm text-text-muted mb-4">
+          <p className="text-sm text-text-muted">
             This dashboard includes sample data and example content to help you get started. All listings, buyers, tasks, and calendar entries shown are placeholders. Replace them with your own information as you begin using Clozze.
           </p>
-          
-          <Button size="sm" className="gap-2">
-            <Upload className="h-4 w-4" />
-            Upload File
-          </Button>
         </div>
       </div>
     </div>
