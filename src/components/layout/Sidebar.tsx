@@ -24,7 +24,7 @@ const navigationItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-nav-background border-r border-border z-40">
+    <aside className="fixed left-0 top-0 h-full w-72 bg-nav-background border-r border-border z-40">
       {/* Logo Section */}
       <div className="p-6 border-b border-border flex justify-center">
         <img 
@@ -55,7 +55,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Upload File Button */}
-      <div className="absolute bottom-40 left-0 right-0 px-4">
+      <div className="absolute bottom-32 left-0 right-0 px-4">
         <button className="w-full backdrop-blur-2xl bg-white/15 border border-white/25 text-white hover:bg-white/25 hover:border-white/35 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 shadow-2xl hover:shadow-3xl ring-1 ring-white/10 hover:ring-white/20">
           Upload File
         </button>
