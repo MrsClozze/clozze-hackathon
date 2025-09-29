@@ -9,7 +9,6 @@ import {
   CheckSquare, 
   Megaphone 
 } from "lucide-react";
-import clozzeLogo from "@/assets/clozze-logo.png";
 
 const navigationItems = [
   { name: "Home", href: "/", icon: Home },
@@ -25,15 +24,6 @@ const navigationItems = [
 export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-nav-background border-r border-border z-40">
-      {/* Logo Section */}
-      <div className="p-6 border-b border-border flex justify-center">
-        <img 
-          src={clozzeLogo} 
-          alt="Clozze" 
-          className="w-48 h-auto"
-        />
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => (
