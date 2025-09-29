@@ -26,7 +26,7 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-nav-background border-r border-border z-40">
       {/* Logo Section */}
-      <div className="p-6 border-b border-border">
+      <div className="p-6 border-b border-border flex justify-center">
         <img 
           src={clozzeLogo} 
           alt="Clozze" 
@@ -35,21 +35,21 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 w-full ${
                 isActive
                   ? "bg-nav-item-active text-accent-gold-foreground shadow-md"
                   : "text-text-body hover:bg-nav-item-hover hover:text-text-heading"
               }`
             }
           >
-            <item.icon className="h-5 w-5" />
-            {item.name}
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            <span className="truncate">{item.name}</span>
           </NavLink>
         ))}
       </nav>
