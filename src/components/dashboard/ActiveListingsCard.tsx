@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Plus, MapPin, DollarSign } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
+import AddListingModal from "./AddListingModal";
 import property1 from "@/assets/property-1.jpg";
 import property2 from "@/assets/property-2.jpg";
 import property3 from "@/assets/property-3.jpg";
@@ -39,15 +41,19 @@ const activeListings = [
 ];
 
 export default function ActiveListingsCard() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-text-heading">Listings</h2>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Add Listing
         </Button>
       </div>
+
+      <AddListingModal open={isModalOpen} onOpenChange={setIsModalOpen} />
       
       <div className="grid grid-cols-3 gap-4">
         {activeListings.map((listing) => (

@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AddBuyerModal from "./AddBuyerModal";
 import clientSarah from "@/assets/client-sarah.jpg";
 import clientMichael from "@/assets/client-michael.jpg";
 import clientEmily from "@/assets/client-emily.jpg";
@@ -29,15 +31,19 @@ const activeBuyers = [
 ];
 
 export default function ActiveBuyersCard() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-text-heading">Buyers</h2>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4" />
           Add Buyer
         </Button>
       </div>
+
+      <AddBuyerModal open={isModalOpen} onOpenChange={setIsModalOpen} />
       
       <div className="space-y-4">
         {activeBuyers.map((buyer) => (
