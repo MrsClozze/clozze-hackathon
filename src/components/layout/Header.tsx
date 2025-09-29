@@ -1,17 +1,8 @@
 import { Sun, Upload, Bell, ChevronDown } from "lucide-react";
-import clozzeLogo from "@/assets/clozze-logo.png";
 
 export default function Header() {
   return (
-    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 z-50">
-      {/* Left Side - Logo */}
-      <div className="flex items-center">
-        <img 
-          src={clozzeLogo} 
-          alt="Clozze" 
-          className="h-8 w-auto"
-        />
-      </div>
+    <header className="h-16 bg-background border-b border-border flex items-center justify-end px-6 z-50">
 
       {/* Right Side - Controls */}
       <div className="flex items-center gap-4">
