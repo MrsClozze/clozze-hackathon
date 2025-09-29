@@ -1,6 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Edit2, Save, X, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 
 interface BuyerData {
   id: number;
@@ -31,13 +37,72 @@ interface BuyerDetailsModalProps {
 }
 
 export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDetailsModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedBuyer, setEditedBuyer] = useState<BuyerData | null>(null);
+
   if (!buyer) return null;
+
+  const currentBuyer = isEditing && editedBuyer ? editedBuyer : buyer;
+
+  const handleEditToggle = () => {
+    if (!isEditing) {
+      setEditedBuyer({ ...buyer });
+    }
+    setIsEditing(!isEditing);
+  };
+
+  const handleSave = () => {
+    // Save logic would go here
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditedBuyer(null);
+    setIsEditing(false);
+  };
+
+  const updateField = (field: keyof BuyerData, value: any) => {
+    if (editedBuyer) {
+      setEditedBuyer({ ...editedBuyer, [field]: value });
+    }
+  };
+
+  // Mock tasks associated with this buyer
+  const associatedTasks = [
+    { id: 1, title: "Get client pre-approved", status: "in-progress", dueDate: "2024-03-15" },
+    { id: 2, title: "Schedule property viewings", status: "pending", dueDate: "2024-03-20" },
+    { id: 3, title: "Review purchase agreement", status: "completed", dueDate: "2024-03-10" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Buyer Details</DialogTitle>
+        <DialogHeader className="pr-8">
+          <div className="flex items-center justify-between">
+            <DialogTitle>Buyer Details</DialogTitle>
+            {!isEditing ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditToggle}
+                className="flex-shrink-0"
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="default" size="sm" onClick={handleSave}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCancel}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -45,14 +110,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b">
               <img
-                src={buyer.image}
-                alt={buyer.name}
+                src={currentBuyer.image}
+                alt={currentBuyer.name}
                 className="w-16 h-16 rounded-full object-cover"
               />
               <div>
-                <h3 className="text-xl font-semibold text-text-heading">{buyer.name}</h3>
+                <h3 className="text-xl font-semibold text-text-heading">{currentBuyer.name}</h3>
                 <Badge className="mt-1 bg-accent-gold text-accent-gold-foreground">
-                  {buyer.status}
+                  {currentBuyer.status}
                 </Badge>
               </div>
             </div>
@@ -61,31 +126,82 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium text-text-muted">First Name</Label>
-                <p className="text-base mt-1">{buyer.firstName}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.firstName}
+                    onChange={(e) => updateField('firstName', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.firstName}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Last Name</Label>
-                <p className="text-base mt-1">{buyer.lastName}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.lastName}
+                    onChange={(e) => updateField('lastName', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.lastName}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Email Address</Label>
-                <p className="text-base mt-1">{buyer.email}</p>
+                {isEditing ? (
+                  <Input
+                    type="email"
+                    value={currentBuyer.email}
+                    onChange={(e) => updateField('email', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.email}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Cell Phone</Label>
-                <p className="text-base mt-1">{buyer.phone}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.phone}
+                    onChange={(e) => updateField('phone', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.phone}</p>
+                )}
               </div>
               <div className="col-span-2">
                 <Label className="text-sm font-medium text-text-muted">Pre-approved Loan Amount</Label>
-                <p className="text-base mt-1 font-semibold">
-                  ${buyer.preApprovedAmount.toLocaleString()}
-                </p>
+                {isEditing ? (
+                  <Input
+                    type="number"
+                    value={currentBuyer.preApprovedAmount}
+                    onChange={(e) => updateField('preApprovedAmount', parseFloat(e.target.value))}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1 font-semibold">
+                    ${currentBuyer.preApprovedAmount.toLocaleString()}
+                  </p>
+                )}
               </div>
               <div className="col-span-2">
                 <Label className="text-sm font-medium text-text-muted">Primary Wants/Needs</Label>
-                <p className="text-base mt-1 p-3 bg-muted/30 rounded-md border">
-                  {buyer.wantsNeeds}
-                </p>
+                {isEditing ? (
+                  <Textarea
+                    value={currentBuyer.wantsNeeds}
+                    onChange={(e) => updateField('wantsNeeds', e.target.value)}
+                    className="mt-1"
+                    rows={3}
+                  />
+                ) : (
+                  <p className="text-base mt-1 p-3 bg-muted/30 rounded-md border">
+                    {currentBuyer.wantsNeeds}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -96,23 +212,65 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium text-text-muted">Brokerage Name</Label>
-                <p className="text-base mt-1">{buyer.brokerageName}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.brokerageName}
+                    onChange={(e) => updateField('brokerageName', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.brokerageName}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Brokerage Address</Label>
-                <p className="text-base mt-1">{buyer.brokerageAddress}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.brokerageAddress}
+                    onChange={(e) => updateField('brokerageAddress', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.brokerageAddress}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Agent Name</Label>
-                <p className="text-base mt-1">{buyer.agentName}</p>
+                {isEditing ? (
+                  <Input
+                    value={currentBuyer.agentName}
+                    onChange={(e) => updateField('agentName', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.agentName}</p>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-medium text-text-muted">Agent Email</Label>
-                <p className="text-base mt-1">{buyer.agentEmail}</p>
+                {isEditing ? (
+                  <Input
+                    type="email"
+                    value={currentBuyer.agentEmail}
+                    onChange={(e) => updateField('agentEmail', e.target.value)}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.agentEmail}</p>
+                )}
               </div>
               <div className="col-span-2">
                 <Label className="text-sm font-medium text-text-muted">Commission Percentage</Label>
-                <p className="text-base mt-1">{buyer.commissionPercentage}%</p>
+                {isEditing ? (
+                  <Input
+                    type="number"
+                    value={currentBuyer.commissionPercentage}
+                    onChange={(e) => updateField('commissionPercentage', parseFloat(e.target.value))}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-base mt-1">{currentBuyer.commissionPercentage}%</p>
+                )}
               </div>
             </div>
             <div className="text-sm p-4 bg-card-elevated rounded-lg border">
@@ -120,17 +278,46 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Commission Earned:</span>
-                  <span className="font-semibold">${buyer.totalCommission.toLocaleString()}</span>
+                  <span className="font-semibold">${currentBuyer.totalCommission.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Agent Commission (50%):</span>
-                  <span className="font-semibold">${buyer.agentCommission.toLocaleString()}</span>
+                  <span className="font-semibold">${currentBuyer.agentCommission.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Brokerage Commission (50%):</span>
-                  <span className="font-semibold">${buyer.brokerageCommission.toLocaleString()}</span>
+                  <span className="font-semibold">${currentBuyer.brokerageCommission.toLocaleString()}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Associated Tasks */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-text-heading">Associated Tasks</h3>
+            <div className="space-y-2">
+              {associatedTasks.map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className={`h-5 w-5 ${
+                      task.status === 'completed' ? 'text-success' : 
+                      task.status === 'in-progress' ? 'text-warning' : 
+                      'text-muted-foreground'
+                    }`} />
+                    <div>
+                      <p className="font-medium">{task.title}</p>
+                      <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                    </div>
+                  </div>
+                  <Badge variant={
+                    task.status === 'completed' ? 'default' : 
+                    task.status === 'in-progress' ? 'secondary' : 
+                    'outline'
+                  }>
+                    {task.status}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </div>
         </div>
