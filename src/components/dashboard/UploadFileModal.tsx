@@ -173,7 +173,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
               className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
               onClick={handleDocuSignUpload}
             >
-              <img src={docusignLogo} alt="DocuSign" className="h-8 object-contain" />
+              <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
             </Button>
             </div>
           </div>
