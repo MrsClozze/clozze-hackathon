@@ -470,41 +470,97 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
                 <p className="text-sm">No tasks associated with this listing</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {associatedTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => openTaskModal(task)}
-                    className="flex items-center justify-between p-3 bg-muted/30 rounded-md border hover:border-accent-gold/50 hover:bg-muted/50 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2
-                        className={`h-5 w-5 ${
-                          task.status === "completed"
-                            ? "text-success"
-                            : task.status === "in-progress"
-                            ? "text-warning"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                      <div>
-                        <p className="font-medium">{task.title}</p>
-                        <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={
-                        task.status === "completed"
-                          ? "default"
-                          : task.status === "in-progress"
-                          ? "secondary"
-                          : "outline"
-                      }
+              <div className="space-y-6">
+                {/* All Tasks Section */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-text-muted uppercase tracking-wide">All Tasks ({associatedTasks.length})</h4>
+                  {associatedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      onClick={() => openTaskModal(task)}
+                      className="flex items-center justify-between p-3 bg-muted/30 rounded-md border hover:border-accent-gold/50 hover:bg-muted/50 transition-all cursor-pointer"
                     >
-                      {task.status}
-                    </Badge>
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2
+                          className={`h-5 w-5 ${
+                            task.status === "completed"
+                              ? "text-success"
+                              : task.status === "in-progress"
+                              ? "text-warning"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                        <div>
+                          <p className="font-medium">{task.title}</p>
+                          <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant={
+                          task.status === "completed"
+                            ? "default"
+                            : task.status === "in-progress"
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {task.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Completed Tasks Section */}
+                {associatedTasks.filter(t => t.status === "completed").length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-success uppercase tracking-wide">Completed Tasks ({associatedTasks.filter(t => t.status === "completed").length})</h4>
+                    {associatedTasks.filter(task => task.status === "completed").map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => openTaskModal(task)}
+                        className="flex items-center justify-between p-3 bg-success/5 rounded-md border border-success/20 hover:border-success/40 hover:bg-success/10 transition-all cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2 className="h-5 w-5 text-success" />
+                          <div>
+                            <p className="font-medium">{task.title}</p>
+                            <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                          </div>
+                        </div>
+                        <Badge variant="default">{task.status}</Badge>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {/* Pending Tasks Section */}
+                {associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-warning uppercase tracking-wide">Pending Tasks ({associatedTasks.filter(t => t.status === "pending" || t.status === "in-progress").length})</h4>
+                    {associatedTasks.filter(task => task.status === "pending" || task.status === "in-progress").map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => openTaskModal(task)}
+                        className="flex items-center justify-between p-3 bg-warning/5 rounded-md border border-warning/20 hover:border-warning/40 hover:bg-warning/10 transition-all cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2
+                            className={`h-5 w-5 ${
+                              task.status === "in-progress" ? "text-warning" : "text-muted-foreground"
+                            }`}
+                          />
+                          <div>
+                            <p className="font-medium">{task.title}</p>
+                            <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                          </div>
+                        </div>
+                        <Badge variant={task.status === "in-progress" ? "secondary" : "outline"}>
+                          {task.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
