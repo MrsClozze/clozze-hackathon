@@ -58,11 +58,21 @@ export default function Sidebar() {
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
         <div className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-card-elevated transition-colors">
           <div className="w-8 h-8 bg-accent-gold rounded-full flex items-center justify-center">
-            <span className="text-sm font-semibold text-accent-gold-foreground">JD</span>
+            <span className="text-sm font-semibold text-accent-gold-foreground">U</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-heading truncate">John Doe</p>
-            <p className="text-xs text-text-muted truncate">Senior Agent</p>
+            <p className="text-sm font-medium text-text-heading truncate">Guy Hawkins</p>
+            <p className="text-xs text-text-muted truncate">Title</p>
+          </div>
+        </div>
+        
+        {/* Credit Usage */}
+        <div className="mt-3 px-3">
+          <div className="flex justify-between text-xs text-text-muted mb-1">
+            <span>600/1200 credits used</span>
+          </div>
+          <div className="w-full bg-background-elevated rounded-full h-1">
+            <div className="bg-accent-gold h-1 rounded-full" style={{ width: '50%' }}></div>
           </div>
         </div>
       </div>
