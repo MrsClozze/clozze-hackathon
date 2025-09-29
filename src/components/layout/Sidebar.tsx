@@ -35,7 +35,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto pb-56">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => (
           <NavLink
             key={item.name}
@@ -55,8 +55,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Upload File Button */}
-      <div className="absolute bottom-56 left-0 right-0 px-4">
-        <button className="w-full backdrop-blur-2xl bg-white/15 border border-white/25 text-white hover:bg-white/25 hover:border-white/35 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 shadow-2xl hover:shadow-3xl ring-1 ring-white/10 hover:ring-white/20">
+      <div className="p-4 pb-2">
+        <button className="w-full backdrop-blur-3xl bg-white/20 border border-white/30 text-white hover:bg-white/30 hover:border-white/40 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 shadow-2xl hover:shadow-white/10 ring-1 ring-white/20 hover:ring-white/30 backdrop-saturate-200">
           Upload File
         </button>
       </div>
