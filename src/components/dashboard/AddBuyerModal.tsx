@@ -6,20 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import docusignLogo from "@/assets/docusign-logo.png";
 
 interface AddBuyerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type ModalView = "choice" | "manual" | "upload";
+type ModalView = "upload" | "manual";
 
 export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps) {
-  const [view, setView] = useState<ModalView>("choice");
+  const [view, setView] = useState<ModalView>("upload");
   const { toast } = useToast();
 
   const handleClose = () => {
-    setView("choice");
+    setView("upload");
     onOpenChange(false);
   };
 
@@ -70,6 +71,14 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     }
   };
 
+  const handleDocuSignUpload = () => {
+    toast({
+      title: "DocuSign Integration",
+      description: "DocuSign authentication will be implemented here.",
+    });
+    // TODO: Implement DocuSign OAuth flow
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -77,46 +86,50 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
           <DialogTitle>Add New Buyer</DialogTitle>
         </DialogHeader>
 
-        {view === "choice" && (
-          <div className="flex flex-col gap-4 py-6">
-            <Button
-              variant="outline"
-              className="h-24 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
-              onClick={() => setView("upload")}
-            >
-              <Upload className="h-8 w-8" />
-              <span className="font-semibold">Upload existing document?</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-24 flex-col gap-2 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
-              onClick={() => setView("manual")}
-            >
-              <FileText className="h-8 w-8" />
-              <span className="font-semibold">Enter details manually</span>
-            </Button>
-          </div>
-        )}
-
         {view === "upload" && (
-          <div className="py-6">
-            <label htmlFor="file-upload-buyer" className="cursor-pointer">
-              <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-accent-gold/50 transition-colors">
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-lg font-semibold mb-2">Drop your document here</p>
-                <p className="text-sm text-muted-foreground">or click to browse</p>
-              </div>
-              <input
-                id="file-upload-buyer"
-                type="file"
-                className="hidden"
-                accept=".pdf,.doc,.docx"
-                onChange={handleFileUpload}
-              />
-            </label>
-            <Button variant="ghost" className="w-full mt-4" onClick={() => setView("choice")}>
-              Back
-            </Button>
+          <div className="space-y-6 py-6">
+            {/* Direct Upload */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Direct Upload</h3>
+              <label htmlFor="file-upload-buyer" className="cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-accent-gold/50 transition-colors">
+                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-lg font-semibold mb-2">Drop your document here</p>
+                  <p className="text-sm text-muted-foreground">or click to browse</p>
+                  <p className="text-xs text-muted-foreground mt-2">Supports PDF, DOC, DOCX files</p>
+                </div>
+                <input
+                  id="file-upload-buyer"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileUpload}
+                />
+              </label>
+            </div>
+
+            {/* DocuSign Integration */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Load from DocuSign</h3>
+              <Button
+                variant="outline"
+                className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
+                onClick={handleDocuSignUpload}
+              >
+                <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
+              </Button>
+            </div>
+
+            {/* Manual Entry Option */}
+            <div className="text-center pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setView("manual")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors underline"
+              >
+                Or enter details manually
+              </button>
+            </div>
           </div>
         )}
 
@@ -195,7 +208,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setView("choice")} className="flex-1">
+              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1">
                 Back
               </Button>
               <Button type="submit" className="flex-1">
