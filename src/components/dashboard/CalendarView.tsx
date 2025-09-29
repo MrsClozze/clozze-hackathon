@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
+import outlookLogo from "@/assets/outlook-logo.png";
 
 const calendarEvents = [
   { date: 1, title: "Listing Appt", color: "bg-blue-500", textColor: "text-white" },
@@ -97,8 +98,8 @@ export default function CalendarView() {
                   variant="outline" 
                   className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all duration-200"
                 >
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <Globe className="h-4 w-4 text-white" />
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <img src={outlookLogo} alt="Outlook" className="w-8 h-8 object-contain" />
                   </div>
                   <span className="font-medium">Outlook</span>
                 </Button>
