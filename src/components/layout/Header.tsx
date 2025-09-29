@@ -12,7 +12,7 @@ export default function Header() {
         </button>
 
         {/* Upload File Button */}
-        <button className="flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+        <button className="flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white hover:bg-black/90 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border border-white/10">
           <Upload className="h-4 w-4" />
           Upload File
         </button>
