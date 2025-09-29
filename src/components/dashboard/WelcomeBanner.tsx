@@ -1,11 +1,33 @@
-import { Upload } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function WelcomeBanner() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const bannerClosed = localStorage.getItem('welcomeBannerClosed');
+    if (bannerClosed === 'true') {
+      setIsVisible(false);
+    }
+  }, []);
+
+  const handleClose = () => {
+    setIsVisible(false);
+    localStorage.setItem('welcomeBannerClosed', 'true');
+  };
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div className="bg-blue-600/10 border border-blue-600/20 rounded-lg p-4 mb-8 relative">
-      <button className="absolute top-4 right-4 text-text-muted hover:text-text-heading">
-        ×
+      <button 
+        onClick={handleClose}
+        className="absolute top-4 right-4 text-text-muted hover:text-text-heading transition-colors"
+      >
+        <X className="h-4 w-4" />
       </button>
       
       <div className="flex items-start gap-3">
