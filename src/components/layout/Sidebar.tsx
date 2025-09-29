@@ -35,7 +35,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto pb-24">
         {navigationItems.map((item) => (
           <NavLink
             key={item.name}
