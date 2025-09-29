@@ -52,13 +52,6 @@ export default function ActiveBuyersCard() {
                 alt={buyer.name}
                 className="w-12 h-12 rounded-full object-cover"
               />
-              
-              {/* Example Badge */}
-              <div className="absolute -top-1 -right-1">
-                <span className="bg-accent-gold text-accent-gold-foreground px-1 py-0.5 rounded text-[10px] font-medium">
-                  EXAMPLE
-                </span>
-              </div>
             </div>
 
             {/* Buyer Details */}
