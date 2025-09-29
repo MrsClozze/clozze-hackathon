@@ -274,7 +274,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
               </div>
             </div>
             <div className="text-sm p-4 bg-card-elevated rounded-lg border">
-              <p className="font-semibold mb-2">💰 Anticipated Commission Breakdown</p>
+              <p className="font-semibold mb-2">Anticipated Commission Breakdown</p>
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Commission Earned:</span>

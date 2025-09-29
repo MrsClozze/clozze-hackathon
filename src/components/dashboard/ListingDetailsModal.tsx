@@ -447,7 +447,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
               </div>
             </div>
             <div className="text-sm p-4 bg-card-elevated rounded-lg border">
-              <p className="font-semibold mb-2">💰 Commission Breakdown</p>
+              <p className="font-semibold mb-2">Commission Breakdown</p>
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Commission Earned:</span>
