@@ -16,8 +16,8 @@ serve(async (req) => {
       throw new Error('DocuSign Integration Key not configured');
     }
 
-    const url = new URL(req.url);
-    const redirectUri = `${url.origin}/supabase/functions/v1/docusign-callback`;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
     // Build DocuSign OAuth authorization URL
     const authUrl = new URL('https://account-d.docusign.com/oauth/auth');

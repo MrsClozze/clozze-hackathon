@@ -24,7 +24,8 @@ serve(async (req) => {
       throw new Error('DocuSign credentials not configured');
     }
 
-    const redirectUri = `${url.origin}/supabase/functions/v1/docusign-callback`;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
     // Exchange code for access token
     const tokenResponse = await fetch('https://account-d.docusign.com/oauth/token', {
