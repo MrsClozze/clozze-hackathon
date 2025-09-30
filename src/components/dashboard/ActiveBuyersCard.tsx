@@ -8,6 +8,11 @@ export default function ActiveBuyersCard() {
   const { buyers, openBuyerModal, selectedBuyer, isBuyerDetailsModalOpen, closeBuyerModal, updateBuyer } = useBuyers();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Filter to show only top 3 Active or Pending buyers (no Closed)
+  const dashboardBuyers = buyers
+    .filter(buyer => buyer.status === 'Active' || buyer.status === 'Pending')
+    .slice(0, 3);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -31,7 +36,7 @@ export default function ActiveBuyersCard() {
       />
       
       <div className="space-y-4">
-        {buyers.map((buyer) => (
+        {dashboardBuyers.map((buyer) => (
           <div
             key={buyer.id}
             onClick={() => openBuyerModal(buyer)}

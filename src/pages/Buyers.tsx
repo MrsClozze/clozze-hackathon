@@ -1,15 +1,80 @@
 import { useState } from "react";
-import { Plus, Mail, Phone, DollarSign } from "lucide-react";
+import { Plus, Mail, Phone, DollarSign, ChevronDown } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import AddBuyerModal from "@/components/dashboard/AddBuyerModal";
 import BuyerDetailsModal from "@/components/dashboard/BuyerDetailsModal";
 
 export default function Buyers() {
   const { buyers, openBuyerModal, selectedBuyer, isBuyerDetailsModalOpen, closeBuyerModal, updateBuyer } = useBuyers();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isActiveOpen, setIsActiveOpen] = useState(true);
+  const [isPendingOpen, setIsPendingOpen] = useState(true);
+  const [isClosedOpen, setIsClosedOpen] = useState(false);
+
+  // Organize buyers by status
+  const activeBuyers = buyers.filter(b => b.status === 'Active');
+  const pendingBuyers = buyers.filter(b => b.status === 'Pending');
+  const closedBuyers = buyers.filter(b => b.status === 'Closed');
+
+  const renderBuyerCard = (buyer: typeof buyers[0]) => (
+    <Card
+      key={buyer.id}
+      onClick={() => openBuyerModal(buyer)}
+      className="cursor-pointer hover:border-accent-gold/30 transition-all duration-200 group"
+    >
+      <CardContent className="p-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
+            <img
+              src={buyer.image}
+              alt={buyer.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-text-heading group-hover:text-accent-gold transition-colors mb-1">
+              {buyer.name}
+            </h3>
+            <Badge className="bg-accent-gold text-accent-gold-foreground mb-2">
+              EXAMPLE
+            </Badge>
+            <p className="text-sm text-text-muted line-clamp-2">
+              {buyer.description}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3 mt-4 pt-4 border-t border-card-border">
+          <div className="flex items-center gap-2 text-sm">
+            <Mail className="h-4 w-4 text-text-muted" />
+            <span className="text-text-muted truncate">{buyer.email}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="h-4 w-4 text-text-muted" />
+            <span className="text-text-muted">{buyer.phone}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <DollarSign className="h-4 w-4 text-text-muted" />
+            <div>
+              <p className="text-xs text-text-muted">Pre-approved Amount</p>
+              <p className="font-semibold text-accent-gold">
+                ${buyer.preApprovedAmount.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-card-border">
+          <p className="text-xs text-text-muted mb-1">Wants & Needs</p>
+          <p className="text-sm text-text-muted line-clamp-2">{buyer.wantsNeeds}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Layout>
@@ -29,62 +94,75 @@ export default function Buyers() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {buyers.map((buyer) => (
-            <Card
-              key={buyer.id}
-              onClick={() => openBuyerModal(buyer)}
-              className="cursor-pointer hover:border-accent-gold/30 transition-all duration-200 group"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">
-                    <img
-                      src={buyer.image}
-                      alt={buyer.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-text-heading group-hover:text-accent-gold transition-colors mb-1">
-                      {buyer.name}
-                    </h3>
-                    <Badge className="bg-accent-gold text-accent-gold-foreground mb-2">
-                      EXAMPLE
-                    </Badge>
-                    <p className="text-sm text-text-muted line-clamp-2">
-                      {buyer.description}
-                    </p>
-                  </div>
+        <div className="space-y-6">
+          {/* Active Buyers Section */}
+          <Collapsible open={isActiveOpen} onOpenChange={setIsActiveOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Active</h2>
+                  <Badge className="bg-success text-white">{activeBuyers.length}</Badge>
                 </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isActiveOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {activeBuyers.map(renderBuyerCard)}
+                  </div>
+                  {activeBuyers.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No active buyers</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
 
-                <div className="space-y-3 mt-4 pt-4 border-t border-card-border">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-text-muted" />
-                    <span className="text-text-muted truncate">{buyer.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-text-muted" />
-                    <span className="text-text-muted">{buyer.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <DollarSign className="h-4 w-4 text-text-muted" />
-                    <div>
-                      <p className="text-xs text-text-muted">Pre-approved Amount</p>
-                      <p className="font-semibold text-accent-gold">
-                        ${buyer.preApprovedAmount.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
+          {/* Pending Buyers Section */}
+          <Collapsible open={isPendingOpen} onOpenChange={setIsPendingOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Pending</h2>
+                  <Badge className="bg-warning text-white">{pendingBuyers.length}</Badge>
                 </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isPendingOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {pendingBuyers.map(renderBuyerCard)}
+                  </div>
+                  {pendingBuyers.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No pending buyers</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
 
-                <div className="mt-4 pt-4 border-t border-card-border">
-                  <p className="text-xs text-text-muted mb-1">Wants & Needs</p>
-                  <p className="text-sm text-text-muted line-clamp-2">{buyer.wantsNeeds}</p>
+          {/* Closed Buyers Section */}
+          <Collapsible open={isClosedOpen} onOpenChange={setIsClosedOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Closed</h2>
+                  <Badge className="bg-secondary text-white">{closedBuyers.length}</Badge>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <ChevronDown className={`h-5 w-5 transition-transform ${isClosedOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {closedBuyers.map(renderBuyerCard)}
+                  </div>
+                  {closedBuyers.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No closed buyers</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </div>
 
         <AddBuyerModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />

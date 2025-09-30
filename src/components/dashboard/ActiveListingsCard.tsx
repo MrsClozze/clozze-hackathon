@@ -8,6 +8,11 @@ export default function ActiveListingsCard() {
   const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Filter to show only top 3 Active or Pending listings (no Closed)
+  const dashboardListings = listings
+    .filter(listing => listing.status === 'Active' || listing.status === 'Pending')
+    .slice(0, 3);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -31,7 +36,7 @@ export default function ActiveListingsCard() {
       />
       
       <div className="grid grid-cols-3 gap-4">
-        {listings.map((listing) => (
+        {dashboardListings.map((listing) => (
           <div
             key={listing.id}
             onClick={() => openListingModal(listing)}

@@ -1,15 +1,83 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { useListings } from "@/contexts/ListingsContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import AddListingModal from "@/components/dashboard/AddListingModal";
 import ListingDetailsModal from "@/components/dashboard/ListingDetailsModal";
 
 export default function Listings() {
   const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isActiveOpen, setIsActiveOpen] = useState(true);
+  const [isPendingOpen, setIsPendingOpen] = useState(true);
+  const [isClosedOpen, setIsClosedOpen] = useState(false);
+
+  // Organize listings by status
+  const activeListings = listings.filter(l => l.status === 'Active');
+  const pendingListings = listings.filter(l => l.status === 'Pending');
+  const closedListings = listings.filter(l => l.status === 'Closed');
+
+  const renderListingCard = (listing: typeof listings[0]) => (
+    <Card
+      key={listing.id}
+      onClick={() => openListingModal(listing)}
+      className="cursor-pointer hover:border-accent-gold/30 transition-all duration-200 overflow-hidden group"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden">
+        <img
+          src={listing.image}
+          alt={listing.address}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute top-3 right-3">
+          <Badge className={
+            listing.status === 'Active' 
+              ? 'bg-success text-white' 
+              : listing.status === 'Pending'
+              ? 'bg-warning text-white'
+              : 'bg-secondary text-white'
+          }>
+            {listing.status.toUpperCase()}
+          </Badge>
+        </div>
+        <div className="absolute top-3 left-3">
+          <Badge className="bg-accent-gold text-accent-gold-foreground">
+            EXAMPLE
+          </Badge>
+        </div>
+      </div>
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-text-heading mb-1 group-hover:text-accent-gold transition-colors">
+          {listing.address}
+        </h3>
+        <p className="text-sm text-text-muted mb-2">{listing.city}</p>
+        <p className="text-2xl font-bold text-accent-gold">
+          ${listing.price.toLocaleString()}
+        </p>
+        <div className="mt-4 grid grid-cols-3 gap-2 text-sm text-text-muted">
+          <div>
+            <p className="font-medium">{listing.bedrooms}</p>
+            <p className="text-xs">Beds</p>
+          </div>
+          <div>
+            <p className="font-medium">{listing.bathrooms}</p>
+            <p className="text-xs">Baths</p>
+          </div>
+          <div>
+            <p className="font-medium">{listing.sqFeet.toLocaleString()}</p>
+            <p className="text-xs">Sq Ft</p>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-card-border">
+          <p className="text-xs text-text-muted">Days on Market</p>
+          <p className="font-semibold">{listing.daysOnMarket} days</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Layout>
@@ -29,65 +97,75 @@ export default function Listings() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map((listing) => (
-            <Card
-              key={listing.id}
-              onClick={() => openListingModal(listing)}
-              className="cursor-pointer hover:border-accent-gold/30 transition-all duration-200 overflow-hidden group"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden">
-                <img
-                  src={listing.image}
-                  alt={listing.address}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-3 right-3">
-                  <Badge className={
-                    listing.status === 'Active' 
-                      ? 'bg-success text-white' 
-                      : listing.status === 'Pending'
-                      ? 'bg-warning text-white'
-                      : 'bg-secondary text-white'
-                  }>
-                    {listing.status.toUpperCase()}
-                  </Badge>
+        <div className="space-y-6">
+          {/* Active Listings Section */}
+          <Collapsible open={isActiveOpen} onOpenChange={setIsActiveOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Active</h2>
+                  <Badge className="bg-success text-white">{activeListings.length}</Badge>
                 </div>
-                <div className="absolute top-3 left-3">
-                  <Badge className="bg-accent-gold text-accent-gold-foreground">
-                    EXAMPLE
-                  </Badge>
-                </div>
-              </div>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-text-heading mb-1 group-hover:text-accent-gold transition-colors">
-                  {listing.address}
-                </h3>
-                <p className="text-sm text-text-muted mb-2">{listing.city}</p>
-                <p className="text-2xl font-bold text-accent-gold">
-                  ${listing.price.toLocaleString()}
-                </p>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-sm text-text-muted">
-                  <div>
-                    <p className="font-medium">{listing.bedrooms}</p>
-                    <p className="text-xs">Beds</p>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isActiveOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {activeListings.map(renderListingCard)}
                   </div>
-                  <div>
-                    <p className="font-medium">{listing.bathrooms}</p>
-                    <p className="text-xs">Baths</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">{listing.sqFeet.toLocaleString()}</p>
-                    <p className="text-xs">Sq Ft</p>
-                  </div>
+                  {activeListings.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No active listings</p>
+                  )}
                 </div>
-                <div className="mt-4 pt-4 border-t border-card-border">
-                  <p className="text-xs text-text-muted">Days on Market</p>
-                  <p className="font-semibold">{listing.daysOnMarket} days</p>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
+          {/* Pending Listings Section */}
+          <Collapsible open={isPendingOpen} onOpenChange={setIsPendingOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Pending</h2>
+                  <Badge className="bg-warning text-white">{pendingListings.length}</Badge>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <ChevronDown className={`h-5 w-5 transition-transform ${isPendingOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {pendingListings.map(renderListingCard)}
+                  </div>
+                  {pendingListings.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No pending listings</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
+          {/* Closed Listings Section */}
+          <Collapsible open={isClosedOpen} onOpenChange={setIsClosedOpen}>
+            <div className="border border-card-border rounded-lg bg-card">
+              <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-card-elevated transition-colors">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-text-heading">Closed</h2>
+                  <Badge className="bg-secondary text-white">{closedListings.length}</Badge>
+                </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${isClosedOpen ? 'transform rotate-180' : ''}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-4 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {closedListings.map(renderListingCard)}
+                  </div>
+                  {closedListings.length === 0 && (
+                    <p className="text-center text-text-muted py-8">No closed listings</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </div>
 
         <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
