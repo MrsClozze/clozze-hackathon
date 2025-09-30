@@ -39,9 +39,10 @@ interface BuyerDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   buyer: BuyerData | null;
+  onBuyerUpdate?: (updatedBuyer: BuyerData) => void;
 }
 
-export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDetailsModalProps) {
+export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUpdate }: BuyerDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedBuyer, setEditedBuyer] = useState<BuyerData | null>(null);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
@@ -65,8 +66,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
   };
 
   const handleSave = () => {
-    // Save logic would go here
+    if (editedBuyer && onBuyerUpdate) {
+      onBuyerUpdate(editedBuyer);
+    }
     setIsEditing(false);
+    toast({
+      title: "Changes saved",
+      description: "Buyer information has been updated successfully",
+    });
   };
 
   const handleCancel = () => {
@@ -105,12 +112,16 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setCurrentImage(result);
-        if (editedBuyer) {
-          setEditedBuyer({ ...editedBuyer, image: result });
+        const updatedBuyer = editedBuyer ? { ...editedBuyer, image: result } : null;
+        if (updatedBuyer) {
+          setEditedBuyer(updatedBuyer);
+          if (onBuyerUpdate) {
+            onBuyerUpdate(updatedBuyer);
+          }
         }
         toast({
           title: "Photo updated",
-          description: "The photo has been successfully updated",
+          description: "Click 'Save Changes' to confirm all edits",
         });
       };
       reader.readAsDataURL(file);

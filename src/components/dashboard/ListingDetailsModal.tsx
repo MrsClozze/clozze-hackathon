@@ -48,9 +48,10 @@ interface ListingDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   listing: ListingData | null;
+  onListingUpdate?: (updatedListing: ListingData) => void;
 }
 
-export default function ListingDetailsModal({ open, onOpenChange, listing }: ListingDetailsModalProps) {
+export default function ListingDetailsModal({ open, onOpenChange, listing, onListingUpdate }: ListingDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedListing, setEditedListing] = useState<ListingData | null>(null);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
@@ -73,8 +74,14 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
   };
 
   const handleSave = () => {
-    // Save logic would go here
+    if (editedListing && onListingUpdate) {
+      onListingUpdate(editedListing);
+    }
     setIsEditing(false);
+    toast({
+      title: "Changes saved",
+      description: "Listing information has been updated successfully",
+    });
   };
 
   const handleCancel = () => {
@@ -113,12 +120,16 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setCurrentImage(result);
-        if (editedListing) {
-          setEditedListing({ ...editedListing, image: result });
+        const updatedListing = editedListing ? { ...editedListing, image: result } : null;
+        if (updatedListing) {
+          setEditedListing(updatedListing);
+          if (onListingUpdate) {
+            onListingUpdate(updatedListing);
+          }
         }
         toast({
           title: "Photo updated",
-          description: "The photo has been successfully updated",
+          description: "Click 'Save Changes' to confirm all edits",
         });
       };
       reader.readAsDataURL(file);

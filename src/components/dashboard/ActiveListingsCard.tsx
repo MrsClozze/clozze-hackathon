@@ -108,10 +108,20 @@ export default function ActiveListingsCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<typeof activeListings[0] | null>(null);
+  const [listings, setListings] = useState(activeListings);
 
   const handleListingClick = (listing: typeof activeListings[0]) => {
     setSelectedListing(listing);
     setIsDetailsModalOpen(true);
+  };
+
+  const handleListingUpdate = (updatedListing: typeof activeListings[0]) => {
+    setListings(prevListings => 
+      prevListings.map(listing => 
+        listing.id === updatedListing.id ? updatedListing : listing
+      )
+    );
+    setSelectedListing(updatedListing);
   };
 
   return (
@@ -133,10 +143,11 @@ export default function ActiveListingsCard() {
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
         listing={selectedListing}
+        onListingUpdate={handleListingUpdate}
       />
       
       <div className="grid grid-cols-3 gap-4">
-        {activeListings.map((listing) => (
+        {listings.map((listing) => (
           <div
             key={listing.id}
             onClick={() => handleListingClick(listing)}

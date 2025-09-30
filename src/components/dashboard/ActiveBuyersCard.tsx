@@ -77,10 +77,20 @@ export default function ActiveBuyersCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<typeof activeBuyers[0] | null>(null);
+  const [buyers, setBuyers] = useState(activeBuyers);
 
   const handleBuyerClick = (buyer: typeof activeBuyers[0]) => {
     setSelectedBuyer(buyer);
     setIsDetailsModalOpen(true);
+  };
+
+  const handleBuyerUpdate = (updatedBuyer: typeof activeBuyers[0]) => {
+    setBuyers(prevBuyers => 
+      prevBuyers.map(buyer => 
+        buyer.id === updatedBuyer.id ? updatedBuyer : buyer
+      )
+    );
+    setSelectedBuyer(updatedBuyer);
   };
 
   return (
@@ -102,10 +112,11 @@ export default function ActiveBuyersCard() {
         open={isDetailsModalOpen} 
         onOpenChange={setIsDetailsModalOpen}
         buyer={selectedBuyer}
+        onBuyerUpdate={handleBuyerUpdate}
       />
       
       <div className="space-y-4">
-        {activeBuyers.map((buyer) => (
+        {buyers.map((buyer) => (
           <div
             key={buyer.id}
             onClick={() => handleBuyerClick(buyer)}
