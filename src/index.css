@@ -24,6 +24,10 @@
     --accent-gold-foreground: 0 0% 98%;
     --accent-gold-muted: 240 85% 68%;
 
+    /* Partner Action Color */
+    --partner-action: 239 100% 73%;
+    --partner-action-foreground: 0 0% 98%;
+
     /* Interactive Elements */
     --primary: 240 100% 73%;
     --primary-foreground: 0 0% 98%;
@@ -96,6 +100,10 @@
     --accent-gold: 240 100% 65%;
     --accent-gold-foreground: 0 0% 98%;
     --accent-gold-muted: 240 85% 60%;
+
+    /* Partner Action Color */
+    --partner-action: 239 100% 65%;
+    --partner-action-foreground: 0 0% 98%;
 
     /* Interactive Elements */
     --primary: 240 100% 65%;

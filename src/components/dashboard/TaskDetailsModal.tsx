@@ -228,13 +228,14 @@ export default function TaskDetailsModal() {
                     placeholder="Select contact..."
                   />
 
-                  {/* Special Partner Flow for Pre-Approval */}
-                  {editedTask?.title.toLowerCase().includes("pre-approved") && (
+                  {/* Special Partner Flow for Lender/Pre-Approval Tasks */}
+                  {(editedTask?.title.toLowerCase().includes("pre-approved") || 
+                    editedTask?.title.toLowerCase().includes("lender")) && (
                     <div className="space-y-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
                         onClick={() => setShowPartnerChoice(!showPartnerChoice)}
                       >
                         {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}

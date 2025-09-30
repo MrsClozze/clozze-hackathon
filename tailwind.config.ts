@@ -41,6 +41,10 @@ export default {
           "gold-foreground": "hsl(var(--accent-gold-foreground))",
           "gold-muted": "hsl(var(--accent-gold-muted))",
         },
+        partner: {
+          action: "hsl(var(--partner-action))",
+          "action-foreground": "hsl(var(--partner-action-foreground))",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           elevated: "hsl(var(--card-elevated))",
