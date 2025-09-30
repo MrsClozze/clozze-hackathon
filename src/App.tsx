@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { TasksProvider } from "@/contexts/TasksContext";
 import { ListingsProvider } from "@/contexts/ListingsContext";
 import { BuyersProvider } from "@/contexts/BuyersContext";
+import { ContactsProvider } from "@/contexts/ContactsContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
@@ -31,29 +32,31 @@ const App = () => (
         <UserProvider>
           <ListingsProvider>
             <BuyersProvider>
-              <TasksProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/team" element={<Team />} />
-                      <Route path="/listings" element={<Listings />} />
-                      <Route path="/buyers" element={<Buyers />} />
-                      <Route path="/contacts" element={<Contacts />} />
-                      <Route path="/documents" element={<Documents />} />
-                      <Route path="/tasks" element={<Tasks />} />
-                      <Route path="/marketing" element={<Marketing />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/pricing" element={<Pricing />} />
-                      <Route path="/integrations" element={<Integrations />} />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </BrowserRouter>
-                </TooltipProvider>
-              </TasksProvider>
+              <ContactsProvider>
+                <TasksProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/team" element={<Team />} />
+                        <Route path="/listings" element={<Listings />} />
+                        <Route path="/buyers" element={<Buyers />} />
+                        <Route path="/contacts" element={<Contacts />} />
+                        <Route path="/documents" element={<Documents />} />
+                        <Route path="/tasks" element={<Tasks />} />
+                        <Route path="/marketing" element={<Marketing />} />
+                        <Route path="/auth" element={<Auth />} />
+                        <Route path="/pricing" element={<Pricing />} />
+                        <Route path="/integrations" element={<Integrations />} />
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </TasksProvider>
+              </ContactsProvider>
             </BuyersProvider>
           </ListingsProvider>
         </UserProvider>

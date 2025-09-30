@@ -62,6 +62,86 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          category: string
+          company: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string | null
+          subcategory: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone?: string | null
+          subcategory: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string | null
+          subcategory?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contacts_documents: {
+        Row: {
+          contact_id: string
+          file_name: string
+          file_path: string
+          file_type: string | null
+          id: string
+          uploaded_at: string
+        }
+        Insert: {
+          contact_id: string
+          file_name: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+          uploaded_at?: string
+        }
+        Update: {
+          contact_id?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_documents_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           address: string
