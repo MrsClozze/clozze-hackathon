@@ -141,7 +141,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8">
         <div className="flex flex-col items-center mb-8">
-          <img src={clozzeLogo} alt="Clozze" className="h-12 mb-4" />
+          <img src={clozzeLogo} alt="Clozze" className="h-36 mb-4" />
           <h1 className="text-2xl font-bold text-text-heading">Welcome to Clozze</h1>
           <p className="text-text-muted mt-2 text-center">Sign in or create an account to continue</p>
         </div>
