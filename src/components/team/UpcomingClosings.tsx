@@ -1,3 +1,4 @@
+import React from "react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { Calendar, MapPin } from "lucide-react";
 import { exampleUpcomingClosings } from "@/data/teamExampleData";

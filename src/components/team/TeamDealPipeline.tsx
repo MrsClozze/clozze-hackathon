@@ -1,3 +1,4 @@
+import React from "react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { TrendingUp, FileText, CheckCircle, XCircle } from "lucide-react";
 import { exampleDealPipeline } from "@/data/teamExampleData";

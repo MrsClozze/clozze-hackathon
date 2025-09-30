@@ -1,3 +1,4 @@
+import React from "react";
 import { TrendingUp, AlertTriangle, Clock, MoreVertical } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

@@ -1,3 +1,4 @@
+import React from "react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { Activity, Home, Users, Eye, FileText, Calendar } from "lucide-react";
 import { exampleRecentActivity } from "@/data/teamExampleData";

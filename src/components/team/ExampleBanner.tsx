@@ -1,3 +1,4 @@
+import React from "react";
 import { Info, Sparkles } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 

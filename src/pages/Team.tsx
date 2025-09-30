@@ -1,3 +1,4 @@
+import React from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import ExampleBanner from "@/components/team/ExampleBanner";

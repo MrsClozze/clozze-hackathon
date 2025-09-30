@@ -1,3 +1,4 @@
+import React from "react";
 import { Building, Users, DollarSign, TrendingUp } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { TeamStats } from "@/hooks/useTeamData";
