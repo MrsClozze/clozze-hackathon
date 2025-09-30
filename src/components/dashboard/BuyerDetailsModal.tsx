@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ContactSelect } from "@/components/ui/contact-select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder } from "lucide-react";
 import { useState } from "react";
@@ -235,11 +236,12 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
                 )}
               </div>
               <div>
-                <Label className="text-sm font-medium text-text-muted">Agent Name</Label>
+                <Label className="text-sm font-medium text-text-muted">Assigned To</Label>
                 {isEditing ? (
-                  <Input
+                  <ContactSelect
                     value={currentBuyer.agentName}
-                    onChange={(e) => updateField('agentName', e.target.value)}
+                    onValueChange={(value) => updateField('agentName', value)}
+                    placeholder="Select contact..."
                     className="mt-1"
                   />
                 ) : (

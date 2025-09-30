@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ContactSelect } from "@/components/ui/contact-select";
 import { Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import docusignLogo from "@/assets/docusign-logo.png";
@@ -234,8 +235,8 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                   <Input id="brokerageAddress" name="brokerageAddress" required />
                 </div>
                 <div>
-                  <Label htmlFor="agentName">Agent Name *</Label>
-                  <Input id="agentName" name="agentName" placeholder="Default: Current User" required />
+                  <Label htmlFor="agentName">Assign To *</Label>
+                  <ContactSelect placeholder="Select contact..." className="mt-1" />
                 </div>
                 <div>
                   <Label htmlFor="agentEmail">Agent Email *</Label>
