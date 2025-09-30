@@ -4,6 +4,7 @@ import ExampleBanner from "@/components/team/ExampleBanner";
 import RecentActivityFeed from "@/components/team/RecentActivityFeed";
 import UpcomingClosings from "@/components/team/UpcomingClosings";
 import TeamDealPipeline from "@/components/team/TeamDealPipeline";
+import AgentPerformance from "@/components/team/AgentPerformance";
 import { Users, Building } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExampleData";
@@ -45,8 +46,13 @@ export default function Team() {
             <TeamDealPipeline />
           </div>
 
+          {/* Agent Performance */}
+          <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
+            <AgentPerformance />
+          </div>
+
           {/* Active Overview - Listings and Buyers */}
-          <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.3s" }}>
             <BentoCard title="Active Listings" subtitle={`${exampleListings.length} total`}>
               <div className="space-y-3">
                 {exampleListings.map((listing) => (
@@ -107,7 +113,7 @@ export default function Team() {
           </div>
 
           {/* Recent Activity and Upcoming Closings */}
-          <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.3s" }}>
+          <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.4s" }}>
             <RecentActivityFeed />
             <UpcomingClosings />
           </div>
