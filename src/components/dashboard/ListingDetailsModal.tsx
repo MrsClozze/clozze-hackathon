@@ -120,16 +120,18 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setCurrentImage(result);
-        const updatedListing = editedListing ? { ...editedListing, image: result } : null;
-        if (updatedListing) {
-          setEditedListing(updatedListing);
-          if (onListingUpdate) {
-            onListingUpdate(updatedListing);
-          }
+        
+        // Enter editing mode if not already editing
+        if (!isEditing) {
+          setIsEditing(true);
+          setEditedListing({ ...listing, image: result });
+        } else {
+          setEditedListing({ ...editedListing!, image: result });
         }
+        
         toast({
           title: "Photo updated",
-          description: "Click 'Save Changes' to confirm all edits",
+          description: "Click 'Save' to confirm changes",
         });
       };
       reader.readAsDataURL(file);

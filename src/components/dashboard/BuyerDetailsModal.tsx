@@ -112,16 +112,18 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setCurrentImage(result);
-        const updatedBuyer = editedBuyer ? { ...editedBuyer, image: result } : null;
-        if (updatedBuyer) {
-          setEditedBuyer(updatedBuyer);
-          if (onBuyerUpdate) {
-            onBuyerUpdate(updatedBuyer);
-          }
+        
+        // Enter editing mode if not already editing
+        if (!isEditing) {
+          setIsEditing(true);
+          setEditedBuyer({ ...buyer, image: result });
+        } else {
+          setEditedBuyer({ ...editedBuyer!, image: result });
         }
+        
         toast({
           title: "Photo updated",
-          description: "Click 'Save Changes' to confirm all edits",
+          description: "Click 'Save' to confirm changes",
         });
       };
       reader.readAsDataURL(file);
