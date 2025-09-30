@@ -1,1 +1,13 @@
 project_id = "frokgqqwkgbjmrpxgrmp"
+
+[functions.docusign-auth]
+verify_jwt = false
+
+[functions.docusign-callback]
+verify_jwt = false
+
+[functions.check-subscription]
+
+[functions.create-checkout]
+
+[functions.customer-portal]
