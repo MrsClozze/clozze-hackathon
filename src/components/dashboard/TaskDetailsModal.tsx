@@ -43,6 +43,7 @@ export default function TaskDetailsModal() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [showPartnerChoice, setShowPartnerChoice] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isComingSoonModalOpen, setIsComingSoonModalOpen] = useState(false);
 
   const handleEditToggle = () => {
     if (!isEditing) {
@@ -259,12 +260,7 @@ export default function TaskDetailsModal() {
                             size="sm"
                             className="h-auto flex-col gap-2 py-3"
                             onClick={() => {
-                              if (editedTask) {
-                                setEditedTask({
-                                  ...editedTask,
-                                  assignee: "Preferred Partner - [Lender Name]",
-                                });
-                              }
+                              setIsComingSoonModalOpen(true);
                               setShowPartnerChoice(false);
                             }}
                           >
@@ -386,6 +382,27 @@ export default function TaskDetailsModal() {
             <Button variant="outline" className="h-24 flex-col gap-2">
               <MessageSquare className="h-6 w-6" />
               <span>Text Message</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Coming Soon Modal */}
+      <Dialog open={isComingSoonModalOpen} onOpenChange={setIsComingSoonModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Preferred Partner</DialogTitle>
+            <DialogDescription>Automated partner integration</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <div className="text-lg font-medium text-text-heading mb-2">Coming Soon</div>
+            <p className="text-text-muted">
+              Our preferred partner integration feature is currently in development and will be available soon.
+            </p>
+          </div>
+          <div className="flex justify-center">
+            <Button onClick={() => setIsComingSoonModalOpen(false)}>
+              Close
             </Button>
           </div>
         </DialogContent>
