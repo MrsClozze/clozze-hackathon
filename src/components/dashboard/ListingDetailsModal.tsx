@@ -409,12 +409,11 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
                 )}
               </div>
               <div>
-                <Label className="text-sm font-medium text-text-muted">Assigned To</Label>
+                <Label className="text-sm font-medium text-text-muted">Agent Name</Label>
                 {isEditing ? (
-                  <ContactSelect
+                  <Input
                     value={currentListing.agentName}
-                    onValueChange={(value) => updateField('agentName', value)}
-                    placeholder="Select contact..."
+                    onChange={(e) => updateField('agentName', e.target.value)}
                     className="mt-1"
                   />
                 ) : (
