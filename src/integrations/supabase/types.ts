@@ -14,6 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
+      buyers: {
+        Row: {
+          agent_commission: number | null
+          commission_percentage: number | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string | null
+          pre_approved_amount: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          wants_needs: string | null
+        }
+        Insert: {
+          agent_commission?: number | null
+          commission_percentage?: number | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          phone?: string | null
+          pre_approved_amount?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wants_needs?: string | null
+        }
+        Update: {
+          agent_commission?: number | null
+          commission_percentage?: number | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string | null
+          pre_approved_amount?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wants_needs?: string | null
+        }
+        Relationships: []
+      }
+      listings: {
+        Row: {
+          address: string
+          agent_commission: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string
+          commission_percentage: number | null
+          county: string | null
+          created_at: string
+          days_on_market: number | null
+          id: string
+          listing_end_date: string | null
+          listing_start_date: string | null
+          price: number
+          seller_email: string | null
+          seller_first_name: string | null
+          seller_last_name: string | null
+          seller_phone: string | null
+          sq_feet: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          zipcode: string | null
+        }
+        Insert: {
+          address: string
+          agent_commission?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city: string
+          commission_percentage?: number | null
+          county?: string | null
+          created_at?: string
+          days_on_market?: number | null
+          id?: string
+          listing_end_date?: string | null
+          listing_start_date?: string | null
+          price: number
+          seller_email?: string | null
+          seller_first_name?: string | null
+          seller_last_name?: string | null
+          seller_phone?: string | null
+          sq_feet?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          zipcode?: string | null
+        }
+        Update: {
+          address?: string
+          agent_commission?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string
+          commission_percentage?: number | null
+          county?: string | null
+          created_at?: string
+          days_on_market?: number | null
+          id?: string
+          listing_end_date?: string | null
+          listing_start_date?: string | null
+          price?: number
+          seller_email?: string | null
+          seller_first_name?: string | null
+          seller_last_name?: string | null
+          seller_phone?: string | null
+          sq_feet?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          zipcode?: string | null
+        }
+        Relationships: []
+      }
       team_invitations: {
         Row: {
           created_at: string
