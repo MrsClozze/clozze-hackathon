@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TasksProvider } from "@/contexts/TasksContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
@@ -26,27 +27,29 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <AuthProvider>
         <UserProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/team" element={<Team />} />
-                <Route path="/listings" element={<Listings />} />
-                <Route path="/buyers" element={<Buyers />} />
-                <Route path="/contacts" element={<Contacts />} />
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/marketing" element={<Marketing />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/integrations" element={<Integrations />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+          <TasksProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/team" element={<Team />} />
+                  <Route path="/listings" element={<Listings />} />
+                  <Route path="/buyers" element={<Buyers />} />
+                  <Route path="/contacts" element={<Contacts />} />
+                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/marketing" element={<Marketing />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/integrations" element={<Integrations />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </TasksProvider>
         </UserProvider>
       </AuthProvider>
     </ThemeProvider>
