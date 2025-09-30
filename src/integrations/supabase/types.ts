@@ -137,6 +137,120 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email: string
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_integrations: {
+        Row: {
+          access_token: string | null
+          connected_at: string | null
+          created_at: string
+          id: string
+          is_connected: boolean
+          refresh_token: string | null
+          service_name: string
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          refresh_token?: string | null
+          service_name: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          refresh_token?: string | null
+          service_name?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan_type: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_product_id: string | null
+          stripe_subscription_id: string | null
+          trial_end: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_type: string
+          status: string
+          stripe_customer_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_type?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       team_invitations: {
         Row: {
           created_at: string
