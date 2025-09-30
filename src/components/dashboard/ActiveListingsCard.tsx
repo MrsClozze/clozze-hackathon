@@ -1,135 +1,19 @@
 import { useState } from "react";
-import { Plus, MapPin, DollarSign } from "lucide-react";
-import BentoCard from "./BentoCard";
-import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import AddListingModal from "./AddListingModal";
 import ListingDetailsModal from "./ListingDetailsModal";
-import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
-
-const activeListings = [
-  {
-    id: 1,
-    address: "123 Elm Street",
-    city: "Beverly Hills, CA",
-    price: 2450000,
-    status: "Active",
-    daysOnMarket: 14,
-    commission: 73500,
-    image: property1,
-    sellerFirstName: "Robert",
-    sellerLastName: "Martinez",
-    sellerEmail: "robert.martinez@email.com",
-    sellerPhone: "(555) 111-2222",
-    zipcode: "90210",
-    county: "Los Angeles County",
-    bedrooms: 4,
-    bathrooms: 3.5,
-    sqFeet: 3200,
-    appraisalPrice: 2400000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-15",
-    listingEndDate: "2024-07-15",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 147000,
-    agentCommission: 73500,
-    brokerageCommission: 73500,
-  },
-  {
-    id: 2,
-    address: "456 Oak Avenue",
-    city: "Malibu, CA",
-    price: 5750000,
-    status: "Pending",
-    daysOnMarket: 7,
-    commission: 172500,
-    image: property2,
-    sellerFirstName: "Jennifer",
-    sellerLastName: "Thompson",
-    sellerEmail: "jennifer.thompson@email.com",
-    sellerPhone: "(555) 222-3333",
-    zipcode: "90265",
-    county: "Los Angeles County",
-    bedrooms: 5,
-    bathrooms: 4.5,
-    sqFeet: 4800,
-    appraisalPrice: 5800000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-20",
-    listingEndDate: "2024-07-20",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 345000,
-    agentCommission: 172500,
-    brokerageCommission: 172500,
-  },
-  {
-    id: 3,
-    address: "789 Pine Lane",
-    city: "Santa Monica, CA",
-    price: 1890000,
-    status: "Closed",
-    daysOnMarket: 21,
-    commission: 56700,
-    image: property3,
-    sellerFirstName: "David",
-    sellerLastName: "Anderson",
-    sellerEmail: "david.anderson@email.com",
-    sellerPhone: "(555) 333-4444",
-    zipcode: "90401",
-    county: "Los Angeles County",
-    bedrooms: 3,
-    bathrooms: 2.5,
-    sqFeet: 2400,
-    appraisalPrice: 1850000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-05",
-    listingEndDate: "2024-07-05",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 113400,
-    agentCommission: 56700,
-    brokerageCommission: 56700,
-  },
-];
+import { useListings } from "@/contexts/ListingsContext";
 
 export default function ActiveListingsCard() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [selectedListing, setSelectedListing] = useState<typeof activeListings[0] | null>(null);
-  const [listings, setListings] = useState(activeListings);
-
-  const handleListingClick = (listing: typeof activeListings[0]) => {
-    setSelectedListing(listing);
-    setIsDetailsModalOpen(true);
-  };
-
-  const handleListingUpdate = (updatedListing: typeof activeListings[0]) => {
-    setListings(prevListings => 
-      prevListings.map(listing => 
-        listing.id === updatedListing.id ? updatedListing : listing
-      )
-    );
-    setSelectedListing(updatedListing);
-  };
+  const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-text-heading">Listings</h2>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsAddModalOpen(true)}
           className="flex items-center gap-2 relative bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden group before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 hover:backdrop-blur-md hover:border hover:border-white/20 hover:shadow-lg"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
@@ -138,19 +22,19 @@ export default function ActiveListingsCard() {
         </button>
       </div>
 
-      <AddListingModal open={isModalOpen} onOpenChange={setIsModalOpen} />
+      <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
       <ListingDetailsModal
-        open={isDetailsModalOpen}
-        onOpenChange={setIsDetailsModalOpen}
+        open={isListingDetailsModalOpen}
+        onOpenChange={closeListingModal}
         listing={selectedListing}
-        onListingUpdate={handleListingUpdate}
+        onListingUpdate={updateListing}
       />
       
       <div className="grid grid-cols-3 gap-4">
         {listings.map((listing) => (
           <div
             key={listing.id}
-            onClick={() => handleListingClick(listing)}
+            onClick={() => openListingModal(listing)}
             className="relative group cursor-pointer rounded-lg overflow-hidden bg-card border border-card-border hover:border-accent-gold/30 transition-all duration-200"
           >
             {/* Property Image */}

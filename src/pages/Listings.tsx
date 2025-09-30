@@ -1,15 +1,102 @@
+import { useState } from "react";
+import { Plus } from "lucide-react";
 import Layout from "@/components/layout/Layout";
+import { useListings } from "@/contexts/ListingsContext";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import AddListingModal from "@/components/dashboard/AddListingModal";
+import ListingDetailsModal from "@/components/dashboard/ListingDetailsModal";
 
 export default function Listings() {
+  const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   return (
     <Layout>
       <div className="p-8">
-        <h1 className="text-3xl font-bold text-text-heading mb-2">Listings</h1>
-        <p className="text-text-muted">Manage all your property listings and transactions.</p>
-        
-        <div className="mt-8 text-center text-text-muted">
-          <p>Listings management interface coming soon...</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-text-heading mb-2">Listings</h1>
+            <p className="text-text-muted">Manage all your property listings and transactions.</p>
+          </div>
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 relative bg-primary text-primary-foreground hover:bg-primary-hover px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden group before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 hover:backdrop-blur-md hover:border hover:border-white/20 hover:shadow-lg"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
+            <Plus className="h-4 w-4 relative z-10" />
+            <span className="relative z-10">Add Listing</span>
+          </button>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {listings.map((listing) => (
+            <Card
+              key={listing.id}
+              onClick={() => openListingModal(listing)}
+              className="cursor-pointer hover:border-accent-gold/30 transition-all duration-200 overflow-hidden group"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <img
+                  src={listing.image}
+                  alt={listing.address}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-3 right-3">
+                  <Badge className={
+                    listing.status === 'Active' 
+                      ? 'bg-success text-white' 
+                      : listing.status === 'Pending'
+                      ? 'bg-warning text-white'
+                      : 'bg-secondary text-white'
+                  }>
+                    {listing.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="absolute top-3 left-3">
+                  <Badge className="bg-accent-gold text-accent-gold-foreground">
+                    EXAMPLE
+                  </Badge>
+                </div>
+              </div>
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-text-heading mb-1 group-hover:text-accent-gold transition-colors">
+                  {listing.address}
+                </h3>
+                <p className="text-sm text-text-muted mb-2">{listing.city}</p>
+                <p className="text-2xl font-bold text-accent-gold">
+                  ${listing.price.toLocaleString()}
+                </p>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-sm text-text-muted">
+                  <div>
+                    <p className="font-medium">{listing.bedrooms}</p>
+                    <p className="text-xs">Beds</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">{listing.bathrooms}</p>
+                    <p className="text-xs">Baths</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">{listing.sqFeet.toLocaleString()}</p>
+                    <p className="text-xs">Sq Ft</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-card-border">
+                  <p className="text-xs text-text-muted">Days on Market</p>
+                  <p className="font-semibold">{listing.daysOnMarket} days</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
+        <ListingDetailsModal
+          open={isListingDetailsModalOpen}
+          onOpenChange={closeListingModal}
+          listing={selectedListing}
+          onListingUpdate={updateListing}
+        />
       </div>
     </Layout>
   );
