@@ -8,6 +8,7 @@ import { ContactSelect } from "@/components/ui/contact-select";
 import { Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import docusignLogo from "@/assets/docusign-logo.png";
+import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 interface AddBuyerModalProps {
   open: boolean;
@@ -19,6 +20,7 @@ type ModalView = "upload" | "manual";
 export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps) {
   const [view, setView] = useState<ModalView>("upload");
   const { toast } = useToast();
+  const { authenticate, isAuthenticating } = useDocuSignAuth();
 
   const handleClose = () => {
     setView("upload");
@@ -72,12 +74,12 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     }
   };
 
-  const handleDocuSignUpload = () => {
-    toast({
-      title: "DocuSign Integration",
-      description: "DocuSign authentication will be implemented here.",
-    });
-    // TODO: Implement DocuSign OAuth flow
+  const handleDocuSignUpload = async () => {
+    const result = await authenticate();
+    if (result) {
+      // TODO: Fetch documents from DocuSign using the access token
+      console.log('DocuSign authenticated:', result);
+    }
   };
 
   return (
@@ -112,13 +114,14 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
             {/* DocuSign Integration */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Load from DocuSign</h3>
-              <Button
-                variant="outline"
-                className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
-                onClick={handleDocuSignUpload}
-              >
-                <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
-              </Button>
+            <Button
+              variant="outline"
+              className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
+              onClick={handleDocuSignUpload}
+              disabled={isAuthenticating}
+            >
+              <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
+            </Button>
             </div>
 
             {/* Manual Entry Option */}

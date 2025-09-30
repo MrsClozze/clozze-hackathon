@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import docusignLogo from "@/assets/docusign-logo.png";
+import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 interface UploadFileModalProps {
   open: boolean;
@@ -39,6 +40,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const [view, setView] = useState<ModalView>("upload");
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const { toast } = useToast();
+  const { authenticate, isAuthenticating } = useDocuSignAuth();
 
   const handleClose = () => {
     setView("upload");
@@ -105,12 +107,12 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
     }, 3000);
   };
 
-  const handleDocuSignUpload = () => {
-    toast({
-      title: "DocuSign Integration",
-      description: "DocuSign authentication will be implemented here.",
-    });
-    // TODO: Implement DocuSign OAuth flow
+  const handleDocuSignUpload = async () => {
+    const result = await authenticate();
+    if (result) {
+      // TODO: Fetch documents from DocuSign using the access token
+      console.log('DocuSign authenticated:', result);
+    }
   };
 
   const handleConfirmAndCreate = () => {
@@ -172,6 +174,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
               variant="outline"
               className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
               onClick={handleDocuSignUpload}
+              disabled={isAuthenticating}
             >
               <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
             </Button>
