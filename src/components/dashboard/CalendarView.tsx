@@ -40,7 +40,7 @@ const initialEvents: CalendarEvent[] = [
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export default function CalendarView() {
-  const [currentDate] = useState(new Date(2025, 8)); // September 2025
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 8)); // September 2025
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isDailyViewOpen, setIsDailyViewOpen] = useState(false);
@@ -58,6 +58,14 @@ export default function CalendarView() {
   
   const formatMonth = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+  
+  const handlePreviousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+  
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
   
   const daysInMonth = getDaysInMonth(currentDate);
@@ -176,13 +184,13 @@ export default function CalendarView() {
           </Dialog>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={handlePreviousMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium text-text-heading min-w-[120px] text-center">
             {formatMonth(currentDate)}
           </span>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={handleNextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
