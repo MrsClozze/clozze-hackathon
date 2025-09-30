@@ -351,8 +351,8 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
-            {/* AI Assist Section */}
-            {!isEditing && currentTask.hasAIAssist && (
+            {/* AI Assist Section - Show when task has an assignee */}
+            {!isEditing && currentTask.assignee && (
               <div className="pt-4 border-t border-border">
                 <Label className="text-sm font-medium text-text-muted mb-2">AI Assist</Label>
                 <Button
