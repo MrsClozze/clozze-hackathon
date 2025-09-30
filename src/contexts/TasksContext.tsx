@@ -19,6 +19,7 @@ interface TasksContextType {
   tasks: Task[];
   updateTask: (taskId: number, updates: Partial<Task>) => void;
   deleteTask: (taskId: number) => void;
+  addTask: (task: Omit<Task, 'id'>) => void;
   selectedTask: Task | null;
   setSelectedTask: (task: Task | null) => void;
   isTaskDetailsModalOpen: boolean;
@@ -134,6 +135,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addTask = (task: Omit<Task, 'id'>) => {
+    const newTask = {
+      ...task,
+      id: Math.max(...tasks.map(t => t.id), 0) + 1,
+    };
+    setTasks((prevTasks) => [...prevTasks, newTask]);
+  };
+
   const openTaskModal = (task: Task) => {
     setSelectedTask(task);
     setIsTaskDetailsModalOpen(true);
@@ -145,6 +154,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         tasks,
         updateTask,
         deleteTask,
+        addTask,
         selectedTask,
         setSelectedTask,
         isTaskDetailsModalOpen,

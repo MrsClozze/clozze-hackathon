@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ListingData {
   id: number;
@@ -57,8 +58,13 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<"high" | "medium" | "low">("medium");
+  const [newTaskNotes, setNewTaskNotes] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { tasks, openTaskModal } = useTasks();
+  const { tasks, openTaskModal, addTask } = useTasks();
   const { toast } = useToast();
 
   if (!listing) return null;
@@ -143,6 +149,41 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
     fileInputRef.current?.click();
   };
 
+  const handleAddTask = () => {
+    if (!newTaskTitle.trim()) {
+      toast({
+        title: "Title required",
+        description: "Please enter a task title",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    addTask({
+      title: newTaskTitle,
+      date: newTaskDueDate || new Date().toISOString().split('T')[0],
+      dueDate: newTaskDueDate,
+      address: listing.address,
+      assignee: "",
+      hasAIAssist: false,
+      priority: newTaskPriority,
+      notes: newTaskNotes,
+      status: "pending",
+      listingId: listing.id,
+    });
+
+    setNewTaskTitle("");
+    setNewTaskDueDate("");
+    setNewTaskPriority("medium");
+    setNewTaskNotes("");
+    setIsAddTaskOpen(false);
+
+    toast({
+      title: "Task added",
+      description: "New task has been created successfully",
+    });
+  };
+
   const associatedTasks = tasks.filter((task) => task.listingId === listing.id);
 
   return (
@@ -212,6 +253,28 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
                   {currentListing.status.toUpperCase()}
                 </Badge>
               </div>
+            </div>
+            
+            {/* Status Management Field */}
+            <div>
+              <Label className="text-sm font-medium text-text-muted">Status</Label>
+              {isEditing ? (
+                <Select
+                  value={currentListing.status}
+                  onValueChange={(value) => updateField('status', value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-base mt-1 font-medium">{currentListing.status}</p>
+              )}
             </div>
             <div>
               <h3 className="text-2xl font-bold text-text-heading">{currentListing.address}</h3>
@@ -544,7 +607,18 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
 
           {/* Associated Tasks */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-text-heading">Associated Tasks</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-text-heading">Associated Tasks</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddTaskOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Task
+              </Button>
+            </div>
             {associatedTasks.length === 0 ? (
               <div className="text-center py-8 text-text-muted">
                 <p className="text-sm">No tasks associated with this listing</p>
@@ -634,6 +708,66 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             )}
           </div>
         </div>
+
+        {/* Add Task Dialog */}
+        <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Task for {listing.address}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Task Title</Label>
+                <Input
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="Enter task title"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={newTaskDueDate}
+                  onChange={(e) => setNewTaskDueDate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Select value={newTaskPriority} onValueChange={(value: any) => setNewTaskPriority(value)}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Notes (Optional)</Label>
+                <Textarea
+                  value={newTaskNotes}
+                  onChange={(e) => setNewTaskNotes(e.target.value)}
+                  placeholder="Add any notes..."
+                  className="mt-1"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setIsAddTaskOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddTask}>
+                  Add Task
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
       <TaskDetailsModal />
     </Dialog>
