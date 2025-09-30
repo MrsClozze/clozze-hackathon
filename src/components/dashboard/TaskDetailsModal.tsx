@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ContactSelect } from "@/components/ui/contact-select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -219,12 +220,12 @@ export default function TaskDetailsModal() {
               <Label className="text-sm font-medium text-text-muted mb-1">Assigned To</Label>
               {isEditing ? (
                 <div className="space-y-2 mt-1">
-                  <Input
+                  <ContactSelect
                     value={editedTask?.assignee || ""}
-                    onChange={(e) =>
-                      setEditedTask(editedTask ? { ...editedTask, assignee: e.target.value } : null)
+                    onValueChange={(value) =>
+                      setEditedTask(editedTask ? { ...editedTask, assignee: value } : null)
                     }
-                    placeholder="Enter contact name"
+                    placeholder="Select contact..."
                   />
 
                   {/* Special Partner Flow for Pre-Approval */}
