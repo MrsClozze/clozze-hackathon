@@ -4,7 +4,6 @@ import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import AddListingModal from "./AddListingModal";
 import ListingDetailsModal from "./ListingDetailsModal";
-import PhotoUpload from "./PhotoUpload";
 import property1 from "@/assets/property-1.jpg";
 import property2 from "@/assets/property-2.jpg";
 import property3 from "@/assets/property-3.jpg";
@@ -109,21 +108,10 @@ export default function ActiveListingsCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState<typeof activeListings[0] | null>(null);
-  const [listings, setListings] = useState(activeListings);
 
   const handleListingClick = (listing: typeof activeListings[0]) => {
     setSelectedListing(listing);
     setIsDetailsModalOpen(true);
-  };
-
-  const handleImageChange = (listingId: number, newImage: string) => {
-    setListings(prevListings => 
-      prevListings.map(listing => 
-        listing.id === listingId 
-          ? { ...listing, image: newImage } 
-          : listing
-      )
-    );
   };
 
   return (
@@ -148,7 +136,7 @@ export default function ActiveListingsCard() {
       />
       
       <div className="grid grid-cols-3 gap-4">
-        {listings.map((listing) => (
+        {activeListings.map((listing) => (
           <div
             key={listing.id}
             onClick={() => handleListingClick(listing)}
@@ -156,11 +144,10 @@ export default function ActiveListingsCard() {
           >
             {/* Property Image */}
             <div className="relative aspect-[4/3] overflow-hidden">
-              <PhotoUpload
-                currentImage={listing.image}
+              <img
+                src={listing.image}
                 alt={listing.address}
-                onImageChange={(newImage) => handleImageChange(listing.id, newImage)}
-                className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
               
               {/* Status Badge */}

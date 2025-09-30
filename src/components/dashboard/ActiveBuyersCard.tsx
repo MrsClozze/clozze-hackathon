@@ -3,7 +3,6 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AddBuyerModal from "./AddBuyerModal";
 import BuyerDetailsModal from "./BuyerDetailsModal";
-import PhotoUpload from "./PhotoUpload";
 import clientSarah from "@/assets/client-sarah.jpg";
 import clientMichael from "@/assets/client-michael.jpg";
 import clientEmily from "@/assets/client-emily.jpg";
@@ -78,21 +77,10 @@ export default function ActiveBuyersCard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState<typeof activeBuyers[0] | null>(null);
-  const [buyers, setBuyers] = useState(activeBuyers);
 
   const handleBuyerClick = (buyer: typeof activeBuyers[0]) => {
     setSelectedBuyer(buyer);
     setIsDetailsModalOpen(true);
-  };
-
-  const handleImageChange = (buyerId: number, newImage: string) => {
-    setBuyers(prevBuyers => 
-      prevBuyers.map(buyer => 
-        buyer.id === buyerId 
-          ? { ...buyer, image: newImage } 
-          : buyer
-      )
-    );
   };
 
   return (
@@ -117,18 +105,17 @@ export default function ActiveBuyersCard() {
       />
       
       <div className="space-y-4">
-        {buyers.map((buyer) => (
+        {activeBuyers.map((buyer) => (
           <div
             key={buyer.id}
             onClick={() => handleBuyerClick(buyer)}
             className="flex items-center gap-4 p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/30 transition-all duration-200 cursor-pointer group"
           >
             {/* Profile Photo */}
-            <div className="relative w-12 h-12 rounded-full overflow-hidden">
-              <PhotoUpload
-                currentImage={buyer.image}
+            <div className="w-12 h-12 rounded-full overflow-hidden">
+              <img
+                src={buyer.image}
                 alt={buyer.name}
-                onImageChange={(newImage) => handleImageChange(buyer.id, newImage)}
                 className="w-12 h-12 rounded-full object-cover"
               />
             </div>

@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder } from "lucide-react";
-import { useState } from "react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera } from "lucide-react";
+import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
+import { useToast } from "@/hooks/use-toast";
 
 interface BuyerData {
   id: number;
@@ -45,11 +46,15 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
   const [editedBuyer, setEditedBuyer] = useState<BuyerData | null>(null);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
+  const [currentImage, setCurrentImage] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
+  const { toast } = useToast();
 
   if (!buyer) return null;
 
   const currentBuyer = isEditing && editedBuyer ? editedBuyer : buyer;
+  const displayImage = currentImage || currentBuyer.image;
   const associatedTasks = tasks.filter((task) => task.buyerId === buyer.id);
 
   const handleEditToggle = () => {
@@ -73,6 +78,48 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
     if (editedBuyer) {
       setEditedBuyer({ ...editedBuyer, [field]: value });
     }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type", 
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setCurrentImage(result);
+        if (editedBuyer) {
+          setEditedBuyer({ ...editedBuyer, image: result });
+        }
+        toast({
+          title: "Photo updated",
+          description: "The photo has been successfully updated",
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCameraClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
   };
 
   return (
@@ -110,11 +157,28 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer }: BuyerDe
           {/* Buyer Information */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b">
-              <img
-                src={currentBuyer.image}
-                alt={currentBuyer.name}
-                className="w-16 h-16 rounded-full object-cover"
-              />
+              <div className="relative">
+                <img
+                  src={displayImage}
+                  alt={currentBuyer.name}
+                  className="w-16 h-16 rounded-full object-cover"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCameraClick}
+                  className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full p-0 bg-background border-card-border hover:bg-card-elevated"
+                >
+                  <Camera className="h-4 w-4" />
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
               <div>
                 <h3 className="text-xl font-semibold text-text-heading">{currentBuyer.name}</h3>
                 <Badge className="mt-1 bg-accent-gold text-accent-gold-foreground">

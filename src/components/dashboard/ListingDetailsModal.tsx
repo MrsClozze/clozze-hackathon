@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder } from "lucide-react";
-import { useState } from "react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera } from "lucide-react";
+import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
+import { useToast } from "@/hooks/use-toast";
 
 interface ListingData {
   id: number;
@@ -54,11 +55,15 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
   const [editedListing, setEditedListing] = useState<ListingData | null>(null);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
+  const [currentImage, setCurrentImage] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
+  const { toast } = useToast();
 
   if (!listing) return null;
 
   const currentListing = isEditing && editedListing ? editedListing : listing;
+  const displayImage = currentImage || currentListing.image;
 
   const handleEditToggle = () => {
     if (!isEditing) {
@@ -81,6 +86,48 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
     if (editedListing) {
       setEditedListing({ ...editedListing, [field]: value });
     }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file", 
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setCurrentImage(result);
+        if (editedListing) {
+          setEditedListing({ ...editedListing, image: result });
+        }
+        toast({
+          title: "Photo updated",
+          description: "The photo has been successfully updated",
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCameraClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
   };
 
   const associatedTasks = tasks.filter((task) => task.listingId === listing.id);
@@ -121,9 +168,25 @@ export default function ListingDetailsModal({ open, onOpenChange, listing }: Lis
           <div className="space-y-4">
             <div className="relative aspect-[16/9] overflow-hidden rounded-lg">
               <img
-                src={currentListing.image}
+                src={displayImage}
                 alt={currentListing.address}
                 className="w-full h-full object-cover"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCameraClick}
+                className="absolute bottom-3 right-3 bg-background/90 border-card-border hover:bg-card-elevated/90 backdrop-blur-sm"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Change Photo
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
               />
               <div className="absolute top-3 right-3">
                 <Badge className={
