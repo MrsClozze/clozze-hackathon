@@ -122,28 +122,52 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
-    const url = `${window.location.origin}/oauth/start?provider=google`;
     try {
-      if (window.top) {
-        (window.top as Window).location.href = url;
-      } else {
-        window.location.href = url;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
       }
-    } catch {
-      window.location.href = url;
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
   const handleMicrosoftSignIn = async () => {
-    const url = `${window.location.origin}/oauth/start?provider=azure`;
     try {
-      if (window.top) {
-        (window.top as Window).location.href = url;
-      } else {
-        window.location.href = url;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'azure',
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
       }
-    } catch {
-      window.location.href = url;
+    } catch (error: any) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
