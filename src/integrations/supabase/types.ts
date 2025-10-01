@@ -331,6 +331,75 @@ export type Database = {
         }
         Relationships: []
       }
+      tasks: {
+        Row: {
+          address: string | null
+          assignee: string | null
+          buyer_id: string | null
+          created_at: string
+          date: string | null
+          due_date: string | null
+          has_ai_assist: boolean
+          id: string
+          listing_id: string | null
+          notes: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          assignee?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          date?: string | null
+          due_date?: string | null
+          has_ai_assist?: boolean
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          assignee?: string | null
+          buyer_id?: string | null
+          created_at?: string
+          date?: string | null
+          due_date?: string | null
+          has_ai_assist?: boolean
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_buyer"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_listing"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_invitations: {
         Row: {
           created_at: string
