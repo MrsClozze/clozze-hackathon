@@ -233,50 +233,6 @@ export default function TaskDetailsModal() {
               )}
             </div>
 
-            {/* Partner Options - Always visible for Lender/Pre-Approval Tasks */}
-            {!isEditing && (currentTask.title.toLowerCase().includes("pre") || 
-              currentTask.title.toLowerCase().includes("lender") ||
-              currentTask.title.toLowerCase().includes("approval")) && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-text-muted mb-1">Partner Options</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
-                  onClick={() => setShowPartnerChoice(!showPartnerChoice)}
-                >
-                  {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
-                </Button>
-
-                {showPartnerChoice && (
-                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-auto flex-col gap-2 py-3"
-                      onClick={() => {
-                        setShowPartnerChoice(false);
-                      }}
-                    >
-                      <div className="font-medium text-xs">Use My Own Contact</div>
-                      <div className="text-[10px] text-muted-foreground">Your lender</div>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-auto flex-col gap-2 py-3"
-                      onClick={() => {
-                        setIsComingSoonModalOpen(true);
-                        setShowPartnerChoice(false);
-                      }}
-                    >
-                      <div className="font-medium text-xs">Use Preferred Partner</div>
-                      <div className="text-[10px] text-muted-foreground">Our lender</div>
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Status */}
             {currentTask.status && (
@@ -375,6 +331,50 @@ export default function TaskDetailsModal() {
                   >
                     Load Contract Template
                   </Button>
+                )}
+
+                {/* Partner Options inside AI Assist */}
+                {(currentTask.title.toLowerCase().includes("pre") || 
+                  currentTask.title.toLowerCase().includes("lender") ||
+                  currentTask.title.toLowerCase().includes("approval")) && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
+                      onClick={() => setShowPartnerChoice(!showPartnerChoice)}
+                    >
+                      {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
+                    </Button>
+
+                    {showPartnerChoice && (
+                      <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-auto flex-col gap-2 py-3"
+                          onClick={() => {
+                            setShowPartnerChoice(false);
+                          }}
+                        >
+                          <div className="font-medium text-xs">Use My Own Contact</div>
+                          <div className="text-[10px] text-muted-foreground">Your lender</div>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-auto flex-col gap-2 py-3"
+                          onClick={() => {
+                            setIsComingSoonModalOpen(true);
+                            setShowPartnerChoice(false);
+                          }}
+                        >
+                          <div className="font-medium text-xs">Use Preferred Partner</div>
+                          <div className="text-[10px] text-muted-foreground">Our lender</div>
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Show message when no assignee and no template */}
