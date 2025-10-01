@@ -256,6 +256,8 @@ export default function Settings() {
       setEmailLoading(false);
     }
   };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authUser) return;
 
