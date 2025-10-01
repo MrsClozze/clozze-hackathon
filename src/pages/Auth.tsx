@@ -171,13 +171,17 @@ export default function Auth() {
               />
             </div>
             <div className="space-y-3">
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg" 
+                disabled={loading}
+              >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg hover:bg-accent"
                 onClick={() => setIsSignUp(true)}
               >
                 Sign Up
@@ -228,13 +232,17 @@ export default function Auth() {
               />
             </div>
             <div className="space-y-3">
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg" 
+                disabled={loading}
+              >
                 {loading ? "Creating account..." : "Create Account"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg hover:bg-accent"
                 onClick={() => setIsSignUp(false)}
               >
                 Back to Sign In
