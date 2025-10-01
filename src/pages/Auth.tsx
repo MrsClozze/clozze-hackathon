@@ -122,55 +122,28 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    const url = `${window.location.origin}/oauth/start?provider=google`;
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth`,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.url) {
-        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-          window.location.href = data.url;
-        }
+      if (window.top) {
+        (window.top as Window).location.href = url;
+      } else {
+        window.location.href = url;
       }
-    } catch (error: any) {
-      toast({
-        title: "Google sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch {
+      window.location.href = url;
     }
   };
 
   const handleMicrosoftSignIn = async () => {
+    const url = `${window.location.origin}/oauth/start?provider=azure`;
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo: `${window.location.origin}/auth`,
-          scopes: 'email profile openid',
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.url) {
-        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-          window.location.href = data.url;
-        }
+      if (window.top) {
+        (window.top as Window).location.href = url;
+      } else {
+        window.location.href = url;
       }
-    } catch (error: any) {
-      toast({
-        title: "Microsoft sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch {
+      window.location.href = url;
     }
   };
 

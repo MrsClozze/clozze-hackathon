@@ -22,6 +22,7 @@ import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
 import Integrations from "./pages/Integrations";
 import NotFound from "./pages/NotFound";
+import OAuthStart from "./pages/OAuthStart";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +50,8 @@ const App = () => (
                         <Route path="/marketing" element={<Marketing />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/pricing" element={<Pricing />} />
-                        <Route path="/integrations" element={<Integrations />} />
+<Route path="/integrations" element={<Integrations />} />
+                        <Route path="/oauth/start" element={<OAuthStart />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
