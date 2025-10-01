@@ -40,20 +40,22 @@ export default function Auth() {
 
   // Handle OAuth code exchange on redirect (Google/Microsoft)
   useEffect(() => {
-    const code = searchParams.get('code');
     const errorDesc = searchParams.get('error_description');
 
     if (errorDesc) {
       toast({ title: 'Sign in failed', description: decodeURIComponent(errorDesc), variant: 'destructive' });
     }
 
-    if (code) {
+    const href = window.location.href;
+    if (href.includes('code=')) {
       (async () => {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        const { error } = await supabase.auth.exchangeCodeForSession(href);
         if (error) {
           toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
           return;
         }
+        // Clean the URL to remove query params
+        window.history.replaceState({}, document.title, `${window.location.origin}/auth`);
         // Session is now set; AuthContext listener will redirect
       })();
     }
