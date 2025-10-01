@@ -19,40 +19,20 @@ const OAuthStart: React.FC = () => {
       return;
     }
 
-    // Start OAuth ensuring redirect happens in the top window to avoid iframe blocking
-    (async () => {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+    // Start OAuth in this top-level page; let the SDK handle redirect to provider
+    supabase.auth
+      .signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth`,
-          skipBrowserRedirect: true,
         },
-      });
-
-      if (error) {
-        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
-        navigate("/auth");
-        return;
-      }
-
-      const targetUrl = data?.url;
-      if (!targetUrl) {
-        toast({ title: "Sign in failed", description: "Missing redirect URL.", variant: "destructive" });
-        navigate("/auth");
-        return;
-      }
-
-      try {
-        if (window.top) {
-          (window.top as Window).location.href = targetUrl;
-        } else {
-          window.location.href = targetUrl;
+      })
+      .then(({ error }) => {
+        if (error) {
+          toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+          navigate("/auth");
         }
-      } catch {
-        // If the preview iframe blocks top navigation, show a manual fallback button
-        setAuthUrl(targetUrl);
-      }
-    })();
+      });
   }, [searchParams, navigate, toast]);
 
   return (
