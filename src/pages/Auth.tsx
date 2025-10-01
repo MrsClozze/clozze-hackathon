@@ -110,10 +110,8 @@ export default function Auth() {
 
       if (error) throw error;
       if (data?.url) {
-        // Break out of the Lovable preview iframe to avoid provider X-Frame-Options blocking
-        if (window.top) {
-          (window.top as Window).location.href = data.url;
-        } else {
+        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
+        if (!win) {
           window.location.href = data.url;
         }
       }
@@ -139,9 +137,8 @@ export default function Auth() {
 
       if (error) throw error;
       if (data?.url) {
-        if (window.top) {
-          (window.top as Window).location.href = data.url;
-        } else {
+        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
+        if (!win) {
           window.location.href = data.url;
         }
       }
