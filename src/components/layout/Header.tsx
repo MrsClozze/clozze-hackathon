@@ -32,11 +32,9 @@ export default function Header() {
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 z-50">
       <UploadFileModal open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen} />
 
-      {/* Left Side - Avatar Only */}
+      {/* Left Side - Empty or Logo Space */}
       <div className="flex items-center">
-        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-          <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
-        </div>
+        {/* Reserved for logo or branding */}
       </div>
 
       {/* Right Side - Controls */}
@@ -79,7 +77,7 @@ export default function Header() {
           <Bell className="h-5 w-5 text-text-muted" />
         </button>
 
-        {/* User Info - Far Right */}
+        {/* User Info with Profile Icon - Far Right */}
         <div className="flex items-center gap-3">
           <div>
             <p className="text-sm font-medium text-text-heading">{displayName}</p>
@@ -88,9 +86,13 @@ export default function Header() {
           {isTrialAccount && (
             <Badge variant="secondary">Trial</Badge>
           )}
+          {/* Profile Avatar next to User Name */}
+          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+            <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
+          </div>
         </div>
 
-        {/* User Menu Dropdown */}
+        {/* User Menu Dropdown or Sign In */}
         {authUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
