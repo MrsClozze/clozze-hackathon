@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, UserCircle, Shield, Users } from "lucide-react";
+import { Loader2, UserCircle, Shield, Users, CreditCard } from "lucide-react";
 
 export default function Settings() {
-  const { user: authUser } = useAuth();
+  const { user: authUser, subscription, refreshSubscription } = useAuth();
   const { user, refreshUser } = useUser();
   const navigate = useNavigate();
 
@@ -158,6 +158,31 @@ export default function Settings() {
     }
   };
 
+  const handleManageSubscription = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+        // Refresh subscription after they return
+        setTimeout(() => {
+          refreshSubscription();
+        }, 1000);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to open subscription management");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgrade = () => {
+    navigate('/pricing');
+  };
+
   return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -252,6 +277,66 @@ export default function Settings() {
                 Change Password
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* Billing & Subscription Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Billing & Subscription
+            </CardTitle>
+            <CardDescription>Manage your subscription and payment details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {subscription ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">Current Plan</p>
+                  <p className="text-lg font-semibold mt-1 capitalize">{subscription.plan_type}</p>
+                  <p className="text-sm text-text-muted mt-1">Status: <span className="capitalize">{subscription.status}</span></p>
+                  {subscription.subscription_end && (
+                    <p className="text-sm text-text-muted mt-1">
+                      {subscription.status === 'active' ? 'Renews' : 'Ends'}: {new Date(subscription.subscription_end).toLocaleDateString()}
+                    </p>
+                  )}
+                  {subscription.trial_end && subscription.status === 'trial' && (
+                    <p className="text-sm text-text-muted mt-1">
+                      Trial ends: {new Date(subscription.trial_end).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <Separator />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {subscription.subscribed && (
+                    <Button 
+                      onClick={handleManageSubscription}
+                      disabled={loading}
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Manage Subscription
+                    </Button>
+                  )}
+                  {(!subscription.subscribed || subscription.plan_type === 'free') && (
+                    <Button 
+                      onClick={handleUpgrade}
+                      disabled={loading}
+                    >
+                      Upgrade Plan
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted">
+                  You can manage your subscription, update payment methods, and cancel anytime through the Stripe portal.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-muted rounded-lg text-center">
+                <p className="text-text-muted mb-4">No active subscription</p>
+                <Button onClick={handleUpgrade}>View Plans</Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
