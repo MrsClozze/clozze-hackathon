@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, UserCircle, Shield, Users, CreditCard } from "lucide-react";
+import { Loader2, UserCircle, Shield, Users, CreditCard, Upload, X } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Settings() {
   const { user: authUser, subscription, refreshSubscription } = useAuth();
@@ -18,9 +19,14 @@ export default function Settings() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [professionalTitle, setProfessionalTitle] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [brokerLicenseNumber, setBrokerLicenseNumber] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [teamInfo, setTeamInfo] = useState<any>(null);
@@ -41,7 +47,7 @@ export default function Settings() {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email')
+        .select('first_name, last_name, email, avatar_url, professional_title, license_number, broker_license_number')
         .eq('id', authUser.id)
         .single();
 
@@ -49,6 +55,10 @@ export default function Settings() {
         setFirstName(profile.first_name || '');
         setLastName(profile.last_name || '');
         setEmail(profile.email || '');
+        setAvatarUrl(profile.avatar_url || '');
+        setProfessionalTitle(profile.professional_title || '');
+        setLicenseNumber(profile.license_number || '');
+        setBrokerLicenseNumber(profile.broker_license_number || '');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -75,6 +85,83 @@ export default function Settings() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!authUser || !e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${authUser.id}/avatar.${fileExt}`;
+
+    setUploading(true);
+    try {
+      // Delete old avatar if exists
+      if (avatarUrl) {
+        const oldPath = avatarUrl.split('/').slice(-2).join('/');
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Upload new avatar
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      await refreshUser();
+      toast.success("Profile picture updated successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload profile picture");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!authUser || !avatarUrl) return;
+
+    setUploading(true);
+    try {
+      const filePath = avatarUrl.split('/').slice(-2).join('/');
+      
+      // Delete from storage
+      const { error: deleteError } = await supabase.storage
+        .from('avatars')
+        .remove([filePath]);
+
+      if (deleteError) throw deleteError;
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', authUser.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl('');
+      await refreshUser();
+      toast.success("Profile picture removed");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove profile picture");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authUser) return;
@@ -86,6 +173,9 @@ export default function Settings() {
         .update({
           first_name: firstName,
           last_name: lastName,
+          professional_title: professionalTitle,
+          license_number: licenseNumber,
+          broker_license_number: brokerLicenseNumber,
         })
         .eq('id', authUser.id);
 
@@ -201,7 +291,66 @@ export default function Settings() {
             <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <form onSubmit={handleUpdateProfile} className="space-y-6">
+              {/* Profile Picture Section */}
+              <div className="space-y-2">
+                <Label>Profile Picture</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={avatarUrl} alt={`${firstName} ${lastName}`} />
+                    <AvatarFallback className="text-lg">
+                      {firstName?.[0]}{lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploading}
+                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                      {avatarUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploading}
+                          onClick={handleRemoveAvatar}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted">JPG, PNG or WEBP (max 2MB)</p>
+                  </div>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
@@ -222,6 +371,7 @@ export default function Settings() {
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
@@ -233,6 +383,45 @@ export default function Settings() {
                 />
                 <p className="text-xs text-text-muted">Email cannot be changed</p>
               </div>
+
+              {/* Professional Information */}
+              <Separator />
+              
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Professional Information</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="professionalTitle">Professional Title</Label>
+                  <Input
+                    id="professionalTitle"
+                    value={professionalTitle}
+                    onChange={(e) => setProfessionalTitle(e.target.value)}
+                    placeholder="e.g., Real Estate Agent, Team Lead"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="licenseNumber">License Number</Label>
+                    <Input
+                      id="licenseNumber"
+                      value={licenseNumber}
+                      onChange={(e) => setLicenseNumber(e.target.value)}
+                      placeholder="Enter license number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brokerLicenseNumber">Broker License Number</Label>
+                    <Input
+                      id="brokerLicenseNumber"
+                      value={brokerLicenseNumber}
+                      onChange={(e) => setBrokerLicenseNumber(e.target.value)}
+                      placeholder="Enter broker license number"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes

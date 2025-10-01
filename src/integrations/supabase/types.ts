@@ -220,38 +220,47 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          broker_license_number: string | null
           company_name: string | null
           created_at: string
           email: string
           first_name: string | null
           id: string
           last_name: string | null
+          license_number: string | null
           onboarding_completed: boolean | null
           phone: string | null
+          professional_title: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          broker_license_number?: string | null
           company_name?: string | null
           created_at?: string
           email: string
           first_name?: string | null
           id: string
           last_name?: string | null
+          license_number?: string | null
           onboarding_completed?: boolean | null
           phone?: string | null
+          professional_title?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          broker_license_number?: string | null
           company_name?: string | null
           created_at?: string
           email?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
+          license_number?: string | null
           onboarding_completed?: boolean | null
           phone?: string | null
+          professional_title?: string | null
           updated_at?: string
         }
         Relationships: []
