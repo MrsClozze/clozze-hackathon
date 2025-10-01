@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon, Upload, Bell, ChevronDown, CreditCard } from "lucide-react";
+import { Sun, Moon, Upload, Bell, ChevronDown, CreditCard, Settings } from "lucide-react";
 import UploadFileModal from "@/components/dashboard/UploadFileModal";
 import { useUser } from "@/contexts/UserContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,6 +105,10 @@ export default function Header() {
               <DropdownMenuItem onClick={() => navigate('/integrations')}>
                 <Upload className="mr-2 h-4 w-4" />
                 Integrations
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut}>
