@@ -34,6 +34,88 @@ interface TasksContextType {
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
 
+// Initial demo tasks for when database is empty or user is not authenticated
+const initialTasks: Task[] = [
+  {
+    id: "demo-1",
+    title: "Schedule Property Viewing",
+    date: "Dec 15, 2024",
+    dueDate: "2024-12-15",
+    address: "123 Elm Street",
+    assignee: "Sarah Johnson",
+    hasAIAssist: true,
+    priority: "high",
+    notes: "",
+    status: "pending",
+    buyerId: "1",
+  },
+  {
+    id: "demo-2",
+    title: "Prepare Contract",
+    date: "Dec 18, 2024",
+    dueDate: "2024-12-18",
+    address: "456 Oak Avenue",
+    assignee: "Michael Brown",
+    hasAIAssist: false,
+    priority: "high",
+    notes: "",
+    status: "in-progress",
+    listingId: "1",
+  },
+  {
+    id: "demo-3",
+    title: "Schedule Property Inspector",
+    date: "Dec 20, 2024",
+    dueDate: "2024-12-20",
+    address: "456 Oak Avenue",
+    assignee: "ABC Inspections",
+    hasAIAssist: true,
+    priority: "medium",
+    notes: "",
+    status: "pending",
+    listingId: "1",
+  },
+  {
+    id: "demo-4",
+    title: "Review Documents",
+    date: "Dec 22, 2024",
+    dueDate: "2024-12-22",
+    address: "789 Pine Lane",
+    assignee: "Emily Davis",
+    hasAIAssist: false,
+    priority: "medium",
+    notes: "",
+    status: "pending",
+    buyerId: "2",
+  },
+  {
+    id: "demo-5",
+    title: "Get client pre-approved",
+    date: "Mar 15, 2024",
+    dueDate: "2024-03-15",
+    address: "",
+    assignee: "",
+    hasAIAssist: false,
+    priority: "high",
+    notes: "",
+    status: "in-progress",
+    buyerId: "1",
+  },
+  {
+    id: "demo-7",
+    title: "Review purchase agreement",
+    date: "Mar 10, 2024",
+    dueDate: "2024-03-10",
+    address: "",
+    assignee: "",
+    hasAIAssist: false,
+    priority: "low",
+    notes: "",
+    status: "completed",
+    buyerId: "1",
+  },
+];
+
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -44,7 +126,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const fetchTasks = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      // If no user, use demo tasks
       if (!user) {
+        setTasks(initialTasks);
         setLoading(false);
         return;
       }
@@ -56,7 +141,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      const mappedTasks: Task[] = (data || []).map((task: any) => ({
+      // If database is empty, use initial demo tasks for demonstration
+      if (!data || data.length === 0) {
+        setTasks(initialTasks);
+        setLoading(false);
+        return;
+      }
+
+      const mappedTasks: Task[] = data.map((task: any) => ({
         id: task.id,
         title: task.title,
         date: task.date || '',
@@ -75,10 +167,11 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       setTasks(mappedTasks);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
+      // On error, fall back to demo tasks
+      setTasks(initialTasks);
       toast({
-        title: "Error",
-        description: "Failed to load tasks. Please try again.",
-        variant: "destructive",
+        title: "Info",
+        description: "Using demo tasks. Sign in to save your tasks permanently.",
       });
     } finally {
       setLoading(false);
@@ -91,33 +184,38 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
     try {
-      const dbUpdates: any = {
-        title: updates.title,
-        date: updates.date,
-        address: updates.address,
-        assignee: updates.assignee,
-        has_ai_assist: updates.hasAIAssist,
-        priority: updates.priority,
-        notes: updates.notes,
-        status: updates.status,
-        due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
-        buyer_id: updates.buyerId || null,
-        listing_id: updates.listingId || null,
-      };
+      // Check if this is a demo task (starts with "demo-")
+      const isDemoTask = taskId.startsWith("demo-");
+      
+      if (!isDemoTask) {
+        const dbUpdates: any = {
+          title: updates.title,
+          date: updates.date,
+          address: updates.address,
+          assignee: updates.assignee,
+          has_ai_assist: updates.hasAIAssist,
+          priority: updates.priority,
+          notes: updates.notes,
+          status: updates.status,
+          due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
+          buyer_id: updates.buyerId || null,
+          listing_id: updates.listingId || null,
+        };
 
-      // Remove undefined values
-      Object.keys(dbUpdates).forEach(key => 
-        dbUpdates[key] === undefined && delete dbUpdates[key]
-      );
+        // Remove undefined values
+        Object.keys(dbUpdates).forEach(key => 
+          dbUpdates[key] === undefined && delete dbUpdates[key]
+        );
 
-      const { error } = await supabase
-        .from('tasks')
-        .update(dbUpdates)
-        .eq('id', taskId);
+        const { error } = await supabase
+          .from('tasks')
+          .update(dbUpdates)
+          .eq('id', taskId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
-      // Update local state
+      // Update local state (works for both demo and real tasks)
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, ...updates } : task
@@ -131,7 +229,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       toast({
         title: "Success",
-        description: "Task updated successfully.",
+        description: isDemoTask ? "Demo task updated (changes won't persist)." : "Task updated successfully.",
       });
     } catch (error: any) {
       console.error('Error updating task:', error);
@@ -145,12 +243,17 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const deleteTask = async (taskId: string) => {
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskId);
+      // Check if this is a demo task
+      const isDemoTask = taskId.startsWith("demo-");
+      
+      if (!isDemoTask) {
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', taskId);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
       
