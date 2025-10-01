@@ -231,50 +231,52 @@ export default function TaskDetailsModal() {
               ) : (
                 <div className="text-sm mt-1">{currentTask.assignee || "Unassigned"}</div>
               )}
-
-              {/* Partner Options - Always visible for Lender/Pre-Approval Tasks */}
-              {(currentTask.title.toLowerCase().includes("pre-approved") || 
-                currentTask.title.toLowerCase().includes("lender")) && (
-                <div className="space-y-2 mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
-                    onClick={() => setShowPartnerChoice(!showPartnerChoice)}
-                  >
-                    {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
-                  </Button>
-
-                  {showPartnerChoice && (
-                    <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-auto flex-col gap-2 py-3"
-                        onClick={() => {
-                          setShowPartnerChoice(false);
-                        }}
-                      >
-                        <div className="font-medium text-xs">Use My Own Contact</div>
-                        <div className="text-[10px] text-muted-foreground">Your lender</div>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-auto flex-col gap-2 py-3"
-                        onClick={() => {
-                          setIsComingSoonModalOpen(true);
-                          setShowPartnerChoice(false);
-                        }}
-                      >
-                        <div className="font-medium text-xs">Use Preferred Partner</div>
-                        <div className="text-[10px] text-muted-foreground">Our lender</div>
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
+
+            {/* Partner Options - Always visible for Lender/Pre-Approval Tasks */}
+            {!isEditing && (currentTask.title.toLowerCase().includes("pre") || 
+              currentTask.title.toLowerCase().includes("lender") ||
+              currentTask.title.toLowerCase().includes("approval")) && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-text-muted mb-1">Partner Options</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
+                  onClick={() => setShowPartnerChoice(!showPartnerChoice)}
+                >
+                  {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
+                </Button>
+
+                {showPartnerChoice && (
+                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto flex-col gap-2 py-3"
+                      onClick={() => {
+                        setShowPartnerChoice(false);
+                      }}
+                    >
+                      <div className="font-medium text-xs">Use My Own Contact</div>
+                      <div className="text-[10px] text-muted-foreground">Your lender</div>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto flex-col gap-2 py-3"
+                      onClick={() => {
+                        setIsComingSoonModalOpen(true);
+                        setShowPartnerChoice(false);
+                      }}
+                    >
+                      <div className="font-medium text-xs">Use Preferred Partner</div>
+                      <div className="text-[10px] text-muted-foreground">Our lender</div>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Status */}
             {currentTask.status && (
@@ -347,19 +349,21 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
-            {/* AI Assist Section - Show when task has an assignee */}
-            {!isEditing && currentTask.assignee && (
+            {/* AI Assist Section */}
+            {!isEditing && (
               <div className="pt-4 border-t border-border space-y-2">
                 <Label className="text-sm font-medium text-text-muted mb-2">Use Clozze AI Assist</Label>
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
-                  onClick={() => setIsContactModalOpen(true)}
-                >
-                  <Mail className="h-4 w-4" />
-                  <MessageSquare className="h-4 w-4" />
-                  Message with AI Assist
-                </Button>
+                {currentTask.assignee && (
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
+                    onClick={() => setIsContactModalOpen(true)}
+                  >
+                    <Mail className="h-4 w-4" />
+                    <MessageSquare className="h-4 w-4" />
+                    Message with AI Assist
+                  </Button>
+                )}
                 
                 {/* Template Loading - Show for Contact Preparation Tasks */}
                 {(currentTask.title.toLowerCase().includes("prepare contract") || 
@@ -371,6 +375,15 @@ export default function TaskDetailsModal() {
                   >
                     Load Contract Template
                   </Button>
+                )}
+
+                {/* Show message when no assignee and no template */}
+                {!currentTask.assignee && 
+                 !(currentTask.title.toLowerCase().includes("prepare contract") || 
+                   currentTask.title.toLowerCase().includes("prepare contact")) && (
+                  <p className="text-sm text-text-muted italic">
+                    Assign a contact to enable AI Assist messaging
+                  </p>
                 )}
               </div>
             )}
