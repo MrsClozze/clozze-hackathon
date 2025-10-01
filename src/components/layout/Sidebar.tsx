@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { 
   Home, 
   Users, 
@@ -29,16 +29,23 @@ const navigationItems = [
 export default function Sidebar() {
   const { user } = useUser();
   const { theme } = useTheme();
+  const navigate = useNavigate();
   
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-nav-background border-r border-border z-40">
       {/* Logo Section */}
       <div className="p-6 border-b border-border flex justify-center">
-        <img 
-          src={theme === 'light' ? clozzeLogoBlack : clozzeLogo}
-          alt="Clozze" 
-          className="w-48 h-auto"
-        />
+        <button 
+          onClick={() => navigate('/')}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+          aria-label="Go to home"
+        >
+          <img 
+            src={theme === 'light' ? clozzeLogoBlack : clozzeLogo}
+            alt="Clozze" 
+            className="w-48 h-auto"
+          />
+        </button>
       </div>
 
       {/* Navigation */}
