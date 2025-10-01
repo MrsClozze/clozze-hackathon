@@ -27,6 +27,7 @@ export default function Settings() {
   const [professionalTitle, setProfessionalTitle] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [brokerLicenseNumber, setBrokerLicenseNumber] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [teamInfo, setTeamInfo] = useState<any>(null);
@@ -89,15 +90,29 @@ export default function Settings() {
     if (!authUser || !e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
+    
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File size must be less than 2MB");
+      return;
+    }
+
     const fileExt = file.name.split('.').pop();
-    const filePath = `${authUser.id}/avatar.${fileExt}`;
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${authUser.id}/${fileName}`;
 
     setUploading(true);
     try {
       // Delete old avatar if exists
       if (avatarUrl) {
-        const oldPath = avatarUrl.split('/').slice(-2).join('/');
-        await supabase.storage.from('avatars').remove([oldPath]);
+        try {
+          const oldPath = avatarUrl.split('/storage/v1/object/public/avatars/')[1];
+          if (oldPath) {
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch (error) {
+          console.log('Error removing old avatar:', error);
+        }
       }
 
       // Upload new avatar
@@ -120,10 +135,12 @@ export default function Settings() {
 
       if (updateError) throw updateError;
 
+      // Update local state immediately
       setAvatarUrl(publicUrl);
       await refreshUser();
       toast.success("Profile picture updated successfully");
     } catch (error: any) {
+      console.error('Avatar upload error:', error);
       toast.error(error.message || "Failed to upload profile picture");
     } finally {
       setUploading(false);
@@ -135,14 +152,16 @@ export default function Settings() {
 
     setUploading(true);
     try {
-      const filePath = avatarUrl.split('/').slice(-2).join('/');
+      const filePath = avatarUrl.split('/storage/v1/object/public/avatars/')[1];
       
-      // Delete from storage
-      const { error: deleteError } = await supabase.storage
-        .from('avatars')
-        .remove([filePath]);
+      if (filePath) {
+        // Delete from storage
+        const { error: deleteError } = await supabase.storage
+          .from('avatars')
+          .remove([filePath]);
 
-      if (deleteError) throw deleteError;
+        if (deleteError) throw deleteError;
+      }
 
       // Update profile
       const { error: updateError } = await supabase
@@ -156,6 +175,7 @@ export default function Settings() {
       await refreshUser();
       toast.success("Profile picture removed");
     } catch (error: any) {
+      console.error('Avatar removal error:', error);
       toast.error(error.message || "Failed to remove profile picture");
     } finally {
       setUploading(false);
@@ -194,24 +214,41 @@ export default function Settings() {
     e.preventDefault();
     if (!authUser) return;
 
+    if (!currentPassword) {
+      toast.error("Please enter your current password");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error("New passwords do not match");
       return;
     }
 
     if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      toast.error("New password must be at least 6 characters");
       return;
     }
 
     setLoading(true);
     try {
+      // Verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error("Current password is incorrect");
+      }
+
+      // Update to new password
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (error) throw error;
 
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       toast.success("Password changed successfully");
@@ -442,6 +479,17 @@ export default function Settings() {
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
                 <Input
                   id="newPassword"
@@ -449,16 +497,18 @@ export default function Settings() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
+                  required
                 />
               </div>
               <Button type="submit" disabled={loading}>
