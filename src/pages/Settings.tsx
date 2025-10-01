@@ -34,6 +34,7 @@ export default function Settings() {
   const [teamInfo, setTeamInfo] = useState<any>(null);
   const [emailLoading, setEmailLoading] = useState(false);
   const [currentEmailPassword, setCurrentEmailPassword] = useState("");
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authUser) {
@@ -63,6 +64,13 @@ export default function Settings() {
         setProfessionalTitle(profile.professional_title || '');
         setLicenseNumber(profile.license_number || '');
         setBrokerLicenseNumber(profile.broker_license_number || '');
+      }
+
+      // Check if there's a pending email change
+      if (authUser.email !== authUser.new_email && authUser.new_email) {
+        setPendingEmail(authUser.new_email);
+      } else {
+        setPendingEmail(null);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -230,28 +238,31 @@ export default function Settings() {
 
     setEmailLoading(true);
     try {
+      // Verify current password
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: authUser.email || "",
         password: currentEmailPassword,
       });
       if (signInError) throw new Error("Current password is incorrect");
 
-      const redirectUrl = `${window.location.origin}/`;
+      // Request email change - this sends a verification email to the NEW address
+      const redirectUrl = `${window.location.origin}/settings`;
       const { error: updateError } = await supabase.auth.updateUser(
         { email },
         { emailRedirectTo: redirectUrl }
       );
       if (updateError) throw updateError;
 
-      await supabase
-        .from('profiles')
-        .update({ email })
-        .eq('id', authUser.id);
-
-      toast.success("Email update requested. Check your new inbox to confirm.");
+      // Set pending email state
+      setPendingEmail(email);
       setCurrentEmailPassword("");
+      
+      toast.success(
+        "Verification email sent! Check your NEW email inbox and click the confirmation link to complete the change.",
+        { duration: 8000 }
+      );
     } catch (error: any) {
-      toast.error(error.message || "Failed to change email");
+      toast.error(error.message || "Failed to request email change");
     } finally {
       setEmailLoading(false);
     }
@@ -463,9 +474,22 @@ export default function Settings() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSSO}
-                  className={isSSO ? "bg-muted" : ""}
+                  disabled={isSSO || !!pendingEmail}
+                  className={isSSO || pendingEmail ? "bg-muted" : ""}
                 />
+                
+                {pendingEmail && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      Email change pending verification
+                    </p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                      A verification link has been sent to <strong>{pendingEmail}</strong>. 
+                      Click the link in that email to confirm the change. Your current email ({authUser?.email}) remains active until then.
+                    </p>
+                  </div>
+                )}
+                
                 {isSSO ? (
                   <div className="text-xs text-text-muted flex items-center gap-2">
                     <span>This account is connected with Google. Disconnect to change email.</span>
@@ -473,9 +497,12 @@ export default function Settings() {
                       Open Integrations
                     </Button>
                   </div>
-                ) : (
+                ) : !pendingEmail && (
                   <div className="space-y-2">
-                    <p className="text-xs text-text-muted">To change your email, confirm your current password.</p>
+                    <p className="text-xs text-text-muted">
+                      <strong>To change your email:</strong> Enter a new email address and your current password below. 
+                      You'll receive a verification link at the NEW email address that you must click to complete the change.
+                    </p>
                     {authUser && email !== authUser.email && (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <Input
@@ -483,12 +510,12 @@ export default function Settings() {
                           type="password"
                           value={currentEmailPassword}
                           onChange={(e) => setCurrentEmailPassword(e.target.value)}
-                          placeholder="Current password"
+                          placeholder="Current password (required)"
                           className="sm:max-w-xs"
                         />
                         <Button type="button" onClick={handleChangeEmail} disabled={emailLoading}>
                           {emailLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Update Email
+                          Send Verification Email
                         </Button>
                       </div>
                     )}
