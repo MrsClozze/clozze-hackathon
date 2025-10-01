@@ -4,7 +4,7 @@ import clientMichael from "@/assets/client-michael.jpg";
 import clientEmily from "@/assets/client-emily.jpg";
 
 export interface BuyerData {
-  id: number;
+  id: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -28,7 +28,7 @@ export interface BuyerData {
 interface BuyersContextType {
   buyers: BuyerData[];
   updateBuyer: (updatedBuyer: BuyerData) => void;
-  deleteBuyer: (id: number) => void;
+  deleteBuyer: (id: string) => void;
   addBuyer: (buyer: BuyerData) => void;
   selectedBuyer: BuyerData | null;
   isBuyerDetailsModalOpen: boolean;
@@ -40,7 +40,7 @@ const BuyersContext = createContext<BuyersContextType | undefined>(undefined);
 
 const initialBuyers: BuyerData[] = [
   {
-    id: 1,
+    id: "1",
     name: "Sarah Johnson",
     firstName: "Sarah",
     lastName: "Johnson",
@@ -61,7 +61,7 @@ const initialBuyers: BuyerData[] = [
     brokerageCommission: 9750,
   },
   {
-    id: 2,
+    id: "2",
     name: "Michael Brown",
     firstName: "Michael",
     lastName: "Brown",
@@ -82,7 +82,7 @@ const initialBuyers: BuyerData[] = [
     brokerageCommission: 6750,
   },
   {
-    id: 3,
+    id: "3",
     name: "Emily Davis",
     firstName: "Emily",
     lastName: "Davis",
@@ -118,7 +118,7 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteBuyer = (id: number) => {
+  const deleteBuyer = (id: string) => {
     setBuyers((prev) => prev.filter((buyer) => buyer.id !== id));
     if (selectedBuyer?.id === id) {
       setSelectedBuyer(null);

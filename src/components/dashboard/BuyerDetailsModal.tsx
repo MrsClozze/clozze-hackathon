@@ -12,28 +12,8 @@ import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import { useToast } from "@/hooks/use-toast";
+import { BuyerData } from "@/contexts/BuyersContext";
 
-interface BuyerData {
-  id: number;
-  name: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  description: string;
-  status: string;
-  image: string;
-  preApprovedAmount: number;
-  wantsNeeds: string;
-  brokerageName: string;
-  brokerageAddress: string;
-  agentName: string;
-  agentEmail: string;
-  commissionPercentage: number;
-  totalCommission: number;
-  agentCommission: number;
-  brokerageCommission: number;
-}
 
 interface BuyerDetailsModalProps {
   open: boolean;

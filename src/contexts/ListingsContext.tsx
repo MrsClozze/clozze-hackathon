@@ -4,7 +4,7 @@ import property2 from "@/assets/property-2.jpg";
 import property3 from "@/assets/property-3.jpg";
 
 export interface ListingData {
-  id: number;
+  id: string;
   address: string;
   city: string;
   price: number;
@@ -38,7 +38,7 @@ export interface ListingData {
 interface ListingsContextType {
   listings: ListingData[];
   updateListing: (updatedListing: ListingData) => void;
-  deleteListing: (id: number) => void;
+  deleteListing: (id: string) => void;
   addListing: (listing: ListingData) => void;
   selectedListing: ListingData | null;
   isListingDetailsModalOpen: boolean;
@@ -50,7 +50,7 @@ const ListingsContext = createContext<ListingsContextType | undefined>(undefined
 
 const initialListings: ListingData[] = [
   {
-    id: 1,
+    id: "1",
     address: "123 Elm Street",
     city: "Beverly Hills, CA",
     price: 2450000,
@@ -81,7 +81,7 @@ const initialListings: ListingData[] = [
     brokerageCommission: 73500,
   },
   {
-    id: 2,
+    id: "2",
     address: "456 Oak Avenue",
     city: "Malibu, CA",
     price: 5750000,
@@ -112,7 +112,7 @@ const initialListings: ListingData[] = [
     brokerageCommission: 172500,
   },
   {
-    id: 3,
+    id: "3",
     address: "789 Pine Lane",
     city: "Santa Monica, CA",
     price: 1890000,
@@ -158,7 +158,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteListing = (id: number) => {
+  const deleteListing = (id: string) => {
     setListings((prev) => prev.filter((listing) => listing.id !== id));
     if (selectedListing?.id === id) {
       setSelectedListing(null);

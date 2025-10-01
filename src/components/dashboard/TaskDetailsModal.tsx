@@ -52,9 +52,9 @@ export default function TaskDetailsModal() {
     setIsEditing(!isEditing);
   };
 
-  const handleSaveTask = () => {
+  const handleSaveTask = async () => {
     if (editedTask && selectedTask) {
-      updateTask(selectedTask.id, editedTask);
+      await updateTask(selectedTask.id, editedTask);
     }
     setIsEditing(false);
   };
@@ -64,9 +64,9 @@ export default function TaskDetailsModal() {
     setIsEditing(false);
   };
 
-  const handleDeleteTask = () => {
+  const handleDeleteTask = async () => {
     if (selectedTask && confirm("Are you sure you want to delete this task?")) {
-      deleteTask(selectedTask.id);
+      await deleteTask(selectedTask.id);
     }
   };
 

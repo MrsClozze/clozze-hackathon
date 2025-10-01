@@ -12,38 +12,7 @@ import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-
-interface ListingData {
-  id: number;
-  address: string;
-  city: string;
-  price: number;
-  status: string;
-  daysOnMarket: number;
-  commission: number;
-  image: string;
-  sellerFirstName: string;
-  sellerLastName: string;
-  sellerEmail: string;
-  sellerPhone: string;
-  zipcode: string;
-  county: string;
-  bedrooms: number;
-  bathrooms: number;
-  sqFeet: number;
-  appraisalPrice: number;
-  multiUnit: string;
-  listingStartDate: string;
-  listingEndDate: string;
-  brokerageName: string;
-  brokerageAddress: string;
-  agentName: string;
-  agentEmail: string;
-  commissionPercentage: number;
-  totalCommission: number;
-  agentCommission: number;
-  brokerageCommission: number;
-}
+import { ListingData } from "@/contexts/ListingsContext";
 
 interface ListingDetailsModalProps {
   open: boolean;
