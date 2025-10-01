@@ -220,60 +220,74 @@ export default function TaskDetailsModal() {
             <div>
               <Label className="text-sm font-medium text-text-muted mb-1">Assigned To</Label>
               {isEditing ? (
-                <div className="space-y-2 mt-1">
-                  <ContactSelect
-                    value={editedTask?.assignee || ""}
-                    onValueChange={(value) =>
-                      setEditedTask(editedTask ? { ...editedTask, assignee: value } : null)
-                    }
-                    placeholder="Select contact..."
-                  />
+                <ContactSelect
+                  value={editedTask?.assignee || ""}
+                  onValueChange={(value) =>
+                    setEditedTask(editedTask ? { ...editedTask, assignee: value } : null)
+                  }
+                  placeholder="Select contact..."
+                  className="mt-1"
+                />
+              ) : (
+                <div className="text-sm mt-1">{currentTask.assignee || "Unassigned"}</div>
+              )}
 
-                  {/* Special Partner Flow for Lender/Pre-Approval Tasks */}
-                  {(editedTask?.title.toLowerCase().includes("pre-approved") || 
-                    editedTask?.title.toLowerCase().includes("lender")) && (
-                    <div className="space-y-2">
+              {/* Partner Options - Always visible for Lender/Pre-Approval Tasks */}
+              {(currentTask.title.toLowerCase().includes("pre-approved") || 
+                currentTask.title.toLowerCase().includes("lender")) && (
+                <div className="space-y-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
+                    onClick={() => setShowPartnerChoice(!showPartnerChoice)}
+                  >
+                    {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
+                  </Button>
+
+                  {showPartnerChoice && (
+                    <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full bg-partner-action text-partner-action-foreground border-partner-action hover:bg-partner-action/90"
-                        onClick={() => setShowPartnerChoice(!showPartnerChoice)}
+                        className="h-auto flex-col gap-2 py-3"
+                        onClick={() => {
+                          setShowPartnerChoice(false);
+                        }}
                       >
-                        {showPartnerChoice ? "Hide Partner Options" : "Show Partner Options"}
+                        <div className="font-medium text-xs">Use My Own Contact</div>
+                        <div className="text-[10px] text-muted-foreground">Your lender</div>
                       </Button>
-
-                      {showPartnerChoice && (
-                        <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-muted/20">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto flex-col gap-2 py-3"
-                            onClick={() => {
-                              setShowPartnerChoice(false);
-                            }}
-                          >
-                            <div className="font-medium text-xs">Use My Own Contact</div>
-                            <div className="text-[10px] text-muted-foreground">Your lender</div>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-auto flex-col gap-2 py-3"
-                            onClick={() => {
-                              setIsComingSoonModalOpen(true);
-                              setShowPartnerChoice(false);
-                            }}
-                          >
-                            <div className="font-medium text-xs">Use Preferred Partner</div>
-                            <div className="text-[10px] text-muted-foreground">Our lender</div>
-                          </Button>
-                        </div>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto flex-col gap-2 py-3"
+                        onClick={() => {
+                          setIsComingSoonModalOpen(true);
+                          setShowPartnerChoice(false);
+                        }}
+                      >
+                        <div className="font-medium text-xs">Use Preferred Partner</div>
+                        <div className="text-[10px] text-muted-foreground">Our lender</div>
+                      </Button>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="text-sm mt-1">{currentTask.assignee || "Unassigned"}</div>
+              )}
+
+              {/* Template Loading for Contact Preparation Tasks */}
+              {(currentTask.title.toLowerCase().includes("prepare contract") || 
+                currentTask.title.toLowerCase().includes("prepare contact")) && (
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setIsComingSoonModalOpen(true)}
+                  >
+                    Load Template
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -351,7 +365,7 @@ export default function TaskDetailsModal() {
             {/* AI Assist Section - Show when task has an assignee */}
             {!isEditing && currentTask.assignee && (
               <div className="pt-4 border-t border-border">
-                <Label className="text-sm font-medium text-text-muted mb-2">AI Assist</Label>
+                <Label className="text-sm font-medium text-text-muted mb-2">Contact with AI Assist</Label>
                 <Button
                   variant="outline"
                   className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
@@ -359,7 +373,7 @@ export default function TaskDetailsModal() {
                 >
                   <Mail className="h-4 w-4" />
                   <MessageSquare className="h-4 w-4" />
-                  Contact with AI Assist
+                  Use AI Assist
                 </Button>
               </div>
             )}

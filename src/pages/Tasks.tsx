@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import Layout from "@/components/layout/Layout";
 import { useTasks } from "@/contexts/TasksContext";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +15,23 @@ type CategoryFilter = "all" | "buyers" | "listings";
 
 export default function Tasks() {
   const { tasks, openTaskModal } = useTasks();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+
+  // Helper to get buyer/listing name for a task
+  const getTaskSourceName = (task: any) => {
+    if (task.buyerId) {
+      const buyer = buyers.find(b => b.id === task.buyerId);
+      return buyer ? `${buyer.firstName} ${buyer.lastName}` : null;
+    }
+    if (task.listingId) {
+      const listing = listings.find(l => l.id === task.listingId);
+      return listing ? listing.address : null;
+    }
+    return null;
+  };
 
   // Calculate urgency color based on due date
   const getUrgencyColor = (dueDate: string | undefined) => {
@@ -153,6 +170,15 @@ export default function Tasks() {
                           </Badge>
                         )}
                       </div>
+                      
+                      {/* Display linked Buyer/Listing name */}
+                      {getTaskSourceName(task) && (
+                        <div className="mb-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {task.buyerId ? 'Buyer' : 'Listing'}: {getTaskSourceName(task)}
+                          </Badge>
+                        </div>
+                      )}
                       
                       <div className="space-y-2 text-sm text-text-muted">
                         {task.dueDate && (
