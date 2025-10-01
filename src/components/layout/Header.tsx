@@ -77,26 +77,21 @@ export default function Header() {
           <Bell className="h-5 w-5 text-text-muted" />
         </button>
 
-        {/* User Info with Profile Icon - Far Right */}
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-sm font-medium text-text-heading">{displayName}</p>
-            <p className="text-xs text-text-muted">{user.title}</p>
-          </div>
-          {isTrialAccount && (
-            <Badge variant="secondary">Trial</Badge>
-          )}
-          {/* Profile Avatar next to User Name */}
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
-          </div>
-        </div>
-
         {/* User Menu Dropdown or Sign In */}
         {authUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 hover:bg-card px-3 py-2 rounded-lg transition-colors">
+              <button className="flex items-center gap-3 hover:bg-card px-3 py-2 rounded-lg transition-colors cursor-pointer">
+                <div>
+                  <p className="text-sm font-medium text-text-heading text-left">{displayName}</p>
+                  <p className="text-xs text-text-muted text-left">{user.title}</p>
+                </div>
+                {isTrialAccount && (
+                  <Badge variant="secondary">Trial</Badge>
+                )}
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
+                </div>
                 <ChevronDown className="h-4 w-4 text-text-muted" />
               </button>
             </DropdownMenuTrigger>
