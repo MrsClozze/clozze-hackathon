@@ -100,14 +100,23 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth`,
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) throw error;
+      if (data?.url) {
+        // Break out of the Lovable preview iframe to avoid provider X-Frame-Options blocking
+        if (window.top) {
+          (window.top as Window).location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Google sign in failed",
@@ -119,15 +128,23 @@ export default function Auth() {
 
   const handleMicrosoftSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           redirectTo: `${window.location.origin}/auth`,
           scopes: 'email profile openid',
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) throw error;
+      if (data?.url) {
+        if (window.top) {
+          (window.top as Window).location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
+      }
     } catch (error: any) {
       toast({
         title: "Microsoft sign in failed",
