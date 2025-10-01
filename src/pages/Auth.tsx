@@ -38,6 +38,27 @@ export default function Auth() {
     }
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
+  // Handle OAuth code exchange on redirect (Google/Microsoft)
+  useEffect(() => {
+    const code = searchParams.get('code');
+    const errorDesc = searchParams.get('error_description');
+
+    if (errorDesc) {
+      toast({ title: 'Sign in failed', description: decodeURIComponent(errorDesc), variant: 'destructive' });
+    }
+
+    if (code) {
+      (async () => {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
+          return;
+        }
+        // Session is now set; AuthContext listener will redirect
+      })();
+    }
+  }, [searchParams, toast]);
+
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
