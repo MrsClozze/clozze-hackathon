@@ -350,7 +350,7 @@ export default function TaskDetailsModal() {
             {/* AI Assist Section - Show when task has an assignee */}
             {!isEditing && currentTask.assignee && (
               <div className="pt-4 border-t border-border space-y-2">
-                <Label className="text-sm font-medium text-text-muted mb-2">Contact with AI Assist</Label>
+                <Label className="text-sm font-medium text-text-muted mb-2">Use Clozze AI Assist</Label>
                 <Button
                   variant="outline"
                   className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
@@ -366,8 +366,7 @@ export default function TaskDetailsModal() {
                   currentTask.title.toLowerCase().includes("prepare contact")) && (
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="w-full"
+                    className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
                     onClick={() => setIsComingSoonModalOpen(true)}
                   >
                     Load Contract Template
