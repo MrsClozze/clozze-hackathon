@@ -21,6 +21,7 @@ import Marketing from "./pages/Marketing";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
 import Integrations from "./pages/Integrations";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/pricing" element={<Pricing />} />
                         <Route path="/integrations" element={<Integrations />} />
+                        <Route path="/settings" element={<Settings />} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
