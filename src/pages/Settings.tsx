@@ -17,6 +17,7 @@ export default function Settings() {
   const { user: authUser, subscription, refreshSubscription } = useAuth();
   const { user, refreshUser } = useUser();
   const navigate = useNavigate();
+  const isSSO = !!authUser?.app_metadata?.providers?.some((p: string) => p === 'google' || p === 'google_oidc');
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -31,6 +32,8 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [teamInfo, setTeamInfo] = useState<any>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [currentEmailPassword, setCurrentEmailPassword] = useState("");
 
   useEffect(() => {
     if (!authUser) {
@@ -210,7 +213,49 @@ export default function Settings() {
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  const handleChangeEmail = async () => {
+    if (!authUser) return;
+    if (isSSO) {
+      toast.error("Disconnect Google before changing your email");
+      return;
+    }
+    if (email === authUser.email) {
+      toast.error("Please enter a different email address");
+      return;
+    }
+    if (!currentEmailPassword) {
+      toast.error("Please enter your current password to change email");
+      return;
+    }
+
+    setEmailLoading(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authUser.email || "",
+        password: currentEmailPassword,
+      });
+      if (signInError) throw new Error("Current password is incorrect");
+
+      const redirectUrl = `${window.location.origin}/`;
+      const { error: updateError } = await supabase.auth.updateUser(
+        { email },
+        { emailRedirectTo: redirectUrl }
+      );
+      if (updateError) throw updateError;
+
+      await supabase
+        .from('profiles')
+        .update({ email })
+        .eq('id', authUser.id);
+
+      toast.success("Email update requested. Check your new inbox to confirm.");
+      setCurrentEmailPassword("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to change email");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
     e.preventDefault();
     if (!authUser) return;
 
@@ -415,10 +460,38 @@ export default function Settings() {
                   id="email"
                   type="email"
                   value={email}
-                  disabled
-                  className="bg-muted"
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSSO}
+                  className={isSSO ? "bg-muted" : ""}
                 />
-                <p className="text-xs text-text-muted">Email cannot be changed</p>
+                {isSSO ? (
+                  <div className="text-xs text-text-muted flex items-center gap-2">
+                    <span>This account is connected with Google. Disconnect to change email.</span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => navigate('/integrations')}>
+                      Open Integrations
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-text-muted">To change your email, confirm your current password.</p>
+                    {authUser && email !== authUser.email && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          id="currentEmailPassword"
+                          type="password"
+                          value={currentEmailPassword}
+                          onChange={(e) => setCurrentEmailPassword(e.target.value)}
+                          placeholder="Current password"
+                          className="sm:max-w-xs"
+                        />
+                        <Button type="button" onClick={handleChangeEmail} disabled={emailLoading}>
+                          {emailLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Update Email
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Professional Information */}

@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,9 +90,10 @@ export default function Header() {
                 {isTrialAccount && (
                   <Badge variant="secondary">Trial</Badge>
                 )}
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-sm font-semibold text-primary-foreground">{user.initials}</span>
-                </div>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  <AvatarFallback className="text-sm font-semibold">{user.initials}</AvatarFallback>
+                </Avatar>
                 <ChevronDown className="h-4 w-4 text-text-muted" />
               </button>
             </DropdownMenuTrigger>

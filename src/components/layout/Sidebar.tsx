@@ -13,6 +13,7 @@ import clozzeLogo from "@/assets/clozze-logo.png";
 import clozzeLogoBlack from "@/assets/clozze-logo-black.png";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "next-themes";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const navigationItems = [
   { name: "Home", href: "/", icon: Home },
@@ -64,9 +65,10 @@ export default function Sidebar() {
       {/* User Profile Section */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
         <div className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-card-elevated transition-colors">
-          <div className="w-8 h-8 bg-accent-gold rounded-full flex items-center justify-center">
-            <span className="text-sm font-semibold text-accent-gold-foreground">{user.initials}</span>
-          </div>
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.avatarUrl} alt={user.name} />
+            <AvatarFallback className="text-sm font-semibold">{user.initials}</AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-text-heading truncate">{user.name}</p>
             <p className="text-xs text-text-muted truncate">{user.title}</p>

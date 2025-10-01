@@ -6,6 +6,7 @@ interface User {
   name: string;
   title: string;
   initials: string;
+  avatarUrl?: string;
 }
 
 interface UserContextType {
@@ -20,7 +21,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>({
     name: "Guy Hawkins",
     title: "Real Estate Agent",
-    initials: "GH"
+    initials: "GH",
+    avatarUrl: ""
   });
 
   const fetchUserProfile = async () => {
@@ -29,7 +31,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUser({
         name: "Guy Hawkins",
         title: "Real Estate Agent",
-        initials: "GH"
+        initials: "GH",
+        avatarUrl: ""
       });
       return;
     }
@@ -37,7 +40,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, company_name')
+        .select('first_name, last_name, company_name, avatar_url')
         .eq('id', authUser.id)
         .single();
 
@@ -52,7 +55,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser({
           name: fullName,
           title: profile.company_name || "Real Estate Agent",
-          initials: initials
+          initials: initials,
+          avatarUrl: profile.avatar_url || ""
         });
       }
     } catch (error) {
@@ -62,7 +66,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUser({
         name: emailName,
         title: "Real Estate Agent",
-        initials: emailName.charAt(0).toUpperCase()
+        initials: emailName.charAt(0).toUpperCase(),
+        avatarUrl: ""
       });
     }
   };
