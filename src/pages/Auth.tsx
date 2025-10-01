@@ -38,6 +38,19 @@ export default function Auth() {
     }
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
+  // Handle popup success messages and OAuth code exchange
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as any)?.type === 'supabase-auth-success') {
+        toast({ title: 'Signed in' });
+        navigate('/');
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate, toast]);
+
   // Handle OAuth code exchange on redirect (Google/Microsoft)
   useEffect(() => {
     const errorDesc = searchParams.get('error_description');
@@ -56,7 +69,14 @@ export default function Auth() {
         }
         // Clean the URL to remove query params
         window.history.replaceState({}, document.title, `${window.location.origin}/auth`);
-        // Session is now set; AuthContext listener will redirect
+        // If opened as a popup, notify opener and close
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage({ type: 'supabase-auth-success' }, window.location.origin);
+          } catch {}
+          window.close();
+        }
+        // Otherwise, AuthContext listener will redirect
       })();
     }
   }, [searchParams, toast]);
@@ -123,51 +143,91 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth`,
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      const authUrl = data?.url;
+      if (!authUrl) {
+        toast({ title: "Sign in failed", description: "Missing redirect URL.", variant: "destructive" });
+        return;
+      }
+
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        authUrl,
+        'oauth_popup',
+        `width=${width},height=${height},top=${top},left=${left}`
+      );
+
+      if (!popup) {
+        // Fallback to top-level redirect if popup blocked
+        try {
+          if (window.top) (window.top as Window).location.href = authUrl;
+          else window.location.href = authUrl;
+        } catch {
+          window.location.href = authUrl;
+        }
       }
     } catch (error: any) {
-      toast({
-        title: "Sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
     }
   };
 
   const handleMicrosoftSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           redirectTo: `${window.location.origin}/auth`,
+          skipBrowserRedirect: true,
         },
       });
 
       if (error) {
-        toast({
-          title: "Sign in failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+        return;
+      }
+
+      const authUrl = data?.url;
+      if (!authUrl) {
+        toast({ title: "Sign in failed", description: "Missing redirect URL.", variant: "destructive" });
+        return;
+      }
+
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        authUrl,
+        'oauth_popup',
+        `width=${width},height=${height},top=${top},left=${left}`
+      );
+
+      if (!popup) {
+        // Fallback to top-level redirect if popup blocked
+        try {
+          if (window.top) (window.top as Window).location.href = authUrl;
+          else window.location.href = authUrl;
+        } catch {
+          window.location.href = authUrl;
+        }
       }
     } catch (error: any) {
-      toast({
-        title: "Sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
     }
   };
 
