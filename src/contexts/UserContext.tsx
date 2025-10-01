@@ -40,9 +40,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, company_name, avatar_url')
+        .select('first_name, last_name, professional_title, avatar_url')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -54,7 +54,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         setUser({
           name: fullName,
-          title: profile.company_name || "Real Estate Agent",
+          title: profile.professional_title || "Real Estate Agent",
           initials: initials,
           avatarUrl: profile.avatar_url || ""
         });
