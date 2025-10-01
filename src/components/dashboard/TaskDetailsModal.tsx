@@ -274,21 +274,6 @@ export default function TaskDetailsModal() {
                   )}
                 </div>
               )}
-
-              {/* Template Loading for Contact Preparation Tasks */}
-              {(currentTask.title.toLowerCase().includes("prepare contract") || 
-                currentTask.title.toLowerCase().includes("prepare contact")) && (
-                <div className="mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setIsComingSoonModalOpen(true)}
-                  >
-                    Load Template
-                  </Button>
-                </div>
-              )}
             </div>
 
             {/* Status */}
@@ -364,7 +349,7 @@ export default function TaskDetailsModal() {
 
             {/* AI Assist Section - Show when task has an assignee */}
             {!isEditing && currentTask.assignee && (
-              <div className="pt-4 border-t border-border">
+              <div className="pt-4 border-t border-border space-y-2">
                 <Label className="text-sm font-medium text-text-muted mb-2">Contact with AI Assist</Label>
                 <Button
                   variant="outline"
@@ -373,8 +358,21 @@ export default function TaskDetailsModal() {
                 >
                   <Mail className="h-4 w-4" />
                   <MessageSquare className="h-4 w-4" />
-                  Use AI Assist
+                  Message with AI Assist
                 </Button>
+                
+                {/* Template Loading - Show for Contact Preparation Tasks */}
+                {(currentTask.title.toLowerCase().includes("prepare contract") || 
+                  currentTask.title.toLowerCase().includes("prepare contact")) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setIsComingSoonModalOpen(true)}
+                  >
+                    Load Contract Template
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -405,13 +403,13 @@ export default function TaskDetailsModal() {
       <Dialog open={isComingSoonModalOpen} onOpenChange={setIsComingSoonModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Preferred Partner</DialogTitle>
-            <DialogDescription>Automated partner integration</DialogDescription>
+            <DialogTitle>Feature Coming Soon</DialogTitle>
+            <DialogDescription>This feature is currently in development</DialogDescription>
           </DialogHeader>
           <div className="py-6 text-center">
             <div className="text-lg font-medium text-text-heading mb-2">Coming Soon</div>
             <p className="text-text-muted">
-              Our preferred partner integration feature is currently in development and will be available soon.
+              This feature is currently in development and will be available soon.
             </p>
           </div>
           <div className="flex justify-center">
