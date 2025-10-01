@@ -173,7 +173,7 @@ export default function Auth() {
             <div className="space-y-3">
               <Button 
                 type="submit" 
-                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg" 
+                className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" 
                 disabled={loading}
               >
                 {loading ? "Signing in..." : "Sign In"}
@@ -181,7 +181,7 @@ export default function Auth() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg hover:bg-accent"
+                className="w-full transition-all duration-300 hover:shadow-lg hover:bg-accent hover:border-primary"
                 onClick={() => setIsSignUp(true)}
               >
                 Sign Up
@@ -234,7 +234,7 @@ export default function Auth() {
             <div className="space-y-3">
               <Button 
                 type="submit" 
-                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg" 
+                className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" 
                 disabled={loading}
               >
                 {loading ? "Creating account..." : "Create Account"}
@@ -242,7 +242,7 @@ export default function Auth() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full transition-all duration-200 hover:scale-105 hover:shadow-lg hover:bg-accent"
+                className="w-full transition-all duration-300 hover:shadow-lg hover:bg-accent hover:border-primary"
                 onClick={() => setIsSignUp(false)}
               >
                 Back to Sign In
