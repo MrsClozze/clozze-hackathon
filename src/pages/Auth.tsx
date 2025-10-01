@@ -38,45 +38,23 @@ export default function Auth() {
     }
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
-  // Handle popup success messages and OAuth code exchange
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if ((event.data as any)?.type === 'supabase-auth-success') {
-        toast({ title: 'Signed in' });
-        navigate('/');
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [navigate, toast]);
-
   // Handle OAuth code exchange on redirect (Google/Microsoft)
   useEffect(() => {
+    const code = searchParams.get('code');
     const errorDesc = searchParams.get('error_description');
 
     if (errorDesc) {
       toast({ title: 'Sign in failed', description: decodeURIComponent(errorDesc), variant: 'destructive' });
     }
 
-    const href = window.location.href;
-    if (href.includes('code=')) {
+    if (code) {
       (async () => {
-        const { error } = await supabase.auth.exchangeCodeForSession(href);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
           toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
           return;
         }
-        // Clean the URL to remove query params
-        window.history.replaceState({}, document.title, `${window.location.origin}/auth`);
-        // If opened as a popup, notify opener and close
-        if (window.opener && !window.opener.closed) {
-          try {
-            window.opener.postMessage({ type: 'supabase-auth-success' }, window.location.origin);
-          } catch {}
-          window.close();
-        }
-        // Otherwise, AuthContext listener will redirect
+        // Session is now set; AuthContext listener will redirect
       })();
     }
   }, [searchParams, toast]);
@@ -151,38 +129,19 @@ export default function Auth() {
         },
       });
 
-      if (error) {
-        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
-        return;
-      }
-
-      const authUrl = data?.url;
-      if (!authUrl) {
-        toast({ title: "Sign in failed", description: "Missing redirect URL.", variant: "destructive" });
-        return;
-      }
-
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      const popup = window.open(
-        authUrl,
-        'oauth_popup',
-        `width=${width},height=${height},top=${top},left=${left}`
-      );
-
-      if (!popup) {
-        // Fallback to top-level redirect if popup blocked
-        try {
-          if (window.top) (window.top as Window).location.href = authUrl;
-          else window.location.href = authUrl;
-        } catch {
-          window.location.href = authUrl;
+      if (error) throw error;
+      if (data?.url) {
+        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = data.url;
         }
       }
     } catch (error: any) {
-      toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+      toast({
+        title: "Google sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -192,42 +151,24 @@ export default function Auth() {
         provider: 'azure',
         options: {
           redirectTo: `${window.location.origin}/auth`,
+          scopes: 'email profile openid',
           skipBrowserRedirect: true,
         },
       });
 
-      if (error) {
-        toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
-        return;
-      }
-
-      const authUrl = data?.url;
-      if (!authUrl) {
-        toast({ title: "Sign in failed", description: "Missing redirect URL.", variant: "destructive" });
-        return;
-      }
-
-      const width = 500;
-      const height = 600;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      const popup = window.open(
-        authUrl,
-        'oauth_popup',
-        `width=${width},height=${height},top=${top},left=${left}`
-      );
-
-      if (!popup) {
-        // Fallback to top-level redirect if popup blocked
-        try {
-          if (window.top) (window.top as Window).location.href = authUrl;
-          else window.location.href = authUrl;
-        } catch {
-          window.location.href = authUrl;
+      if (error) throw error;
+      if (data?.url) {
+        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = data.url;
         }
       }
     } catch (error: any) {
-      toast({ title: "Sign in failed", description: error.message, variant: "destructive" });
+      toast({
+        title: "Microsoft sign in failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
