@@ -13,7 +13,7 @@ const CommunicationHub = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          <AICommunicationHub />
+          <AICommunicationHub limit={3} />
         </div>
       </div>
     </Layout>

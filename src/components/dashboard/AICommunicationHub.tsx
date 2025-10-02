@@ -1,6 +1,7 @@
-import { MessageSquare, Mail, ArrowRight } from "lucide-react";
+import { MessageSquare, Mail, ArrowRight, ChevronDown } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 // Mock data for AI-analyzed communications
 const mockTextMessages = [
@@ -51,8 +52,17 @@ interface AICommunicationHubProps {
 }
 
 export default function AICommunicationHub({ limit }: AICommunicationHubProps = {}) {
-  const displayedTextMessages = limit ? mockTextMessages.slice(0, limit) : mockTextMessages;
-  const displayedEmailMessages = limit ? mockEmailMessages.slice(0, limit) : mockEmailMessages;
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
+  const [isEmailExpanded, setIsEmailExpanded] = useState(false);
+
+  const shouldLimitText = limit && !isTextExpanded;
+  const shouldLimitEmail = limit && !isEmailExpanded;
+  
+  const displayedTextMessages = shouldLimitText ? mockTextMessages.slice(0, limit) : mockTextMessages;
+  const displayedEmailMessages = shouldLimitEmail ? mockEmailMessages.slice(0, limit) : mockEmailMessages;
+  
+  const hasMoreTextMessages = limit && mockTextMessages.length > limit;
+  const hasMoreEmailMessages = limit && mockEmailMessages.length > limit;
 
   return (
     <div className="w-full space-y-6">
@@ -110,6 +120,18 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               <p>No text messages to analyze</p>
               <p className="text-xs mt-1">Connect your phone in Integrations</p>
             </div>
+          )}
+
+          {hasMoreTextMessages && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-4"
+              onClick={() => setIsTextExpanded(!isTextExpanded)}
+            >
+              {isTextExpanded ? 'Show Less' : `View All (${mockTextMessages.length} messages)`}
+              <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${isTextExpanded ? 'rotate-180' : ''}`} />
+            </Button>
           )}
         </div>
       </BentoCard>
@@ -173,6 +195,18 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               <p>No emails to analyze</p>
               <p className="text-xs mt-1">Connect your email in Integrations</p>
             </div>
+          )}
+
+          {hasMoreEmailMessages && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-4"
+              onClick={() => setIsEmailExpanded(!isEmailExpanded)}
+            >
+              {isEmailExpanded ? 'Show Less' : `View All (${mockEmailMessages.length} messages)`}
+              <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${isEmailExpanded ? 'rotate-180' : ''}`} />
+            </Button>
           )}
         </div>
       </BentoCard>
