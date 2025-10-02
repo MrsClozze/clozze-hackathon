@@ -4,7 +4,7 @@ import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import ActiveListingsCard from "@/components/dashboard/ActiveListingsCard";
 import ActiveBuyersCard from "@/components/dashboard/ActiveBuyersCard";
 import CalendarView from "@/components/dashboard/CalendarView";
-import TasksSidebar from "@/components/dashboard/TasksSidebar";
+import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
 
 const Index = () => {
   return (
@@ -33,9 +33,9 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Right Column - Tasks Sidebar */}
+          {/* Right Column - AI Communication Hub */}
           <div className="animate-slide-up" style={{ animationDelay: "0.3s" }}>
-            <TasksSidebar />
+            <AICommunicationHub />
           </div>
         </div>
       </div>
