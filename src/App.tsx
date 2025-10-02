@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TasksProvider } from "@/contexts/TasksContext";
@@ -27,6 +27,23 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const router = createBrowserRouter([
+  { path: "/", element: <Index /> },
+  { path: "/team", element: <Team /> },
+  { path: "/listings", element: <Listings /> },
+  { path: "/buyers", element: <Buyers /> },
+  { path: "/contacts", element: <Contacts /> },
+  { path: "/documents", element: <Documents /> },
+  { path: "/tasks", element: <Tasks /> },
+  { path: "/communication-hub", element: <CommunicationHub /> },
+  { path: "/marketing", element: <Marketing /> },
+  { path: "/auth", element: <Auth /> },
+  { path: "/pricing", element: <Pricing /> },
+  { path: "/integrations", element: <Integrations /> },
+  { path: "/settings", element: <Settings /> },
+  { path: "*", element: <NotFound /> },
+]);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
@@ -39,25 +56,10 @@ const App = () => (
                   <TooltipProvider>
                     <Toaster />
                     <Sonner />
-                    <BrowserRouter>
-                      <Routes>
-                        <Route path="/" element={<Index />} />
-                        <Route path="/team" element={<Team />} />
-                        <Route path="/listings" element={<Listings />} />
-                        <Route path="/buyers" element={<Buyers />} />
-                        <Route path="/contacts" element={<Contacts />} />
-                        <Route path="/documents" element={<Documents />} />
-                        <Route path="/tasks" element={<Tasks />} />
-                        <Route path="/communication-hub" element={<CommunicationHub />} />
-                        <Route path="/marketing" element={<Marketing />} />
-                        <Route path="/auth" element={<Auth />} />
-                        <Route path="/pricing" element={<Pricing />} />
-                        <Route path="/integrations" element={<Integrations />} />
-                        <Route path="/settings" element={<Settings />} />
-                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </BrowserRouter>
+<RouterProvider
+  router={router}
+  future={{ v7_startTransition: true }}
+/>
                   </TooltipProvider>
                 </TasksProvider>
               </ContactsProvider>
