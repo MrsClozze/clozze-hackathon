@@ -11,6 +11,7 @@ import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
 import slackLogo from "@/assets/slack-logo-new.png";
+import imessageLogo from "@/assets/imessage-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
@@ -60,8 +61,8 @@ const integrations = [
     id: "imessage",
     name: "iMessage",
     description: "Connect your Apple messaging",
-    icon: MessageCircle,
-    isImage: false,
+    icon: imessageLogo,
+    isImage: true,
   },
   {
     id: "whatsapp",
