@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import docusignLogo from "@/assets/docusign-logo.png";
+import docusignLogo from "@/assets/docusign-logo-new.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 interface AddListingModalProps {

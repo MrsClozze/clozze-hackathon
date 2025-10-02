@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import docusignLogo from "@/assets/docusign-logo.png";
+import docusignLogo from "@/assets/docusign-logo-new.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 interface UploadFileModalProps {
