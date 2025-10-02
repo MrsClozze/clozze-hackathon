@@ -10,7 +10,7 @@ import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
-import slackLogo from "@/assets/slack-logo.png";
+import slackLogo from "@/assets/slack-logo-new.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
