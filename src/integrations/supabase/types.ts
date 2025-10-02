@@ -580,7 +580,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      shared_team: {
+        Args: { _u1: string; _u2: string }
+        Returns: boolean
+      }
+      user_is_in_team: {
+        Args: { _team: string; _user: string }
+        Returns: boolean
+      }
     }
     Enums: {
       invitation_status: "pending" | "accepted" | "declined" | "expired"
