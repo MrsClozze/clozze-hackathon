@@ -6,9 +6,11 @@ import { useListings } from "@/contexts/ListingsContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, MapPin, User, Plus } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
+import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
 type StatusFilter = "all" | "pending" | "in-progress" | "completed";
 type CategoryFilter = "all" | "buyers" | "listings";
@@ -19,6 +21,7 @@ export default function Tasks() {
   const { listings } = useListings();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
   // Helper to get buyer/listing name for a task
   const getTaskSourceName = (task: any) => {
@@ -85,9 +88,15 @@ export default function Tasks() {
   return (
     <Layout>
       <div className="p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-text-heading mb-2">Tasks & To Do</h1>
-          <p className="text-text-muted">Track and manage all your transaction tasks and deadlines.</p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-text-heading mb-2">Tasks & To Do</h1>
+            <p className="text-text-muted">Track and manage all your transaction tasks and deadlines.</p>
+          </div>
+          <Button onClick={() => setIsAddTaskModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Task
+          </Button>
         </div>
 
         {/* Category Tabs */}
@@ -215,6 +224,7 @@ export default function Tasks() {
         </div>
 
         <TaskDetailsModal />
+        <AddTaskModal open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen} />
       </div>
     </Layout>
   );
