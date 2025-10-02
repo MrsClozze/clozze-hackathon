@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_communication_preferences: {
+        Row: {
+          booking_link_url: string | null
+          buyer_clients_style: string | null
+          coworkers_style: string | null
+          created_at: string | null
+          general_clients_style: string | null
+          general_tone_frequency: string | null
+          has_booking_link: boolean | null
+          has_preferred_email: boolean | null
+          id: string
+          insurance_agents_style: string | null
+          lenders_style: string | null
+          listing_clients_style: string | null
+          onboarding_completed: boolean | null
+          preferred_email: string | null
+          title_companies_style: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          booking_link_url?: string | null
+          buyer_clients_style?: string | null
+          coworkers_style?: string | null
+          created_at?: string | null
+          general_clients_style?: string | null
+          general_tone_frequency?: string | null
+          has_booking_link?: boolean | null
+          has_preferred_email?: boolean | null
+          id?: string
+          insurance_agents_style?: string | null
+          lenders_style?: string | null
+          listing_clients_style?: string | null
+          onboarding_completed?: boolean | null
+          preferred_email?: string | null
+          title_companies_style?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          booking_link_url?: string | null
+          buyer_clients_style?: string | null
+          coworkers_style?: string | null
+          created_at?: string | null
+          general_clients_style?: string | null
+          general_tone_frequency?: string | null
+          has_booking_link?: boolean | null
+          has_preferred_email?: boolean | null
+          id?: string
+          insurance_agents_style?: string | null
+          lenders_style?: string | null
+          listing_clients_style?: string | null
+          onboarding_completed?: boolean | null
+          preferred_email?: string | null
+          title_companies_style?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       buyers: {
         Row: {
           agent_commission: number | null
