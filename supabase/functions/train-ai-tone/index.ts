@@ -35,20 +35,20 @@ serve(async (req) => {
       throw new Error("Failed to get user");
     }
 
-    // Create a training prompt from the user's responses
+    // Create a training prompt from the user's responses to actual scenarios
     const trainingPrompt = `
-You are learning a real estate agent's communication style. Below are their responses to various questions about how they communicate with different stakeholders.
+You are learning a real estate agent's communication style by analyzing their actual written responses to various professional scenarios.
 
-Question 1 (General Clients): ${responses.q1}
-Question 2 (Listing Clients): ${responses.q2}
-Question 3 (Buyer Clients): ${responses.q3}
-Question 4 (Preferred Lenders): ${responses.q4}
-Question 5 (Title Companies): ${responses.q5}
-Question 6 (Insurance Agents): ${responses.q6}
-Question 7 (Co-workers/Team): ${responses.q7}
-Question 10 (General Tone/Frequency): ${responses.q10}
+Scenario 1 (General Client - Next Steps): ${responses.q1}
+Scenario 2 (Buyer - Good News): ${responses.q2}
+Scenario 3 (Buyer - Bad News): ${responses.q3}
+Scenario 4 (New Listing Announcement): ${responses.q4}
+Scenario 5 (Price Reduction Recommendation): ${responses.q5}
+Scenario 6 (Preferred Lender Communication): ${responses.q6}
+Scenario 7 (Title Company Communication): ${responses.q7}
+Scenario 8 (Co-worker/Team Communication): ${responses.q8}
 
-Create a concise style guide (max 200 words) that captures this agent's communication patterns for drafting messages to different stakeholders.
+Analyze these actual written examples and create a concise style guide (max 200 words) that captures this agent's unique communication patterns, tone, word choices, and approach for drafting messages to different stakeholders.
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -77,24 +77,24 @@ Create a concise style guide (max 200 words) that captures this agent's communic
 
     console.log("AI Tone Training Complete:", styleGuide);
 
-    // Parse booking link and email from responses
-    const bookingLink = responses.q8 !== "no" ? responses.q8 : null;
-    const preferredEmail = responses.q9 !== "no" ? responses.q9 : null;
+    // Parse booking link and email from responses (now q9 and q10)
+    const bookingLink = responses.q9 !== "no" ? responses.q9 : null;
+    const preferredEmail = responses.q10 !== "no" ? responses.q10 : null;
 
-    // Save to database
+    // Save to database with scenario-based responses
     const { error: dbError } = await supabase
       .from('agent_communication_preferences')
       .upsert({
         user_id: user.id,
         onboarding_completed: true,
-        general_clients_style: responses.q1,
-        listing_clients_style: responses.q2,
-        buyer_clients_style: responses.q3,
-        lenders_style: responses.q4,
-        title_companies_style: responses.q5,
-        insurance_agents_style: responses.q6,
-        coworkers_style: responses.q7,
-        general_tone_frequency: responses.q10,
+        general_client_scenario: responses.q1,
+        buyer_good_news_scenario: responses.q2,
+        buyer_bad_news_scenario: responses.q3,
+        listing_new_listing_scenario: responses.q4,
+        listing_price_reduction_scenario: responses.q5,
+        preferred_lender_scenario: responses.q6,
+        title_company_scenario: responses.q7,
+        coworker_team_scenario: responses.q8,
         has_booking_link: !!bookingLink,
         booking_link_url: bookingLink,
         has_preferred_email: !!preferredEmail,

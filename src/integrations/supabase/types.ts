@@ -17,58 +17,58 @@ export type Database = {
       agent_communication_preferences: {
         Row: {
           booking_link_url: string | null
-          buyer_clients_style: string | null
-          coworkers_style: string | null
+          buyer_bad_news_scenario: string | null
+          buyer_good_news_scenario: string | null
+          coworker_team_scenario: string | null
           created_at: string | null
-          general_clients_style: string | null
-          general_tone_frequency: string | null
+          general_client_scenario: string | null
           has_booking_link: boolean | null
           has_preferred_email: boolean | null
           id: string
-          insurance_agents_style: string | null
-          lenders_style: string | null
-          listing_clients_style: string | null
+          listing_new_listing_scenario: string | null
+          listing_price_reduction_scenario: string | null
           onboarding_completed: boolean | null
           preferred_email: string | null
-          title_companies_style: string | null
+          preferred_lender_scenario: string | null
+          title_company_scenario: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           booking_link_url?: string | null
-          buyer_clients_style?: string | null
-          coworkers_style?: string | null
+          buyer_bad_news_scenario?: string | null
+          buyer_good_news_scenario?: string | null
+          coworker_team_scenario?: string | null
           created_at?: string | null
-          general_clients_style?: string | null
-          general_tone_frequency?: string | null
+          general_client_scenario?: string | null
           has_booking_link?: boolean | null
           has_preferred_email?: boolean | null
           id?: string
-          insurance_agents_style?: string | null
-          lenders_style?: string | null
-          listing_clients_style?: string | null
+          listing_new_listing_scenario?: string | null
+          listing_price_reduction_scenario?: string | null
           onboarding_completed?: boolean | null
           preferred_email?: string | null
-          title_companies_style?: string | null
+          preferred_lender_scenario?: string | null
+          title_company_scenario?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           booking_link_url?: string | null
-          buyer_clients_style?: string | null
-          coworkers_style?: string | null
+          buyer_bad_news_scenario?: string | null
+          buyer_good_news_scenario?: string | null
+          coworker_team_scenario?: string | null
           created_at?: string | null
-          general_clients_style?: string | null
-          general_tone_frequency?: string | null
+          general_client_scenario?: string | null
           has_booking_link?: boolean | null
           has_preferred_email?: boolean | null
           id?: string
-          insurance_agents_style?: string | null
-          lenders_style?: string | null
-          listing_clients_style?: string | null
+          listing_new_listing_scenario?: string | null
+          listing_price_reduction_scenario?: string | null
           onboarding_completed?: boolean | null
           preferred_email?: string | null
-          title_companies_style?: string | null
+          preferred_lender_scenario?: string | null
+          title_company_scenario?: string | null
           updated_at?: string | null
           user_id?: string
         }
