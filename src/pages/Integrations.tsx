@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Apple, Calendar, Slack } from "lucide-react";
+import { Apple, Calendar, Slack, MessageCircle, Mail } from "lucide-react";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
@@ -39,6 +39,34 @@ const integrations = [
     description: "Digital document signing",
     icon: docusignLogo,
     isImage: true,
+  },
+  {
+    id: "gmail",
+    name: "Gmail",
+    description: "Connect your Google email account",
+    icon: Mail,
+    isImage: false,
+  },
+  {
+    id: "outlook_email",
+    name: "Outlook Email",
+    description: "Connect your Microsoft email account",
+    icon: Mail,
+    isImage: false,
+  },
+  {
+    id: "imessage",
+    name: "iMessage",
+    description: "Connect your Apple messaging",
+    icon: MessageCircle,
+    isImage: false,
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    description: "Connect your WhatsApp account",
+    icon: MessageCircle,
+    isImage: false,
   },
   {
     id: "slack",
