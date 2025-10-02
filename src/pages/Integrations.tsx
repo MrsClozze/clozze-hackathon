@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Apple, Calendar, Slack, MessageCircle, Mail } from "lucide-react";
+
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
@@ -13,6 +13,7 @@ import gmailLogo from "@/assets/gmail-logo.webp";
 import slackLogo from "@/assets/slack-logo-new.png";
 import imessageLogo from "@/assets/imessage-logo.png";
 import whatsappLogo from "@/assets/whatsapp-logo.webp";
+import outlookEmailLogo from "@/assets/outlook-email-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
@@ -55,8 +56,8 @@ const integrations = [
     id: "outlook_email",
     name: "Outlook Email",
     description: "Connect your Microsoft email account",
-    icon: Mail,
-    isImage: false,
+    icon: outlookEmailLogo,
+    isImage: true,
   },
   {
     id: "imessage",
@@ -121,19 +122,11 @@ export default function Integrations() {
           {integrations.map((integration) => (
             <Card key={integration.id} className="p-6 flex flex-col">
               <div className="flex items-center gap-4 mb-4">
-                {integration.isImage ? (
-                  <img
-                    src={integration.icon as string}
-                    alt={integration.name}
-                    className="w-12 h-12 object-contain"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    {React.createElement(integration.icon as React.ComponentType<{ className?: string }>, {
-                      className: "w-6 h-6 text-primary",
-                    })}
-                  </div>
-                )}
+                <img
+                  src={integration.icon as string}
+                  alt={integration.name}
+                  className="w-12 h-12 object-contain"
+                />
                 <div>
                   <h3 className="text-lg font-semibold text-text-heading">
                     {integration.name}
