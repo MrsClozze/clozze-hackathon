@@ -6,7 +6,8 @@ import {
   UserCheck, 
   Contact, 
   FileText, 
-  CheckSquare, 
+  CheckSquare,
+  MessageSquare, 
   Megaphone 
 } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
@@ -23,6 +24,7 @@ const navigationItems = [
   { name: "Contacts", href: "/contacts", icon: Contact },
   { name: "Documents", href: "/documents", icon: FileText },
   { name: "Tasks & To Do", href: "/tasks", icon: CheckSquare },
+  { name: "Communication Hub", href: "/communication-hub", icon: MessageSquare },
   { name: "Marketing", href: "/marketing", icon: Megaphone },
 ];
 

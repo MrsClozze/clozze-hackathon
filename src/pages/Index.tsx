@@ -43,7 +43,7 @@ const Index = () => {
 
             {/* AI Communication Hub */}
             <div className="animate-slide-up" style={{ animationDelay: "0.4s" }}>
-              <AICommunicationHub />
+              <AICommunicationHub limit={3} />
             </div>
           </div>
         </div>

@@ -17,6 +17,7 @@ import Buyers from "./pages/Buyers";
 import Contacts from "./pages/Contacts";
 import Documents from "./pages/Documents";
 import Tasks from "./pages/Tasks";
+import CommunicationHub from "./pages/CommunicationHub";
 import Marketing from "./pages/Marketing";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
@@ -47,6 +48,7 @@ const App = () => (
                         <Route path="/contacts" element={<Contacts />} />
                         <Route path="/documents" element={<Documents />} />
                         <Route path="/tasks" element={<Tasks />} />
+                        <Route path="/communication-hub" element={<CommunicationHub />} />
                         <Route path="/marketing" element={<Marketing />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/pricing" element={<Pricing />} />

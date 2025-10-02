@@ -46,7 +46,14 @@ const mockEmailMessages = [
   },
 ];
 
-export default function AICommunicationHub() {
+interface AICommunicationHubProps {
+  limit?: number;
+}
+
+export default function AICommunicationHub({ limit }: AICommunicationHubProps = {}) {
+  const displayedTextMessages = limit ? mockTextMessages.slice(0, limit) : mockTextMessages;
+  const displayedEmailMessages = limit ? mockEmailMessages.slice(0, limit) : mockEmailMessages;
+
   return (
     <div className="w-full space-y-6">
       {/* Text Messages Section */}
@@ -57,7 +64,7 @@ export default function AICommunicationHub() {
         elevated
       >
         <div className="space-y-4">
-          {mockTextMessages.map((message) => (
+          {displayedTextMessages.map((message) => (
             <div
               key={message.id}
               className="p-4 rounded-lg bg-background-elevated border border-card-border hover:border-accent-gold/30 transition-all duration-200 group cursor-pointer"
@@ -97,7 +104,7 @@ export default function AICommunicationHub() {
             </div>
           ))}
 
-          {mockTextMessages.length === 0 && (
+          {displayedTextMessages.length === 0 && (
             <div className="text-center py-8 text-text-muted text-sm">
               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No text messages to analyze</p>
@@ -115,7 +122,7 @@ export default function AICommunicationHub() {
         elevated
       >
         <div className="space-y-4">
-          {mockEmailMessages.map((email) => (
+          {displayedEmailMessages.map((email) => (
             <div
               key={email.id}
               className="p-4 rounded-lg bg-background-elevated border border-card-border hover:border-accent-gold/30 transition-all duration-200 group cursor-pointer"
@@ -160,7 +167,7 @@ export default function AICommunicationHub() {
             </div>
           ))}
 
-          {mockEmailMessages.length === 0 && (
+          {displayedEmailMessages.length === 0 && (
             <div className="text-center py-8 text-text-muted text-sm">
               <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No emails to analyze</p>
