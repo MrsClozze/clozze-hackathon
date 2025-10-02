@@ -2,6 +2,7 @@ import { MessageSquare, Mail, ArrowRight, ChevronDown } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import MessageActionModal from "./MessageActionModal";
 
 // Mock data for AI-analyzed communications
 const mockTextMessages = [
@@ -54,6 +55,13 @@ interface AICommunicationHubProps {
 export default function AICommunicationHub({ limit }: AICommunicationHubProps = {}) {
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [isEmailExpanded, setIsEmailExpanded] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<{
+    type: "text" | "email";
+    sender: string;
+    snippet: string;
+    actionItem: string;
+    subject?: string;
+  } | null>(null);
 
   const shouldLimitText = limit && !isTextExpanded;
   const shouldLimitEmail = limit && !isEmailExpanded;
@@ -63,6 +71,25 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
   
   const hasMoreTextMessages = limit && mockTextMessages.length > limit;
   const hasMoreEmailMessages = limit && mockEmailMessages.length > limit;
+
+  const handleTextAction = (message: typeof mockTextMessages[0]) => {
+    setSelectedMessage({
+      type: "text",
+      sender: message.sender,
+      snippet: message.snippet,
+      actionItem: message.actionItem,
+    });
+  };
+
+  const handleEmailAction = (email: typeof mockEmailMessages[0]) => {
+    setSelectedMessage({
+      type: "email",
+      sender: email.sender,
+      snippet: email.snippet,
+      actionItem: email.actionItem,
+      subject: email.subject,
+    });
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -107,6 +134,7 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
                 variant="ghost"
                 size="sm"
                 className="w-full mt-3 text-xs group-hover:text-accent-gold transition-colors"
+                onClick={() => handleTextAction(message)}
               >
                 Take Action
                 <ArrowRight className="h-3 w-3 ml-2" />
@@ -182,6 +210,7 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
                 variant="ghost"
                 size="sm"
                 className="w-full mt-3 text-xs group-hover:text-accent-gold transition-colors"
+                onClick={() => handleEmailAction(email)}
               >
                 Take Action
                 <ArrowRight className="h-3 w-3 ml-2" />
@@ -210,6 +239,18 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
           )}
         </div>
       </BentoCard>
+
+      {/* Message Action Modal */}
+      {selectedMessage && (
+        <MessageActionModal
+          open={!!selectedMessage}
+          onOpenChange={(open) => !open && setSelectedMessage(null)}
+          messageType={selectedMessage.type}
+          sender={selectedMessage.sender}
+          originalMessage={selectedMessage.snippet}
+          actionItem={selectedMessage.actionItem}
+        />
+      )}
     </div>
   );
 }
