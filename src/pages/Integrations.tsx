@@ -12,6 +12,7 @@ import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
 import slackLogo from "@/assets/slack-logo-new.png";
 import imessageLogo from "@/assets/imessage-logo.png";
+import whatsappLogo from "@/assets/whatsapp-logo.webp";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
@@ -68,8 +69,8 @@ const integrations = [
     id: "whatsapp",
     name: "WhatsApp",
     description: "Connect your WhatsApp account",
-    icon: MessageCircle,
-    isImage: false,
+    icon: whatsappLogo,
+    isImage: true,
   },
   {
     id: "slack",
