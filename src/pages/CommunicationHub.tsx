@@ -1,5 +1,6 @@
 import Layout from "@/components/layout/Layout";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
+import AIToneOnboarding from "@/components/dashboard/AIToneOnboarding";
 
 const CommunicationHub = () => {
   return (
@@ -12,7 +13,8 @@ const CommunicationHub = () => {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <AIToneOnboarding />
           <AICommunicationHub limit={3} />
         </div>
       </div>

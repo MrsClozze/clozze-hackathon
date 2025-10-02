@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Edit3, Send, Loader2 } from "lucide-react";
+import { Sparkles, Edit3, Send, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useIntegrations } from "@/contexts/IntegrationsContext";
+import { useNavigate } from "react-router-dom";
 
 interface MessageActionModalProps {
   open: boolean;
@@ -23,13 +25,22 @@ export default function MessageActionModal({
   originalMessage,
   actionItem,
 }: MessageActionModalProps) {
-  const [mode, setMode] = useState<"select" | "ai" | "manual">("select");
+  const [mode, setMode] = useState<"select" | "ai" | "manual" | "locked">("select");
   const [responseText, setResponseText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
+  const { isPhoneConnected, isEmailConnected } = useIntegrations();
+  const navigate = useNavigate();
+
+  // Check if integration is connected when modal opens
+  const isConnected = messageType === "text" ? isPhoneConnected : isEmailConnected;
 
   const handleAIAssist = async () => {
+    if (!isConnected) {
+      setMode("locked");
+      return;
+    }
     setMode("ai");
     setIsGenerating(true);
 
@@ -64,6 +75,10 @@ export default function MessageActionModal({
   };
 
   const handleManualMode = () => {
+    if (!isConnected) {
+      setMode("locked");
+      return;
+    }
     setMode("manual");
     setResponseText("");
   };
@@ -119,6 +134,36 @@ export default function MessageActionModal({
               <p className="text-xs text-text-heading">{actionItem}</p>
             </div>
           </div>
+
+          {/* Integration Lock Warning */}
+          {mode === "locked" && (
+            <div className="space-y-4">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-text-heading">
+                    {messageType === "text" ? "Phone" : "Email"} Not Connected
+                  </p>
+                  <p className="text-sm text-text-muted">
+                    Connect your {messageType === "text" ? "phone" : "email"} to enable sending messages through the platform.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/integrations")}
+                    className="mt-2"
+                  >
+                    Go to Integrations
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="ghost" onClick={handleClose}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Mode Selection */}
           {mode === "select" && (

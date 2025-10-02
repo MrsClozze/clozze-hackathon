@@ -11,3 +11,7 @@ verify_jwt = false
 [functions.create-checkout]
 
 [functions.customer-portal]
+
+[functions.generate-message-response]
+
+[functions.train-ai-tone]
