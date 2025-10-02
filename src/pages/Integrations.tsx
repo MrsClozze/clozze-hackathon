@@ -8,7 +8,7 @@ import { Apple, Calendar, Slack, MessageCircle, Mail } from "lucide-react";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
-import docusignLogo from "@/assets/docusign-logo.png";
+import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
