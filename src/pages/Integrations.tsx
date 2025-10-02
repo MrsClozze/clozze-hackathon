@@ -9,6 +9,7 @@ import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo.png";
+import gmailLogo from "@/assets/gmail-logo.jpg";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
@@ -44,8 +45,8 @@ const integrations = [
     id: "gmail",
     name: "Gmail",
     description: "Connect your Google email account",
-    icon: Mail,
-    isImage: false,
+    icon: gmailLogo,
+    isImage: true,
   },
   {
     id: "outlook_email",
