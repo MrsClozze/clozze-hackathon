@@ -15,10 +15,23 @@ export default function Listings() {
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isClosedOpen, setIsClosedOpen] = useState(false);
 
-  // Organize listings by status
-  const activeListings = listings.filter(l => l.status === 'Active');
-  const pendingListings = listings.filter(l => l.status === 'Pending');
-  const closedListings = listings.filter(l => l.status === 'Closed');
+  // Organize listings by status and sort by newest first (by listingStartDate)
+  const sortByNewest = (a: typeof listings[0], b: typeof listings[0]) => 
+    new Date(b.listingStartDate).getTime() - new Date(a.listingStartDate).getTime();
+  
+  const activeListings = listings.filter(l => l.status === 'Active').sort(sortByNewest);
+  const pendingListings = listings.filter(l => l.status === 'Pending').sort(sortByNewest);
+  const closedListings = listings.filter(l => l.status === 'Closed').sort(sortByNewest);
+  
+  // Limit to 3 items for display
+  const displayActiveListings = activeListings.slice(0, 3);
+  const displayPendingListings = pendingListings.slice(0, 3);
+  const displayClosedListings = closedListings.slice(0, 3);
+  
+  // Track if we need "View All" buttons
+  const [showAllActive, setShowAllActive] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [showAllClosed, setShowAllClosed] = useState(false);
 
   const renderListingCard = (listing: typeof listings[0]) => (
     <Card
@@ -111,10 +124,20 @@ export default function Listings() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activeListings.map(renderListingCard)}
+                    {(showAllActive ? activeListings : displayActiveListings).map(renderListingCard)}
                   </div>
                   {activeListings.length === 0 && (
                     <p className="text-center text-text-muted py-8">No active listings</p>
+                  )}
+                  {activeListings.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllActive(!showAllActive)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllActive ? 'Show Less' : `View All (${activeListings.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>
@@ -134,10 +157,20 @@ export default function Listings() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {pendingListings.map(renderListingCard)}
+                    {(showAllPending ? pendingListings : displayPendingListings).map(renderListingCard)}
                   </div>
                   {pendingListings.length === 0 && (
                     <p className="text-center text-text-muted py-8">No pending listings</p>
+                  )}
+                  {pendingListings.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllPending(!showAllPending)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllPending ? 'Show Less' : `View All (${pendingListings.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>
@@ -157,10 +190,20 @@ export default function Listings() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {closedListings.map(renderListingCard)}
+                    {(showAllClosed ? closedListings : displayClosedListings).map(renderListingCard)}
                   </div>
                   {closedListings.length === 0 && (
                     <p className="text-center text-text-muted py-8">No closed listings</p>
+                  )}
+                  {closedListings.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllClosed(!showAllClosed)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllClosed ? 'Show Less' : `View All (${closedListings.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>

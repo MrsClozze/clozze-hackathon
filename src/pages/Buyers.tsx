@@ -15,10 +15,23 @@ export default function Buyers() {
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isClosedOpen, setIsClosedOpen] = useState(false);
 
-  // Organize buyers by status
-  const activeBuyers = buyers.filter(b => b.status === 'Active');
-  const pendingBuyers = buyers.filter(b => b.status === 'Pending');
-  const closedBuyers = buyers.filter(b => b.status === 'Closed');
+  // Organize buyers by status and sort by newest first (by id)
+  const sortByNewest = (a: typeof buyers[0], b: typeof buyers[0]) => 
+    parseInt(b.id) - parseInt(a.id);
+  
+  const activeBuyers = buyers.filter(b => b.status === 'Active').sort(sortByNewest);
+  const pendingBuyers = buyers.filter(b => b.status === 'Pending').sort(sortByNewest);
+  const closedBuyers = buyers.filter(b => b.status === 'Closed').sort(sortByNewest);
+  
+  // Limit to 3 items for display
+  const displayActiveBuyers = activeBuyers.slice(0, 3);
+  const displayPendingBuyers = pendingBuyers.slice(0, 3);
+  const displayClosedBuyers = closedBuyers.slice(0, 3);
+  
+  // Track if we need "View All" buttons
+  const [showAllActive, setShowAllActive] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [showAllClosed, setShowAllClosed] = useState(false);
 
   const renderBuyerCard = (buyer: typeof buyers[0]) => (
     <Card
@@ -108,10 +121,20 @@ export default function Buyers() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activeBuyers.map(renderBuyerCard)}
+                    {(showAllActive ? activeBuyers : displayActiveBuyers).map(renderBuyerCard)}
                   </div>
                   {activeBuyers.length === 0 && (
                     <p className="text-center text-text-muted py-8">No active buyers</p>
+                  )}
+                  {activeBuyers.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllActive(!showAllActive)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllActive ? 'Show Less' : `View All (${activeBuyers.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>
@@ -131,10 +154,20 @@ export default function Buyers() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {pendingBuyers.map(renderBuyerCard)}
+                    {(showAllPending ? pendingBuyers : displayPendingBuyers).map(renderBuyerCard)}
                   </div>
                   {pendingBuyers.length === 0 && (
                     <p className="text-center text-text-muted py-8">No pending buyers</p>
+                  )}
+                  {pendingBuyers.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllPending(!showAllPending)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllPending ? 'Show Less' : `View All (${pendingBuyers.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>
@@ -154,10 +187,20 @@ export default function Buyers() {
               <CollapsibleContent>
                 <div className="p-4 pt-0">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {closedBuyers.map(renderBuyerCard)}
+                    {(showAllClosed ? closedBuyers : displayClosedBuyers).map(renderBuyerCard)}
                   </div>
                   {closedBuyers.length === 0 && (
                     <p className="text-center text-text-muted py-8">No closed buyers</p>
+                  )}
+                  {closedBuyers.length > 3 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={() => setShowAllClosed(!showAllClosed)}
+                        className="text-primary hover:text-primary-hover font-medium text-sm"
+                      >
+                        {showAllClosed ? 'Show Less' : `View All (${closedBuyers.length})`}
+                      </button>
+                    </div>
                   )}
                 </div>
               </CollapsibleContent>
