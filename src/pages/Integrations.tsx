@@ -9,7 +9,7 @@ import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo.png";
-import gmailLogo from "@/assets/gmail-logo.jpg";
+import gmailLogo from "@/assets/gmail-logo.webp";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
