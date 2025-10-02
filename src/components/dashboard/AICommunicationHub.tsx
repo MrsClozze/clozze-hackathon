@@ -48,7 +48,7 @@ const mockEmailMessages = [
 
 export default function AICommunicationHub() {
   return (
-    <div className="w-80 flex-shrink-0 space-y-6">
+    <div className="w-full space-y-6">
       {/* Text Messages Section */}
       <BentoCard
         title="Text"
