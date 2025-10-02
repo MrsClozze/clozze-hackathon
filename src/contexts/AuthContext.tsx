@@ -60,12 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Update database subscription record
       await supabase
         .from('subscriptions')
-        .upsert({
-          user_id: currentSession.user.id,
-          plan_type: subData.plan_type,
-          status: subData.status,
-          current_period_end: subData.subscription_end
-        });
+        .upsert(
+          {
+            user_id: currentSession.user.id,
+            plan_type: subData.plan_type,
+            status: subData.status,
+            current_period_end: subData.subscription_end
+          },
+          { onConflict: 'user_id' }
+        );
     } catch (error) {
       console.error('Error checking subscription:', error);
     }
