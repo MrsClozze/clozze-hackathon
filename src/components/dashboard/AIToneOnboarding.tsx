@@ -313,7 +313,7 @@ export default function AIToneOnboarding({ onComplete }: OnboardingProps) {
                 <Input
                   value={bookingLinkUrl}
                   onChange={(e) => setBookingLinkUrl(e.target.value)}
-                  placeholder="https://calendly.com/your-link"
+                  placeholder="Paste your booking link here"
                   type="url"
                 />
               </div>
