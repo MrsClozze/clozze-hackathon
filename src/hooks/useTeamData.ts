@@ -75,13 +75,19 @@ export function useTeamData() {
         const activeBuyers = buyers?.filter(b => b.status === "Active") || [];
 
         const totalSalesVolume = closedListings.reduce((sum, l) => sum + Number(l.price || 0), 0);
+        
+        // Only calculate commission from buyers where financial data is visible (is_owner = true)
+        // For team members viewing other agents' buyers, agent_commission will be NULL
+        const ownedBuyers = buyers?.filter(b => b.is_owner === true) || [];
+        
         const totalCommission = [
           ...listings?.map(l => Number(l.agent_commission || 0)) || [],
-          ...buyers?.map(b => Number(b.agent_commission || 0)) || []
+          ...ownedBuyers.map(b => Number(b.agent_commission || 0))
         ].reduce((sum, c) => sum + c, 0);
 
-        const avgCommission = listings && listings.length > 0 
-          ? totalCommission / listings.length 
+        const totalItems = (listings?.length || 0) + ownedBuyers.length;
+        const avgCommission = totalItems > 0 
+          ? totalCommission / totalItems 
           : 0;
 
         setStats({
