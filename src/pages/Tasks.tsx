@@ -63,6 +63,7 @@ export default function Tasks() {
     } else if (categoryFilter === "listings") {
       filtered = filtered.filter(task => task.listingId);
     }
+    // When categoryFilter is "all", include all tasks including those without buyer/listing assignments
 
     // Sort by due date (earliest first)
     return filtered.sort((a, b) => {
