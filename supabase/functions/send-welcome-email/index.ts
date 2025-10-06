@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
       : firstName || email.split('@')[0];
 
     const emailResponse = await resend.emails.send({
-      from: "Clozze <contact@clozze.io>",
+      from: "Clozze <hello@mail.clozze.io>",
       to: [email],
       subject: "Welcome to Clozze!",
       html: `

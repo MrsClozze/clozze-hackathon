@@ -41,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
     const verificationLink = data.properties?.action_link || '';
 
     const emailResponse = await resend.emails.send({
-      from: "Clozze <contact@clozze.io>",
+      from: "Clozze <hello@mail.clozze.io>",
       to: [email],
       subject: "Verify Your Clozze Account",
       html: `
