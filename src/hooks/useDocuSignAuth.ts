@@ -12,17 +12,40 @@ export const useDocuSignAuth = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
-  const handleMessage = useCallback((event: MessageEvent, resolve: (value: DocuSignAuthResult | null) => void, reject: (error: Error) => void) => {
+  const handleMessage = useCallback(async (event: MessageEvent, resolve: (value: DocuSignAuthResult | null) => void, reject: (error: Error) => void) => {
     if (event.data.type === 'docusign-success') {
-      toast({
-        title: "DocuSign Connected",
-        description: "Successfully authenticated with DocuSign",
-      });
-      resolve({
-        accessToken: event.data.accessToken,
-        refreshToken: event.data.refreshToken,
-        expiresIn: event.data.expiresIn,
-      });
+      try {
+        // Securely store tokens in Supabase Vault
+        const { error: storeError } = await supabase.functions.invoke('store-oauth-tokens', {
+          body: {
+            serviceName: 'docusign',
+            accessToken: event.data.accessToken,
+            refreshToken: event.data.refreshToken,
+            expiresIn: event.data.expiresIn,
+          },
+        });
+
+        if (storeError) throw storeError;
+
+        toast({
+          title: "DocuSign Connected",
+          description: "Successfully authenticated with DocuSign",
+        });
+
+        resolve({
+          accessToken: event.data.accessToken,
+          refreshToken: event.data.refreshToken,
+          expiresIn: event.data.expiresIn,
+        });
+      } catch (error) {
+        console.error('Failed to store DocuSign tokens:', error);
+        toast({
+          title: "Storage Error",
+          description: "Authentication successful but failed to securely store credentials",
+          variant: "destructive",
+        });
+        reject(new Error('Failed to store tokens'));
+      }
     } else if (event.data.type === 'docusign-error') {
       toast({
         title: "Authentication Failed",

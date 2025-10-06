@@ -327,40 +327,37 @@ export type Database = {
       }
       service_integrations: {
         Row: {
-          access_token: string | null
           connected_at: string | null
           created_at: string
           id: string
           is_connected: boolean
-          refresh_token: string | null
           service_name: string
           token_expires_at: string | null
           updated_at: string
           user_id: string
+          vault_secret_id: string | null
         }
         Insert: {
-          access_token?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
-          refresh_token?: string | null
           service_name: string
           token_expires_at?: string | null
           updated_at?: string
           user_id: string
+          vault_secret_id?: string | null
         }
         Update: {
-          access_token?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
-          refresh_token?: string | null
           service_name?: string
           token_expires_at?: string | null
           updated_at?: string
           user_id?: string
+          vault_secret_id?: string | null
         }
         Relationships: []
       }
@@ -583,6 +580,16 @@ export type Database = {
       shared_team: {
         Args: { _u1: string; _u2: string }
         Returns: boolean
+      }
+      store_integration_tokens: {
+        Args: {
+          _access_token: string
+          _expires_at: string
+          _refresh_token: string
+          _service_name: string
+          _user_id: string
+        }
+        Returns: string
       }
       user_is_in_team: {
         Args: { _team: string; _user: string }

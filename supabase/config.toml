@@ -24,3 +24,7 @@ verify_jwt = false
 
 [functions.cleanup-unverified-users]
 verify_jwt = false
+
+[functions.store-oauth-tokens]
+
+[functions.get-oauth-tokens]
