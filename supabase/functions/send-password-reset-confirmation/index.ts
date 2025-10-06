@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface PasswordResetRequest {
+interface PasswordResetConfirmationRequest {
   email: string;
   firstName?: string;
   redirectOrigin?: string;
@@ -21,38 +21,20 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, firstName, redirectOrigin }: PasswordResetRequest = await req.json();
+    const { email, firstName, redirectOrigin }: PasswordResetConfirmationRequest = await req.json();
     
     const displayName = firstName || email.split('@')[0];
-    
-    // Create Supabase admin client to generate password reset link
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    // Generate password reset link
     const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
       ? redirectOrigin
       : 'https://clozze.lovable.app';
 
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: `${baseOrigin}/reset-password`
-      }
-    });
-
-    if (error) throw error;
-
-    const resetLink = data.properties?.action_link || '';
+    const loginLink = `${baseOrigin}/auth`;
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
       replyTo: "contact@clozze.io",
       to: [email],
-      subject: "Reset Your Clozze Password",
+      subject: "Password Reset Confirmed - Clozze",
       html: `
         <!DOCTYPE html>
         <html>
@@ -61,32 +43,36 @@ const handler = async (req: Request): Promise<Response> => {
             <style>
               body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0; }
               .content { background: #ffffff; padding: 40px 30px; border: 1px solid #e5e7eb; border-top: none; }
-              .button { display: inline-block; background: #667eea; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
+              .button { display: inline-block; background: #10b981; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
               .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
-              .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0; border-radius: 4px; }
+              .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 12px; margin: 20px 0; border-radius: 4px; }
+              .security-notice { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0; border-radius: 4px; font-size: 14px; }
               h1 { margin: 0; font-size: 28px; }
               p { margin: 16px 0; }
+              .icon { font-size: 48px; margin-bottom: 10px; }
             </style>
           </head>
           <body>
             <div class="container">
               <div class="header">
-                <h1>Reset Your Password</h1>
+                <div class="icon">✓</div>
+                <h1>Password Reset Confirmed</h1>
               </div>
               <div class="content">
                 <p>Hi ${displayName},</p>
-                <p>We received a request to reset your password for your Clozze account.</p>
-                <div class="warning">
-                  <strong>⚠️ Important:</strong> This password reset link will expire in 1 hour for security reasons.
+                <div class="success-box">
+                  <strong>✓ Your password has been successfully reset and confirmed!</strong>
                 </div>
+                <p>You can now sign in to your Clozze account using your new password.</p>
                 <p style="text-align: center;">
-                  <a href="${resetLink}" class="button">Reset Password</a>
+                  <a href="${loginLink}" class="button">Sign In to Clozze</a>
                 </p>
-                <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #667eea; font-size: 14px;">${resetLink}</p>
-                <p>If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.</p>
+                <div class="security-notice">
+                  <strong>🔐 Security Reminder</strong><br>
+                  Keep your password secure and never share it with anyone. If you didn't reset your password or suspect unauthorized access to your account, please contact our support team immediately at hello@mail.clozze.io
+                </div>
                 <p>Best regards,<br>The Clozze Team</p>
               </div>
               <div class="footer">
@@ -99,14 +85,14 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Password reset email sent successfully:", emailResponse);
+    console.log("Password reset confirmation email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify(emailResponse), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error sending password reset email:", error);
+    console.error("Error sending password reset confirmation email:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

@@ -17,11 +17,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
@@ -42,22 +39,19 @@ export default function Auth() {
     }
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
-  // Handle OAuth code exchange and password recovery on redirect
+  // Handle OAuth code exchange on redirect
   useEffect(() => {
     const code = searchParams.get('code');
     const errorDesc = searchParams.get('error_description');
     const errorCode = searchParams.get('error_code');
-    const type = searchParams.get('type');
 
     // Also parse hash params (Supabase often returns tokens in the URL hash)
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const hashType = hashParams.get('type');
     const hashErrorDesc = hashParams.get('error_description');
     const hashErrorCode = hashParams.get('error_code');
 
     const finalErrorDesc = hashErrorDesc || errorDesc;
     const finalErrorCode = hashErrorCode || errorCode;
-    const finalType = hashType || type;
 
     if (finalErrorDesc) {
       toast({ 
@@ -65,13 +59,6 @@ export default function Auth() {
         description: decodeURIComponent(finalErrorDesc), 
         variant: 'destructive' 
       });
-    }
-
-    // Check if this is a password recovery flow
-    if (finalType === 'recovery') {
-      setIsResettingPassword(true);
-      setIsForgotPassword(false);
-      setIsSignUp(false);
     }
 
     if (code && !finalErrorDesc) {
@@ -233,10 +220,6 @@ export default function Auth() {
         title: "Password reset email sent!",
         description: "Check your email from hello@mail.clozze.io for the password reset link. It will expire in 1 hour.",
       });
-      toast({
-        title: "Password reset email sent!",
-        description: "Check your email from hello@mail.clozze.io for the password reset link. It will expire in 1 hour.",
-      });
 
       setIsForgotPassword(false);
       setEmail("");
@@ -258,48 +241,15 @@ export default function Auth() {
           <img src={clozzeLogo} alt="Clozze" className="h-36 mb-4" />
           <h1 className="text-2xl font-bold text-text-heading">Welcome to Clozze</h1>
           <p className="text-text-muted mt-2 text-center">
-            {isResettingPassword
-              ? "Set your new password"
-              : isForgotPassword 
-                ? "Reset your password" 
-                : isSignUp 
-                  ? "Create your account to get started" 
-                  : "Sign in or create an account to continue"}
+            {isForgotPassword 
+              ? "Reset your password" 
+              : isSignUp 
+                ? "Create your account to get started" 
+                : "Sign in or create an account to continue"}
           </p>
         </div>
 
-        {isResettingPassword ? (
-          <form onSubmit={(e) => { e.preventDefault(); setIsResettingPassword(false); setIsForgotPassword(true); }} className="space-y-4">
-            <p className="text-sm text-text-muted">Your reset link is valid. Please enter a new password below.</p>
-            <div>
-              <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
-            </div>
-            <div>
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} />
-            </div>
-            <Button type="button" onClick={async () => {
-              if (newPassword !== confirmPassword) {
-                toast({ title: "Passwords don't match", variant: 'destructive' });
-                return;
-              }
-              setLoading(true);
-              const { error } = await supabase.auth.updateUser({ password: newPassword });
-              setLoading(false);
-              if (error) {
-                toast({ title: 'Password reset failed', description: error.message, variant: 'destructive' });
-                return;
-              }
-              toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' });
-              setIsResettingPassword(false);
-              setNewPassword('');
-              setConfirmPassword('');
-            }} className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" disabled={loading}>
-              {loading ? 'Updating password...' : 'Update Password'}
-            </Button>
-          </form>
-        ) : isForgotPassword ? (
+        {isForgotPassword ? (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
               <Label htmlFor="reset-email">Email</Label>

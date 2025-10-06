@@ -10,6 +10,7 @@ import { ListingsProvider } from "@/contexts/ListingsContext";
 import { BuyersProvider } from "@/contexts/BuyersContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
 import { ThemeProvider } from "@/components/theme-provider";
+import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
 import Listings from "./pages/Listings";
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
   { path: "/communication-hub", element: <CommunicationHub /> },
   { path: "/marketing", element: <Marketing /> },
   { path: "/auth", element: <Auth /> },
+  { path: "/reset-password", element: <ResetPassword /> },
   { path: "/pricing", element: <Pricing /> },
   { path: "/integrations", element: <Integrations /> },
   { path: "/settings", element: <Settings /> },

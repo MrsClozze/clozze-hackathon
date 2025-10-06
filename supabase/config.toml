@@ -28,3 +28,6 @@ verify_jwt = false
 [functions.store-oauth-tokens]
 
 [functions.get-oauth-tokens]
+
+[functions.send-password-reset-confirmation]
+verify_jwt = false
