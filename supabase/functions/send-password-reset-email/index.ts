@@ -35,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: `${Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovableproject.com') || 'https://clozze.lovable.app'}/auth?type=recovery`
+        redirectTo: 'https://clozze.lovable.app/auth?type=recovery'
       }
     });
 
