@@ -212,29 +212,17 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?type=recovery`,
+      // Send password reset email via custom edge function
+      const { error } = await supabase.functions.invoke('send-password-reset-email', {
+        body: { email }
       });
 
       if (error) throw error;
-
-      // Send password reset email
-      try {
-        await supabase.functions.invoke('send-password-reset-email', {
-          body: { email }
-        });
-        
-        toast({
-          title: "Password reset email sent!",
-          description: "Check your email for the password reset link. It will expire in 1 hour.",
-        });
-      } catch (emailError) {
-        console.error("Error sending password reset email:", emailError);
-        toast({
-          title: "Password reset initiated",
-          description: "Check your email for the password reset link.",
-        });
-      }
+      
+      toast({
+        title: "Password reset email sent!",
+        description: "Check your email from hello@mail.clozze.io for the password reset link. It will expire in 1 hour.",
+      });
 
       setIsForgotPassword(false);
       setEmail("");
