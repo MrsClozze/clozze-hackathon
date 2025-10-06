@@ -12,6 +12,7 @@ const corsHeaders = {
 interface VerificationEmailRequest {
   email: string;
   firstName?: string;
+  redirectOrigin?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -20,7 +21,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, firstName }: VerificationEmailRequest = await req.json();
+    const { email, firstName, redirectOrigin }: VerificationEmailRequest = await req.json();
     
     const displayName = firstName || email.split('@')[0];
     
@@ -31,9 +32,16 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Generate email verification link using magic link type
+    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
+      ? redirectOrigin
+      : 'https://clozze.lovable.app';
+
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
+      options: {
+        redirectTo: `${baseOrigin}/auth`
+      }
     });
 
     if (error) throw error;

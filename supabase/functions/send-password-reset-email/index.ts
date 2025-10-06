@@ -12,6 +12,7 @@ const corsHeaders = {
 interface PasswordResetRequest {
   email: string;
   firstName?: string;
+  redirectOrigin?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -20,7 +21,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, firstName }: PasswordResetRequest = await req.json();
+    const { email, firstName, redirectOrigin }: PasswordResetRequest = await req.json();
     
     const displayName = firstName || email.split('@')[0];
     
@@ -31,11 +32,15 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Generate password reset link
+    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
+      ? redirectOrigin
+      : 'https://clozze.lovable.app';
+
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://clozze.lovable.app/auth?type=recovery'
+        redirectTo: `${baseOrigin}/auth?type=recovery`
       }
     });
 

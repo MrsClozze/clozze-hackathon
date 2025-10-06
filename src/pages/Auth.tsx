@@ -49,22 +49,32 @@ export default function Auth() {
     const errorCode = searchParams.get('error_code');
     const type = searchParams.get('type');
 
-    if (errorDesc) {
+    // Also parse hash params (Supabase often returns tokens in the URL hash)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const hashType = hashParams.get('type');
+    const hashErrorDesc = hashParams.get('error_description');
+    const hashErrorCode = hashParams.get('error_code');
+
+    const finalErrorDesc = hashErrorDesc || errorDesc;
+    const finalErrorCode = hashErrorCode || errorCode;
+    const finalType = hashType || type;
+
+    if (finalErrorDesc) {
       toast({ 
-        title: errorCode === 'otp_expired' ? 'Link expired' : 'Sign in failed', 
-        description: decodeURIComponent(errorDesc), 
+        title: finalErrorCode === 'otp_expired' ? 'Link expired' : 'Sign in failed', 
+        description: decodeURIComponent(finalErrorDesc), 
         variant: 'destructive' 
       });
     }
 
     // Check if this is a password recovery flow
-    if (type === 'recovery') {
+    if (finalType === 'recovery') {
       setIsResettingPassword(true);
       setIsForgotPassword(false);
       setIsSignUp(false);
     }
 
-    if (code && !errorDesc) {
+    if (code && !finalErrorDesc) {
       (async () => {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
@@ -97,14 +107,14 @@ export default function Auth() {
 
       // Send welcome and verification emails
       try {
-        await Promise.all([
-          supabase.functions.invoke('send-welcome-email', {
-            body: { email, firstName, lastName }
-          }),
-          supabase.functions.invoke('send-verification-email', {
-            body: { email, firstName }
-          })
-        ]);
+          await Promise.all([
+            supabase.functions.invoke('send-welcome-email', {
+              body: { email, firstName, lastName }
+            }),
+            supabase.functions.invoke('send-verification-email', {
+              body: { email, firstName, redirectOrigin: window.location.origin }
+            })
+          ]);
         
         toast({
           title: "Account created!",
@@ -223,59 +233,13 @@ export default function Auth() {
         title: "Password reset email sent!",
         description: "Check your email from hello@mail.clozze.io for the password reset link. It will expire in 1 hour.",
       });
+      toast({
+        title: "Password reset email sent!",
+        description: "Check your email from hello@mail.clozze.io for the password reset link. It will expire in 1 hour.",
+      });
 
       setIsForgotPassword(false);
       setEmail("");
-    } catch (error: any) {
-      toast({
-        title: "Password reset failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure both passwords are the same.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Password updated!",
-        description: "Your password has been successfully changed. You can now sign in with your new password.",
-      });
-
-      setIsResettingPassword(false);
-      setNewPassword("");
-      setConfirmPassword("");
-      navigate("/");
     } catch (error: any) {
       toast({
         title: "Password reset failed",
@@ -305,37 +269,34 @@ export default function Auth() {
         </div>
 
         {isResettingPassword ? (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); setIsResettingPassword(false); setIsForgotPassword(true); }} className="space-y-4">
+            <p className="text-sm text-text-muted">Your reset link is valid. Please enter a new password below.</p>
             <div>
               <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="Enter your new password"
-              />
+              <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} />
             </div>
             <div>
               <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="Confirm your new password"
-              />
+              <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} />
             </div>
-            <Button 
-              type="submit" 
-              className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" 
-              disabled={loading}
-            >
-              {loading ? "Updating password..." : "Update Password"}
+            <Button type="button" onClick={async () => {
+              if (newPassword !== confirmPassword) {
+                toast({ title: "Passwords don't match", variant: 'destructive' });
+                return;
+              }
+              setLoading(true);
+              const { error } = await supabase.auth.updateUser({ password: newPassword });
+              setLoading(false);
+              if (error) {
+                toast({ title: 'Password reset failed', description: error.message, variant: 'destructive' });
+                return;
+              }
+              toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' });
+              setIsResettingPassword(false);
+              setNewPassword('');
+              setConfirmPassword('');
+            }} className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" disabled={loading}>
+              {loading ? 'Updating password...' : 'Update Password'}
             </Button>
           </form>
         ) : isForgotPassword ? (
