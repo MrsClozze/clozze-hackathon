@@ -621,6 +621,7 @@ export type Database = {
           email: string
           first_name: string
           id: string
+          is_owner: boolean
           last_name: string
           phone: string
           pre_approved_amount: number
