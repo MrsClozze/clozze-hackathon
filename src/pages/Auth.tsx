@@ -17,8 +17,11 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
@@ -39,16 +42,29 @@ export default function Auth() {
     }
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
-  // Handle OAuth code exchange on redirect (Google/Microsoft)
+  // Handle OAuth code exchange and password recovery on redirect
   useEffect(() => {
     const code = searchParams.get('code');
     const errorDesc = searchParams.get('error_description');
+    const errorCode = searchParams.get('error_code');
+    const type = searchParams.get('type');
 
     if (errorDesc) {
-      toast({ title: 'Sign in failed', description: decodeURIComponent(errorDesc), variant: 'destructive' });
+      toast({ 
+        title: errorCode === 'otp_expired' ? 'Link expired' : 'Sign in failed', 
+        description: decodeURIComponent(errorDesc), 
+        variant: 'destructive' 
+      });
     }
 
-    if (code) {
+    // Check if this is a password recovery flow
+    if (type === 'recovery') {
+      setIsResettingPassword(true);
+      setIsForgotPassword(false);
+      setIsSignUp(false);
+    }
+
+    if (code && !errorDesc) {
       (async () => {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
@@ -197,7 +213,7 @@ export default function Auth() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
       });
 
       if (error) throw error;
@@ -233,6 +249,56 @@ export default function Auth() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully changed. You can now sign in with your new password.",
+      });
+
+      setIsResettingPassword(false);
+      setNewPassword("");
+      setConfirmPassword("");
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Password reset failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8">
@@ -240,15 +306,51 @@ export default function Auth() {
           <img src={clozzeLogo} alt="Clozze" className="h-36 mb-4" />
           <h1 className="text-2xl font-bold text-text-heading">Welcome to Clozze</h1>
           <p className="text-text-muted mt-2 text-center">
-            {isForgotPassword 
-              ? "Reset your password" 
-              : isSignUp 
-                ? "Create your account to get started" 
-                : "Sign in or create an account to continue"}
+            {isResettingPassword
+              ? "Set your new password"
+              : isForgotPassword 
+                ? "Reset your password" 
+                : isSignUp 
+                  ? "Create your account to get started" 
+                  : "Sign in or create an account to continue"}
           </p>
         </div>
 
-        {isForgotPassword ? (
+        {isResettingPassword ? (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Enter your new password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Confirm your new password"
+              />
+            </div>
+            <Button 
+              type="submit" 
+              className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" 
+              disabled={loading}
+            >
+              {loading ? "Updating password..." : "Update Password"}
+            </Button>
+          </form>
+        ) : isForgotPassword ? (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div>
               <Label htmlFor="reset-email">Email</Label>

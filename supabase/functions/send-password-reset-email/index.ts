@@ -34,6 +34,9 @@ const handler = async (req: Request): Promise<Response> => {
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
+      options: {
+        redirectTo: `${Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovableproject.com') || 'https://clozze.lovable.app'}/auth?type=recovery`
+      }
     });
 
     if (error) throw error;
