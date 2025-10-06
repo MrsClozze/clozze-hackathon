@@ -47,14 +47,15 @@ export default function TeamActiveOverview() {
           .order("created_at", { ascending: false })
           .limit(5);
 
-        // Fetch active buyers
-        const { data: buyersData } = await supabase
-          .from("buyers")
-          .select("id, first_name, last_name, email, status")
-          .in("user_id", userIds)
-          .eq("status", "Active")
-          .order("created_at", { ascending: false })
-          .limit(5);
+        // Fetch active buyers using secure function
+        // Note: Financial data is only visible to the buyer's owner
+        const { data: allBuyers } = await supabase
+          .rpc("get_team_buyers");
+
+        // Filter to active buyers and limit
+        const buyersData = (allBuyers || [])
+          .filter(b => b.status === "Active")
+          .slice(0, 5);
 
         setListings(listingsData || []);
         setBuyers(buyersData || []);

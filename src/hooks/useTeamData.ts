@@ -61,11 +61,10 @@ export function useTeamData() {
 
         if (listingsError) throw listingsError;
 
-        // Fetch buyers for all team members
+        // Fetch buyers using secure function
+        // Note: Financial data (commissions, pre-approval amounts) is only visible to the buyer's owner
         const { data: buyers, error: buyersError } = await supabase
-          .from("buyers")
-          .select("*")
-          .in("user_id", userIds);
+          .rpc("get_team_buyers");
 
         if (buyersError) throw buyersError;
 

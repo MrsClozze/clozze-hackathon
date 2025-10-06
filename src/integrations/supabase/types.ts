@@ -74,6 +74,41 @@ export type Database = {
         }
         Relationships: []
       }
+      buyer_access_logs: {
+        Row: {
+          access_type: string
+          accessed_at: string
+          accessed_by: string
+          buyer_id: string
+          id: string
+          ip_address: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_at?: string
+          accessed_by: string
+          buyer_id: string
+          id?: string
+          ip_address?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_at?: string
+          accessed_by?: string
+          buyer_id?: string
+          id?: string
+          ip_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_access_logs_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buyers: {
         Row: {
           agent_commission: number | null
@@ -577,6 +612,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_team_buyers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          agent_commission: number
+          commission_percentage: number
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          pre_approved_amount: number
+          status: string
+          updated_at: string
+          user_id: string
+          wants_needs: string
+        }[]
+      }
       shared_team: {
         Args: { _u1: string; _u2: string }
         Returns: boolean
