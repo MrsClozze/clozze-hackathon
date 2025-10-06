@@ -28,6 +28,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
+      replyTo: "contact@clozze.io",
       to: [email],
       subject: "Welcome to Clozze!",
       html: `
