@@ -20,5 +20,7 @@ verify_jwt = false
 
 [functions.send-verification-email]
 
+[functions.send-password-reset-email]
+
 [functions.cleanup-unverified-users]
 verify_jwt = false

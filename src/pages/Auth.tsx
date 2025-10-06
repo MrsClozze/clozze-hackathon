@@ -16,6 +16,7 @@ export default function Auth() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -190,6 +191,48 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      // Send password reset email
+      try {
+        await supabase.functions.invoke('send-password-reset-email', {
+          body: { email }
+        });
+        
+        toast({
+          title: "Password reset email sent!",
+          description: "Check your email for the password reset link. It will expire in 1 hour.",
+        });
+      } catch (emailError) {
+        console.error("Error sending password reset email:", emailError);
+        toast({
+          title: "Password reset initiated",
+          description: "Check your email for the password reset link.",
+        });
+      }
+
+      setIsForgotPassword(false);
+      setEmail("");
+    } catch (error: any) {
+      toast({
+        title: "Password reset failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8">
@@ -197,11 +240,48 @@ export default function Auth() {
           <img src={clozzeLogo} alt="Clozze" className="h-36 mb-4" />
           <h1 className="text-2xl font-bold text-text-heading">Welcome to Clozze</h1>
           <p className="text-text-muted mt-2 text-center">
-            {isSignUp ? "Create your account to get started" : "Sign in or create an account to continue"}
+            {isForgotPassword 
+              ? "Reset your password" 
+              : isSignUp 
+                ? "Create your account to get started" 
+                : "Sign in or create an account to continue"}
           </p>
         </div>
 
-        {!isSignUp ? (
+        {isForgotPassword ? (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div>
+              <Label htmlFor="reset-email">Email</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-3">
+              <Button 
+                type="submit" 
+                className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110" 
+                disabled={loading}
+              >
+                {loading ? "Sending reset link..." : "Send Reset Link"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full transition-all duration-300 hover:shadow-lg hover:bg-accent hover:border-primary"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setEmail("");
+                }}
+              >
+                Back to Sign In
+              </Button>
+            </div>
+          </form>
+        ) : !isSignUp ? (
           <form onSubmit={handleEmailSignIn} className="space-y-4">
             <div>
               <Label htmlFor="signin-email">Email</Label>
@@ -230,6 +310,17 @@ export default function Auth() {
                 disabled={loading}
               >
                 {loading ? "Signing in..." : "Sign In"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-primary hover:text-primary hover:bg-accent"
+                onClick={() => {
+                  setIsForgotPassword(true);
+                  setPassword("");
+                }}
+              >
+                Forgot Password?
               </Button>
               <Button
                 type="button"
@@ -304,7 +395,9 @@ export default function Auth() {
           </form>
         )}
 
-        <div className="relative my-6">
+        {!isForgotPassword && (
+          <>
+            <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border"></div>
           </div>
@@ -355,6 +448,8 @@ export default function Auth() {
             Continue with Microsoft
           </Button>
         </div>
+          </>
+        )}
       </Card>
     </div>
   );
