@@ -78,10 +78,28 @@ export default function Auth() {
 
       if (error) throw error;
 
-      toast({
-        title: "Check your email",
-        description: "We sent you a confirmation link.",
-      });
+      // Send welcome and verification emails
+      try {
+        await Promise.all([
+          supabase.functions.invoke('send-welcome-email', {
+            body: { email, firstName, lastName }
+          }),
+          supabase.functions.invoke('send-verification-email', {
+            body: { email, firstName }
+          })
+        ]);
+        
+        toast({
+          title: "Account created!",
+          description: "Check your email for welcome message and verification link. You have 3 days to verify.",
+        });
+      } catch (emailError) {
+        console.error("Error sending emails:", emailError);
+        toast({
+          title: "Account created!",
+          description: "Check your email to verify your account.",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Sign up failed",

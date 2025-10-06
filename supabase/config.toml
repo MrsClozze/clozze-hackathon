@@ -15,3 +15,10 @@ verify_jwt = false
 [functions.generate-message-response]
 
 [functions.train-ai-tone]
+
+[functions.send-welcome-email]
+
+[functions.send-verification-email]
+
+[functions.cleanup-unverified-users]
+verify_jwt = false
