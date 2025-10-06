@@ -313,6 +313,14 @@ export default function Auth() {
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                className="w-full transition-all duration-300 hover:shadow-lg hover:bg-accent hover:border-primary"
+                onClick={() => setIsSignUp(true)}
+              >
+                Sign Up
+              </Button>
+              <Button
+                type="button"
                 variant="ghost"
                 className="w-full text-primary hover:text-primary hover:bg-accent"
                 onClick={() => {
@@ -321,14 +329,6 @@ export default function Auth() {
                 }}
               >
                 Forgot Password?
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full transition-all duration-300 hover:shadow-lg hover:bg-accent hover:border-primary"
-                onClick={() => setIsSignUp(true)}
-              >
-                Sign Up
               </Button>
             </div>
           </form>
