@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
+import ResetPassword from "./ResetPassword";
 
 const NotFound = () => {
   const location = useLocation();
@@ -9,6 +10,11 @@ const NotFound = () => {
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
+
+  // If user hits a reset-password URL that didn't match for any reason, render the page here
+  if (location.pathname.startsWith("/reset-password")) {
+    return <ResetPassword />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
