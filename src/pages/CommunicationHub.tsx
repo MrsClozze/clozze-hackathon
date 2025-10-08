@@ -3,13 +3,23 @@ import Layout from "@/components/layout/Layout";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
 import AIToneOnboarding from "@/components/dashboard/AIToneOnboarding";
 import HelpfulLinksWidget from "@/components/dashboard/HelpfulLinksWidget";
+import CommunicationHubOnboardingModal from "@/components/dashboard/CommunicationHubOnboardingModal";
+import CommunicationHubTourSlideshow from "@/components/dashboard/CommunicationHubTourSlideshow";
 import { supabase } from "@/integrations/supabase/client";
 
 const CommunicationHub = () => {
   const [showWidget, setShowWidget] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     checkOnboardingStatus();
+    
+    // Check if user has seen the communication hub tour
+    const hasSeenTour = localStorage.getItem('hasSeenCommHubTour');
+    if (!hasSeenTour) {
+      setShowOnboarding(true);
+    }
   }, []);
 
   const checkOnboardingStatus = async () => {
@@ -31,8 +41,34 @@ const CommunicationHub = () => {
     setShowWidget(true);
   };
 
+  const handleStartTour = () => {
+    setShowOnboarding(false);
+    setShowTour(true);
+  };
+
+  const handleSkipTour = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('hasSeenCommHubTour', 'true');
+  };
+
+  const handleCloseTour = () => {
+    setShowTour(false);
+    localStorage.setItem('hasSeenCommHubTour', 'true');
+  };
+
   return (
     <Layout>
+      <CommunicationHubOnboardingModal
+        isOpen={showOnboarding}
+        onStartTour={handleStartTour}
+        onSkip={handleSkipTour}
+      />
+      
+      <CommunicationHubTourSlideshow
+        isOpen={showTour}
+        onClose={handleCloseTour}
+      />
+
       <div className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-heading mb-2">Communication Hub</h1>
