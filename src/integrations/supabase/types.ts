@@ -326,6 +326,7 @@ export type Database = {
           onboarding_completed: boolean | null
           phone: string | null
           professional_title: string | null
+          team_onboarding_completed: boolean | null
           updated_at: string
         }
         Insert: {
@@ -341,6 +342,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           professional_title?: string | null
+          team_onboarding_completed?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -356,6 +358,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           professional_title?: string | null
+          team_onboarding_completed?: boolean | null
           updated_at?: string
         }
         Relationships: []

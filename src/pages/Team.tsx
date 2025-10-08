@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import ExampleBanner from "@/components/team/ExampleBanner";
@@ -7,6 +7,7 @@ import UpcomingClosings from "@/components/team/UpcomingClosings";
 import TeamDealPipeline from "@/components/team/TeamDealPipeline";
 import AgentPerformance from "@/components/team/AgentPerformance";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
+import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
 import { Users, Building, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExampleData";
@@ -14,11 +15,57 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Team() {
-  const { subscription } = useAuth();
+  const { subscription, user } = useAuth();
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function checkOnboarding() {
+      if (!user) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('team_onboarding_completed')
+          .eq('id', user.id)
+          .single();
+
+        if (profile && !profile.team_onboarding_completed) {
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        console.error('Error checking team onboarding:', error);
+      }
+    }
+
+    checkOnboarding();
+  }, [user]);
+
+  const handleOnboardingComplete = async () => {
+    if (!user) return;
+
+    try {
+      await supabase
+        .from('profiles')
+        .update({ team_onboarding_completed: true })
+        .eq('id', user.id);
+
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error('Error updating team onboarding:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save onboarding status",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Check if user has access to Team KPIs (Pro or Team plan with active status)
   const hasTeamAccess = subscription?.plan_type === 'pro' || subscription?.plan_type === 'team';
@@ -34,6 +81,11 @@ export default function Team() {
 
   return (
     <Layout>
+      <TeamOnboardingModal 
+        isOpen={showOnboarding}
+        onGotIt={handleOnboardingComplete}
+      />
+      
       <div className="p-8">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
