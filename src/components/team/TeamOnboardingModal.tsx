@@ -107,7 +107,7 @@ export default function TeamOnboardingModal({ isOpen, onGotIt, onSeeTour }: Team
               variant="outline"
               size="lg"
               onClick={onSeeTour}
-              className="min-w-[140px]"
+              className="min-w-[140px] transition-all duration-300 hover:scale-105 hover:border-primary hover:bg-primary/10"
             >
               See Tour
             </Button>
@@ -115,7 +115,7 @@ export default function TeamOnboardingModal({ isOpen, onGotIt, onSeeTour }: Team
           <Button
             size="lg"
             onClick={onGotIt}
-            className="min-w-[140px]"
+            className="min-w-[140px] transition-all duration-300 hover:scale-105"
           >
             Got It
           </Button>
