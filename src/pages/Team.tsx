@@ -8,6 +8,7 @@ import TeamDealPipeline from "@/components/team/TeamDealPipeline";
 import AgentPerformance from "@/components/team/AgentPerformance";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
 import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
+import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
 import { Users, Building, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExampleData";
@@ -23,6 +24,7 @@ export default function Team() {
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -67,6 +69,27 @@ export default function Team() {
     }
   };
 
+  const handleSeeTour = () => {
+    setShowOnboarding(false);
+    setShowTour(true);
+  };
+
+  const handleCloseTour = async () => {
+    setShowTour(false);
+    
+    // Mark onboarding as completed when tour is closed
+    if (user) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ team_onboarding_completed: true })
+          .eq('id', user.id);
+      } catch (error) {
+        console.error('Error updating team onboarding:', error);
+      }
+    }
+  };
+
   // Check if user has access to Team KPIs (Pro or Team plan with active status)
   const hasTeamAccess = subscription?.plan_type === 'pro' || subscription?.plan_type === 'team';
   const isTrialOrFree = !hasTeamAccess || subscription?.status === 'trial';
@@ -84,6 +107,12 @@ export default function Team() {
       <TeamOnboardingModal 
         isOpen={showOnboarding}
         onGotIt={handleOnboardingComplete}
+        onSeeTour={handleSeeTour}
+      />
+      
+      <TeamTourSlideshow 
+        isOpen={showTour}
+        onClose={handleCloseTour}
       />
       
       <div className="p-8">
