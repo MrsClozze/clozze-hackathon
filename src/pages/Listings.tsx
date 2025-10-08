@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, ChevronDown } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { useListings } from "@/contexts/ListingsContext";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import AddListingModal from "@/components/dashboard/AddListingModal";
 import ListingDetailsModal from "@/components/dashboard/ListingDetailsModal";
+import ListingsOnboardingModal from "@/components/dashboard/ListingsOnboardingModal";
+import ListingsTourSlideshow from "@/components/dashboard/ListingsTourSlideshow";
 
 export default function Listings() {
   const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
@@ -14,6 +16,32 @@ export default function Listings() {
   const [isActiveOpen, setIsActiveOpen] = useState(true);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isClosedOpen, setIsClosedOpen] = useState(false);
+  
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    const hasSeenListingsTour = localStorage.getItem('hasSeenListingsTour');
+    if (!hasSeenListingsTour) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  const handleStartTour = () => {
+    setShowOnboarding(false);
+    setShowTour(true);
+  };
+
+  const handleSkipTour = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('hasSeenListingsTour', 'true');
+  };
+
+  const handleCloseTour = () => {
+    setShowTour(false);
+    localStorage.setItem('hasSeenListingsTour', 'true');
+  };
 
   // Organize listings by status and sort by newest first (by listingStartDate)
   const sortByNewest = (a: typeof listings[0], b: typeof listings[0]) => 
@@ -217,6 +245,17 @@ export default function Listings() {
           onOpenChange={closeListingModal}
           listing={selectedListing}
           onListingUpdate={updateListing}
+        />
+        
+        <ListingsOnboardingModal
+          isOpen={showOnboarding}
+          onStartTour={handleStartTour}
+          onSkip={handleSkipTour}
+        />
+        
+        <ListingsTourSlideshow
+          isOpen={showTour}
+          onClose={handleCloseTour}
         />
       </div>
     </Layout>
