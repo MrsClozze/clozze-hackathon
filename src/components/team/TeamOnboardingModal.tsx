@@ -102,23 +102,23 @@ export default function TeamOnboardingModal({ isOpen, onGotIt, onSeeTour }: Team
         </div>
 
         <DialogFooter className="flex-row gap-3 justify-center">
-          {onSeeTour && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={onSeeTour}
-              className="min-w-[140px] transition-all duration-300 hover:scale-105 hover:border-primary hover:bg-primary/10"
-            >
-              See Tour
-            </Button>
-          )}
           <Button
+            variant="outline"
             size="lg"
             onClick={onGotIt}
             className="min-w-[140px] transition-all duration-300 hover:scale-105"
           >
             Got It
           </Button>
+          {onSeeTour && (
+            <Button
+              size="lg"
+              onClick={onSeeTour}
+              className="min-w-[140px] transition-all duration-300 hover:scale-105"
+            >
+              See Tour
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

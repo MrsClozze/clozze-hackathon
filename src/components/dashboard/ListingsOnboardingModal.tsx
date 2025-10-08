@@ -32,17 +32,17 @@ export default function ListingsOnboardingModal({ isOpen, onStartTour, onSkip }:
           <Button
             variant="outline"
             size="lg"
-            onClick={onStartTour}
-            className="min-w-[140px] transition-all duration-300 hover:scale-105 hover:border-primary hover:bg-primary/10"
-          >
-            See Tour
-          </Button>
-          <Button
-            size="lg"
             onClick={onSkip}
             className="min-w-[140px] transition-all duration-300 hover:scale-105"
           >
             Got It
+          </Button>
+          <Button
+            size="lg"
+            onClick={onStartTour}
+            className="min-w-[140px] transition-all duration-300 hover:scale-105"
+          >
+            See Tour
           </Button>
         </div>
       </DialogContent>
