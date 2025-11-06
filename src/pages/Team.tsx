@@ -90,8 +90,8 @@ export default function Team() {
     }
   };
 
-  // Check if user has access to Team KPIs (Pro or Team plan with active status)
-  const hasTeamAccess = subscription?.plan_type === 'pro' || subscription?.plan_type === 'team';
+  // Check if user has access to Team KPIs (Pro, Team, or Enterprise plan with active status)
+  const hasTeamAccess = subscription?.plan_type === 'pro' || subscription?.plan_type === 'team' || subscription?.plan_type === 'enterprise';
   const isTrialOrFree = !hasTeamAccess || subscription?.status === 'trial';
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
