@@ -616,7 +616,7 @@ export type Database = {
     }
     Functions: {
       get_team_buyers: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           agent_commission: number
           commission_percentage: number
@@ -634,10 +634,7 @@ export type Database = {
           wants_needs: string
         }[]
       }
-      shared_team: {
-        Args: { _u1: string; _u2: string }
-        Returns: boolean
-      }
+      shared_team: { Args: { _u1: string; _u2: string }; Returns: boolean }
       store_integration_tokens: {
         Args: {
           _access_token: string
