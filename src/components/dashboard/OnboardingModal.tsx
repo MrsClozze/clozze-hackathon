@@ -16,14 +16,14 @@ export default function OnboardingModal({ isOpen, onStartTour, onSkip }: Onboard
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <DialogHeader className="space-y-4 text-center">
-          <div className="mx-auto w-24 h-24 flex items-center justify-center">
-            <img src={clozzeLogo} alt="Clozze Logo" className="h-24 w-24 object-contain" />
+        <DialogHeader className="space-y-6 text-center flex flex-col items-center">
+          <div className="mx-auto w-32 h-32 flex items-center justify-center">
+            <img src={clozzeLogo} alt="Clozze Logo" className="h-32 w-32 object-contain" />
           </div>
-          <DialogTitle className="text-3xl font-bold">
+          <DialogTitle className="text-3xl font-bold text-center">
             Welcome to Clozze! Let's begin with a tour
           </DialogTitle>
-          <DialogDescription className="text-lg text-muted-foreground">
+          <DialogDescription className="text-lg text-muted-foreground text-center max-w-md mx-auto">
             Discover the key features that will help you manage your real estate business efficiently.
           </DialogDescription>
         </DialogHeader>
