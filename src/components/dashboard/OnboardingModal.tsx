@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import clozzeLogo from "@/assets/clozze-logo.png";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -17,8 +17,8 @@ export default function OnboardingModal({ isOpen, onStartTour, onSkip }: Onboard
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-8 w-8 text-primary" />
+          <div className="mx-auto w-16 h-16 flex items-center justify-center">
+            <img src={clozzeLogo} alt="Clozze Logo" className="h-16 w-16 object-contain" />
           </div>
           <DialogTitle className="text-3xl font-bold">
             Welcome to Clozze! Let's begin with a tour
