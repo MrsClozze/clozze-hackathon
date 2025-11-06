@@ -17,8 +17,8 @@ export default function OnboardingModal({ isOpen, onStartTour, onSkip }: Onboard
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 flex items-center justify-center">
-            <img src={clozzeLogo} alt="Clozze Logo" className="h-16 w-16 object-contain" />
+          <div className="mx-auto w-24 h-24 flex items-center justify-center">
+            <img src={clozzeLogo} alt="Clozze Logo" className="h-24 w-24 object-contain" />
           </div>
           <DialogTitle className="text-3xl font-bold">
             Welcome to Clozze! Let's begin with a tour
