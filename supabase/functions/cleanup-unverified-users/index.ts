@@ -12,12 +12,79 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    console.log("Starting cleanup of unverified users...");
-    
+    // Try to read body for targeted deletion by email; fallback to cleanup if none provided
+    let requestedEmail: string | undefined;
+    try {
+      const body = await req.json();
+      if (body && typeof body.email === "string") {
+        requestedEmail = body.email.trim();
+      }
+    } catch (_) {
+      // No JSON body provided, proceed with cleanup
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    if (requestedEmail) {
+      console.log(`Requested deletion for email: ${requestedEmail}`);
+
+      // List users and find matching email
+      const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      if (listError) throw listError;
+
+      const target = usersData.users.find((u) => (u.email ?? "").toLowerCase() === requestedEmail!.toLowerCase());
+
+      if (!target) {
+        return new Response(
+          JSON.stringify({ success: true, message: "User not found (already deleted)", email: requestedEmail }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const userId = target.id;
+
+      // Best-effort cleanup of public tables referencing the user
+      const cleanupTables = [
+        { table: "profiles", key: "id" },
+        { table: "subscriptions", key: "user_id" },
+        { table: "service_integrations", key: "user_id" },
+        { table: "contacts", key: "user_id" },
+        { table: "buyers", key: "user_id" },
+        { table: "listings", key: "user_id" },
+        { table: "tasks", key: "user_id" },
+        { table: "team_members", key: "user_id" },
+        { table: "agent_communication_preferences", key: "user_id" },
+      ] as const;
+
+      const cleanupResults: Record<string, any> = {};
+      for (const { table, key } of cleanupTables) {
+        const { error } = await supabaseAdmin.from(table).delete().eq(key, userId);
+        cleanupResults[table] = error ? { ok: false, error: error.message } : { ok: true };
+      }
+
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (deleteError) {
+        console.error("Failed to delete auth user:", deleteError);
+        return new Response(
+          JSON.stringify({ error: deleteError.message, email: requestedEmail, cleanupResults }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: "User and related data deleted", email: requestedEmail, userId, cleanupResults }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Fallback: cleanup unverified users older than 3 days
+    console.log("Starting cleanup of unverified users...");
 
     // Calculate the cutoff date (3 days ago)
     const threeDaysAgo = new Date();
@@ -25,25 +92,22 @@ const handler = async (req: Request): Promise<Response> => {
     const cutoffTimestamp = Math.floor(threeDaysAgo.getTime() / 1000);
 
     // List all users
-    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users }, error: listError2 } = await supabaseAdmin.auth.admin.listUsers();
     
-    if (listError) throw listError;
+    if (listError2) throw listError2;
 
     const deletedUsers: string[] = [];
     const errors: any[] = [];
 
     // Filter and delete unverified users older than 3 days
     for (const user of users) {
-      // Check if user is unverified and older than 3 days
       const createdAt = new Date(user.created_at).getTime() / 1000;
       const isUnverified = !user.email_confirmed_at;
       const isOld = createdAt < cutoffTimestamp;
 
       if (isUnverified && isOld) {
         console.log(`Deleting unverified user: ${user.email} (created: ${user.created_at})`);
-        
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-        
         if (deleteError) {
           console.error(`Failed to delete user ${user.email}:`, deleteError);
           errors.push({ email: user.email || 'unknown', error: deleteError.message });
