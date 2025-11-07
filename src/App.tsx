@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { IntegrationsProvider } from "@/contexts/IntegrationsContext";
 import { TasksProvider } from "@/contexts/TasksContext";
 import { ListingsProvider } from "@/contexts/ListingsContext";
 import { BuyersProvider } from "@/contexts/BuyersContext";
@@ -51,24 +52,26 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <AuthProvider>
-        <UserProvider>
-          <ListingsProvider>
-            <BuyersProvider>
-              <ContactsProvider>
-                <TasksProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <Sonner />
-<RouterProvider
-  router={router}
-  future={{ v7_startTransition: true }}
-/>
-                  </TooltipProvider>
-                </TasksProvider>
-              </ContactsProvider>
-            </BuyersProvider>
-          </ListingsProvider>
-        </UserProvider>
+        <IntegrationsProvider>
+          <UserProvider>
+            <ListingsProvider>
+              <BuyersProvider>
+                <ContactsProvider>
+                  <TasksProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <RouterProvider
+                        router={router}
+                        future={{ v7_startTransition: true }}
+                      />
+                    </TooltipProvider>
+                  </TasksProvider>
+                </ContactsProvider>
+              </BuyersProvider>
+            </ListingsProvider>
+          </UserProvider>
+        </IntegrationsProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
