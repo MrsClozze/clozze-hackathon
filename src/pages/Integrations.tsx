@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIntegrations } from "@/contexts/IntegrationsContext";
+import { WhatsAppConnectionModal } from "@/components/integrations/WhatsAppConnectionModal";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
@@ -86,6 +88,8 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { isWhatsAppConnected, whatsAppNumber, disconnectWhatsApp } = useIntegrations();
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   const handleConnect = async (integrationId: string) => {
     if (!user) {
@@ -102,10 +106,25 @@ export default function Integrations() {
       return;
     }
 
+    if (integrationId === "whatsapp") {
+      setIsWhatsAppModalOpen(true);
+      return;
+    }
+
     toast({
       title: "Coming soon",
       description: `${integrationId} integration will be available soon!`,
     });
+  };
+
+  const handleDisconnect = (integrationId: string) => {
+    if (integrationId === "whatsapp") {
+      disconnectWhatsApp();
+      toast({
+        title: "WhatsApp disconnected",
+        description: "Your WhatsApp account has been unlinked",
+      });
+    }
   };
 
   return (
@@ -119,33 +138,56 @@ export default function Integrations() {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {integrations.map((integration) => (
-            <Card key={integration.id} className="p-6 flex flex-col">
-              <div className="flex items-center gap-4 mb-4">
-                <img
-                  src={integration.icon as string}
-                  alt={integration.name}
-                  className="w-12 h-12 object-contain"
-                />
-                <div>
-                  <h3 className="text-lg font-semibold text-text-heading">
-                    {integration.name}
-                  </h3>
-                  <p className="text-sm text-text-muted">{integration.description}</p>
+          {integrations.map((integration) => {
+            const isWhatsApp = integration.id === "whatsapp";
+            const isConnected = isWhatsApp && isWhatsAppConnected;
+
+            return (
+              <Card key={integration.id} className="p-6 flex flex-col">
+                <div className="flex items-center gap-4 mb-4">
+                  <img
+                    src={integration.icon as string}
+                    alt={integration.name}
+                    className="w-12 h-12 object-contain"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-text-heading">
+                      {integration.name}
+                    </h3>
+                    <p className="text-sm text-text-muted">{integration.description}</p>
+                    {isConnected && whatsAppNumber && (
+                      <p className="text-xs text-primary mt-1">{whatsAppNumber}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <Button
-                onClick={() => handleConnect(integration.id)}
-                disabled={integration.id === "docusign" && isAuthenticating}
-                className="mt-auto"
-              >
-                {integration.id === "docusign" && isAuthenticating
-                  ? "Connecting..."
-                  : "Connect"}
-              </Button>
-            </Card>
-          ))}
+                {isConnected ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDisconnect(integration.id)}
+                    className="mt-auto"
+                  >
+                    Disconnect
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleConnect(integration.id)}
+                    disabled={integration.id === "docusign" && isAuthenticating}
+                    className="mt-auto"
+                  >
+                    {integration.id === "docusign" && isAuthenticating
+                      ? "Connecting..."
+                      : "Connect"}
+                  </Button>
+                )}
+              </Card>
+            );
+          })}
         </div>
+        
+        <WhatsAppConnectionModal
+          open={isWhatsAppModalOpen}
+          onOpenChange={setIsWhatsAppModalOpen}
+        />
       </div>
     </Layout>
   );
