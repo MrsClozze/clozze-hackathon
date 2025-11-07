@@ -177,12 +177,20 @@ export function WhatsAppConnectionModal({
                 <p className="text-xs text-muted-foreground">
                   Code expires in 10 minutes
                 </p>
-                {devCode && (
-                  <p className="text-xs text-primary font-mono">
-                    DEV CODE: {devCode}
-                  </p>
-                )}
               </div>
+              {devCode && (
+                <div className="rounded-lg border-2 border-primary bg-primary/10 p-4">
+                  <p className="text-sm font-semibold text-foreground mb-2">
+                    🔐 Development Mode - Use This Code:
+                  </p>
+                  <p className="text-2xl font-mono font-bold text-primary text-center tracking-widest">
+                    {devCode}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    In production, this would be sent via WhatsApp
+                  </p>
+                </div>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
