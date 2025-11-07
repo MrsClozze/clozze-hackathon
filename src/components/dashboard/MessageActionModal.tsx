@@ -205,7 +205,7 @@ export default function MessageActionModal({
           )}
 
           {/* Response Editor */}
-          {(mode === "ai" || mode === "manual") && !isGenerating && (
+          {mode !== "select" && mode !== "locked" && !isGenerating && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-text-heading">
