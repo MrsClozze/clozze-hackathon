@@ -31,3 +31,7 @@ verify_jwt = false
 
 [functions.send-password-reset-confirmation]
 verify_jwt = false
+
+[functions.send-whatsapp-verification]
+
+[functions.verify-whatsapp-code]
