@@ -38,7 +38,9 @@ serve(async (req) => {
 
     // Generate 6-digit verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    
+    console.log(`Generated code ${verificationCode} for ${phoneNumber}, expires at ${expiresAt.toISOString()}`);
 
     // Store verification code in database
     const { error: dbError } = await supabaseClient

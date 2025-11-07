@@ -113,11 +113,22 @@ export function WhatsAppConnectionModal({
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
+      const errorMessage = error.message || "Invalid code. Please try again";
+      const isExpired = errorMessage.toLowerCase().includes('expired');
+      
       toast({
         title: "Verification failed",
-        description: error.message || "Invalid code. Please try again",
+        description: errorMessage,
         variant: "destructive",
       });
+      
+      // If code expired, go back to phone entry to request new code
+      if (isExpired) {
+        setTimeout(() => {
+          setStep("phone");
+          setVerificationCode("");
+        }, 2000);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -175,7 +186,7 @@ export function WhatsAppConnectionModal({
                   onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Code expires in 10 minutes
+                  Code expires in 15 minutes
                 </p>
               </div>
               {devCode && (

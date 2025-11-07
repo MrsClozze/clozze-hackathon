@@ -49,8 +49,11 @@ serve(async (req) => {
 
     // Check if code is expired
     const expiresAt = new Date(integration.verification_code_expires_at);
-    if (expiresAt < new Date()) {
-      throw new Error('Verification code has expired');
+    const now = new Date();
+    console.log(`Checking expiration: code expires at ${expiresAt.toISOString()}, current time is ${now.toISOString()}`);
+    
+    if (expiresAt < now) {
+      throw new Error('Verification code has expired. Please request a new code.');
     }
 
     // Verify the code
