@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./AuthContext";
 
 interface IntegrationsContextType {
   isPhoneConnected: boolean;
@@ -7,13 +9,14 @@ interface IntegrationsContextType {
   whatsAppNumber: string | null;
   connectPhone: () => void;
   connectEmail: () => void;
-  connectWhatsApp: (phoneNumber: string) => void;
-  disconnectWhatsApp: () => void;
+  refreshWhatsAppStatus: () => Promise<void>;
+  disconnectWhatsApp: () => Promise<void>;
 }
 
 const IntegrationsContext = createContext<IntegrationsContextType | undefined>(undefined);
 
 export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
   const [isPhoneConnected, setIsPhoneConnected] = useState(false);
   const [isEmailConnected, setIsEmailConnected] = useState(false);
   const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
@@ -21,14 +24,60 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
 
   const connectPhone = () => setIsPhoneConnected(true);
   const connectEmail = () => setIsEmailConnected(true);
-  const connectWhatsApp = (phoneNumber: string) => {
-    setIsWhatsAppConnected(true);
-    setWhatsAppNumber(phoneNumber);
+
+  const refreshWhatsAppStatus = async () => {
+    if (!user) {
+      setIsWhatsAppConnected(false);
+      setWhatsAppNumber(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('whatsapp_integrations')
+        .select('phone_number, verified')
+        .eq('user_id', user.id)
+        .eq('verified', true)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setIsWhatsAppConnected(true);
+        setWhatsAppNumber(data.phone_number);
+      } else {
+        setIsWhatsAppConnected(false);
+        setWhatsAppNumber(null);
+      }
+    } catch (error) {
+      console.error('Error fetching WhatsApp status:', error);
+      setIsWhatsAppConnected(false);
+      setWhatsAppNumber(null);
+    }
   };
-  const disconnectWhatsApp = () => {
-    setIsWhatsAppConnected(false);
-    setWhatsAppNumber(null);
+
+  const disconnectWhatsApp = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('whatsapp_integrations')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setIsWhatsAppConnected(false);
+      setWhatsAppNumber(null);
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+      throw error;
+    }
   };
+
+  useEffect(() => {
+    refreshWhatsAppStatus();
+  }, [user]);
 
   return (
     <IntegrationsContext.Provider
@@ -39,7 +88,7 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
         whatsAppNumber,
         connectPhone, 
         connectEmail,
-        connectWhatsApp,
+        refreshWhatsAppStatus,
         disconnectWhatsApp
       }}
     >

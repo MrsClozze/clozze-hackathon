@@ -610,6 +610,39 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_integrations: {
+        Row: {
+          created_at: string
+          id: string
+          phone_number: string
+          updated_at: string
+          user_id: string
+          verification_code: string | null
+          verification_code_expires_at: string | null
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phone_number: string
+          updated_at?: string
+          user_id: string
+          verification_code?: string | null
+          verification_code_expires_at?: string | null
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phone_number?: string
+          updated_at?: string
+          user_id?: string
+          verification_code?: string | null
+          verification_code_expires_at?: string | null
+          verified?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

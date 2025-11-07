@@ -88,7 +88,7 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
-  const { isWhatsAppConnected, whatsAppNumber, disconnectWhatsApp } = useIntegrations();
+  const { isWhatsAppConnected, whatsAppNumber, disconnectWhatsApp, refreshWhatsAppStatus } = useIntegrations();
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   const handleConnect = async (integrationId: string) => {
@@ -117,14 +117,27 @@ export default function Integrations() {
     });
   };
 
-  const handleDisconnect = (integrationId: string) => {
+  const handleDisconnect = async (integrationId: string) => {
     if (integrationId === "whatsapp") {
-      disconnectWhatsApp();
-      toast({
-        title: "WhatsApp disconnected",
-        description: "Your WhatsApp account has been unlinked",
-      });
+      try {
+        await disconnectWhatsApp();
+        toast({
+          title: "WhatsApp disconnected",
+          description: "Your WhatsApp account has been unlinked",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to disconnect WhatsApp",
+          variant: "destructive",
+        });
+      }
     }
+  };
+
+  const handleWhatsAppSuccess = async () => {
+    // Refresh the integration status from the database
+    await refreshWhatsAppStatus();
   };
 
   return (
@@ -187,6 +200,7 @@ export default function Integrations() {
         <WhatsAppConnectionModal
           open={isWhatsAppModalOpen}
           onOpenChange={setIsWhatsAppModalOpen}
+          onSuccess={handleWhatsAppSuccess}
         />
       </div>
     </Layout>
