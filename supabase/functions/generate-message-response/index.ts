@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,13 +16,59 @@ serve(async (req) => {
     const { messageType, sender, originalMessage, actionItem } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
+    // Get user from auth header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      throw new Error('Failed to get user');
+    }
+
+    // Fetch user's trained communication style
+    const { data: preferences } = await supabase
+      .from('agent_communication_preferences')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    let styleContext = '';
+    if (preferences) {
+      // Build context from the user's actual scenario responses
+      styleContext = `\n\nIMPORTANT: Draft this response in the agent's personal communication style based on these examples of how they write:
+
+General client communication: ${preferences.general_client_scenario || 'Not provided'}
+Good news to buyers: ${preferences.buyer_good_news_scenario || 'Not provided'}
+Bad news to buyers: ${preferences.buyer_bad_news_scenario || 'Not provided'}
+New listing announcements: ${preferences.listing_new_listing_scenario || 'Not provided'}
+Price reduction recommendations: ${preferences.listing_price_reduction_scenario || 'Not provided'}
+Lender communications: ${preferences.preferred_lender_scenario || 'Not provided'}
+Title company communications: ${preferences.title_company_scenario || 'Not provided'}
+Team communications: ${preferences.coworker_team_scenario || 'Not provided'}
+
+Match their tone, word choices, formality level, and communication patterns exactly.`;
+      
+      // Add booking link if available and relevant
+      if (preferences.has_booking_link && preferences.booking_link_url) {
+        styleContext += `\n\nIf appropriate for this response, include their booking link: ${preferences.booking_link_url}`;
+      }
+    }
+
     const systemPrompt = messageType === 'email' 
-      ? 'You are a professional real estate agent assistant helping to draft email responses. Be professional, clear, and actionable.'
-      : 'You are a professional real estate agent assistant helping to draft text message responses. Keep responses concise, friendly, and professional.';
+      ? `You are a professional real estate agent assistant helping to draft email responses. Be professional, clear, and actionable.${styleContext}`
+      : `You are a professional real estate agent assistant helping to draft text message responses. Keep responses concise, friendly, and professional.${styleContext}`;
 
     const userPrompt = `Original message from ${sender}: "${originalMessage}"
 
