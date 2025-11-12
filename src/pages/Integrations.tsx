@@ -13,7 +13,6 @@ import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
 import slackLogo from "@/assets/slack-logo-new.png";
-import imessageLogo from "@/assets/imessage-logo.png";
 import whatsappLogo from "@/assets/whatsapp-logo.webp";
 import outlookEmailLogo from "@/assets/outlook-email-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
@@ -59,13 +58,6 @@ const integrations = [
     name: "Outlook Email",
     description: "Connect your Microsoft email account",
     icon: outlookEmailLogo,
-    isImage: true,
-  },
-  {
-    id: "imessage",
-    name: "iMessage",
-    description: "Connect your Apple messaging",
-    icon: imessageLogo,
     isImage: true,
   },
   {
