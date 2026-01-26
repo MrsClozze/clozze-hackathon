@@ -1,11 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
-
-import RecentActivityFeed from "@/components/team/RecentActivityFeed";
-import UpcomingClosings from "@/components/team/UpcomingClosings";
-import TeamDealPipeline from "@/components/team/TeamDealPipeline";
-import AgentPerformance from "@/components/team/AgentPerformance";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
 import LockedTeamMembers from "@/components/team/LockedTeamMembers";
 import UnlockedTeamMembers from "@/components/team/UnlockedTeamMembers";
@@ -13,7 +8,6 @@ import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
 import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
 import { Users, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
-import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExampleData";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
@@ -30,14 +24,40 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export default function Team() {
-  const { subscription, user } = useAuth();
+  const { subscription, user, refreshSubscription } = useAuth();
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
-  const { hasTeamMemberAccess, totalSlots, loading: slotsLoading } = useTeamMemberSlots();
+  const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
+
+  // Check if user has Pro/Team/Enterprise plan (can add team members)
+  const hasProPlan = subscription?.plan_type === 'pro' || 
+    subscription?.plan_type === 'team' || 
+    (subscription?.plan_type as string) === 'enterprise';
+
+  // Refresh subscription status when returning from checkout
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('session_id') || urlParams.get('checkout_success')) {
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+      
+      // Refresh subscription and slots after a short delay to allow webhook processing
+      const refreshData = async () => {
+        await refreshSubscription();
+        await refetchSlots();
+      };
+      
+      // Initial refresh
+      refreshData();
+      
+      // Retry after 2 seconds in case webhook hasn't processed yet
+      setTimeout(refreshData, 2000);
+    }
+  }, [refreshSubscription, refetchSlots]);
 
   useEffect(() => {
     async function checkOnboarding() {
@@ -205,14 +225,14 @@ export default function Team() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
               <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
-              {!hasTeamMemberAccess && (
+              {!hasProPlan && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
                 </span>
               )}
             </div>
 
-            {hasTeamMemberAccess ? (
+            {hasProPlan ? (
               <div className="space-y-6 animate-slide-up">
                 <UnlockedTeamMembers />
               </div>

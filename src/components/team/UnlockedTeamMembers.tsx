@@ -163,7 +163,8 @@ export default function UnlockedTeamMembers() {
   };
 
   const handleAddMember = () => {
-    if (slots.availableSlots <= 0) {
+    // If no slots purchased yet, or all slots are used, show upgrade modal
+    if (slots.totalSlots === 0 || slots.availableSlots <= 0) {
       setShowUpgradeModal(true);
       return;
     }
@@ -335,6 +336,42 @@ export default function UnlockedTeamMembers() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </BentoCard>
+    );
+  }
+
+  // Show welcome state if no slots purchased yet
+  if (slots.totalSlots === 0) {
+    return (
+      <>
+        <BentoCard 
+          title="Team Members" 
+          subtitle="Add teammates to collaborate"
+        >
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+              <Users className="h-10 w-10 text-primary" />
+            </div>
+            <h3 className="text-xl font-semibold text-text-heading mb-3">
+              Ready to Add Team Members
+            </h3>
+            <p className="text-text-muted mb-6 max-w-md">
+              As a Pro user, you can add team members for $9.99 per user per month. Perfect for bringing on an assistant or colleague to help manage your deals and tasks.
+            </p>
+            <Button 
+              onClick={() => setShowUpgradeModal(true)}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add a Team Member
+            </Button>
+          </div>
+        </BentoCard>
+
+        <TeamMemberUpgradeModal 
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      </>
     );
   }
 
