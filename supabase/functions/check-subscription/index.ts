@@ -67,38 +67,79 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
+    // NOTE: promo-code / free-trial checkouts often create subscriptions in `trialing` state,
+    // so we must not only look for `active`.
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
-    
-    const hasActiveSub = subscriptions.data.length > 0;
-    let productId = null;
-    let subscriptionEnd = null;
-    let planType = 'free';
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product as string;
-      
+    const statusPriority: Record<string, number> = {
+      active: 0,
+      trialing: 1,
+      past_due: 2,
+      unpaid: 3,
+    };
+
+    const subs = subscriptions.data as Stripe.Subscription[];
+    const qualifyingSubs = subs
+      .filter((s: Stripe.Subscription) => Object.prototype.hasOwnProperty.call(statusPriority, s.status))
+      .sort((a: Stripe.Subscription, b: Stripe.Subscription) => {
+        const pa = statusPriority[a.status] ?? 999;
+        const pb = statusPriority[b.status] ?? 999;
+        if (pa !== pb) return pa - pb;
+
+        // Prefer the subscription that ends later if statuses tie
+        const ea = typeof a.current_period_end === "number" ? a.current_period_end : 0;
+        const eb = typeof b.current_period_end === "number" ? b.current_period_end : 0;
+        return eb - ea;
+      });
+
+    const subscription = qualifyingSubs[0] ?? null;
+    const hasQualifyingSub = Boolean(subscription);
+    let productId: string | null = null;
+    let subscriptionEnd: string | null = null;
+    let planType: 'free' | 'pro' | 'team' = 'free';
+    let appStatus: 'trial' | 'active' | 'canceled' | 'past_due' = 'trial';
+
+    if (subscription) {
+      // Guard against null/undefined current_period_end (prevents "Invalid time value")
+      if (typeof subscription.current_period_end === "number") {
+        const date = new Date(subscription.current_period_end * 1000);
+        subscriptionEnd = Number.isFinite(date.getTime()) ? date.toISOString() : null;
+      }
+
+      const firstItem = subscription.items?.data?.[0];
+      productId = (firstItem?.price?.product as string) || null;
+
       // Map product ID to plan type
       if (productId === 'prod_T9RR0I88OJF8l0') {
         planType = 'pro';
       } else if (productId === 'prod_T9RRLKSinSr7xt') {
         planType = 'team';
       }
-      
-      logStep("Active subscription found", { subscriptionId: subscription.id, planType, endDate: subscriptionEnd });
+
+      // Normalize Stripe subscription status -> app status
+      if (subscription.status === 'active') appStatus = 'active';
+      else if (subscription.status === 'trialing') appStatus = 'trial';
+      else if (subscription.status === 'past_due') appStatus = 'past_due';
+      else appStatus = 'canceled';
+
+      logStep("Qualifying subscription found", {
+        subscriptionId: subscription.id,
+        stripeStatus: subscription.status,
+        planType,
+        endDate: subscriptionEnd,
+      });
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
+      subscribed: hasQualifyingSub,
       product_id: productId,
       plan_type: planType,
-      status: hasActiveSub ? 'active' : 'trial',
-      subscription_end: subscriptionEnd
+      status: appStatus,
+      subscription_end: subscriptionEnd,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
