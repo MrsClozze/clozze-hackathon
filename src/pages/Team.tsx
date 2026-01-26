@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
-import ExampleBanner from "@/components/team/ExampleBanner";
+
 import RecentActivityFeed from "@/components/team/RecentActivityFeed";
 import UpcomingClosings from "@/components/team/UpcomingClosings";
 import TeamDealPipeline from "@/components/team/TeamDealPipeline";
@@ -137,8 +137,6 @@ export default function Team() {
           </p>
         </div>
 
-        {/* Example Banner */}
-        <ExampleBanner />
 
         <div className="space-y-8">
           {/* Personal Performance Section */}
