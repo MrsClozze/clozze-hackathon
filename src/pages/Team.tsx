@@ -7,9 +7,10 @@ import UpcomingClosings from "@/components/team/UpcomingClosings";
 import TeamDealPipeline from "@/components/team/TeamDealPipeline";
 import AgentPerformance from "@/components/team/AgentPerformance";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
+import LockedTeamMembers from "@/components/team/LockedTeamMembers";
 import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
 import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
-import { Users, Building, User } from "lucide-react";
+import { Users, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExampleData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +18,13 @@ import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Team() {
@@ -25,6 +33,7 @@ export default function Team() {
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -132,11 +141,33 @@ export default function Team() {
         <ExampleBanner />
 
         <div className="space-y-8">
-          {/* Personal KPIs Section */}
+          {/* Personal Performance Section */}
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <User className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-bold text-text-heading">Personal KPIs</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <User className="h-6 w-6 text-primary" />
+                <h2 className="text-2xl font-bold text-text-heading">Personal Performance</h2>
+              </div>
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ytd">Year to Date</SelectItem>
+                  <SelectItem value="jan">January</SelectItem>
+                  <SelectItem value="feb">February</SelectItem>
+                  <SelectItem value="mar">March</SelectItem>
+                  <SelectItem value="apr">April</SelectItem>
+                  <SelectItem value="may">May</SelectItem>
+                  <SelectItem value="jun">June</SelectItem>
+                  <SelectItem value="jul">July</SelectItem>
+                  <SelectItem value="aug">August</SelectItem>
+                  <SelectItem value="sep">September</SelectItem>
+                  <SelectItem value="oct">October</SelectItem>
+                  <SelectItem value="nov">November</SelectItem>
+                  <SelectItem value="dec">December</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="animate-slide-up">
@@ -168,11 +199,11 @@ export default function Team() {
 
           <Separator className="my-8" />
 
-          {/* Team KPIs Section */}
+          {/* Team Members Section */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
-              <h2 className="text-2xl font-bold text-text-heading">Team KPIs</h2>
+              <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
               {isTrialOrFree && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
@@ -181,8 +212,9 @@ export default function Team() {
             </div>
 
             {isTrialOrFree ? (
-              <div className="animate-slide-up">
+              <div className="space-y-6 animate-slide-up">
                 <LockedTeamKPIs />
+                <LockedTeamMembers />
               </div>
             ) : (
               <>
