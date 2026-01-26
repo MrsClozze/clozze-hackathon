@@ -697,6 +697,14 @@ export type Database = {
           wants_needs: string
         }[]
       }
+      is_team_owner: {
+        Args: { _team_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_team_owner_or_admin: {
+        Args: { _team_id: string; _user_id: string }
+        Returns: boolean
+      }
       shared_team: { Args: { _u1: string; _u2: string }; Returns: boolean }
       store_integration_tokens: {
         Args: {
