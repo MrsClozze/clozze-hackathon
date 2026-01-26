@@ -72,8 +72,14 @@ serve(async (req) => {
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: "all",
-      limit: 10,
+      limit: 20,
     });
+
+    // Products that count as primary plans (Pro/Team).
+    // EXCLUDE the Team Member add-on product from plan evaluation.
+    const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
+    const TEAM_PRODUCT_ID = "prod_T9RRLKSinSr7xt";
+    const TEAM_MEMBER_ADDON_PRODUCT_ID = "prod_Tay3X0u5Vw4oNw"; // team-member add-on must be ignored
 
     const statusPriority: Record<string, number> = {
       active: 0,
@@ -83,7 +89,15 @@ serve(async (req) => {
     };
 
     const subs = subscriptions.data as Stripe.Subscription[];
-    const qualifyingSubs = subs
+
+    // Filter out subscriptions that ONLY contain the add-on product (not a plan).
+    const planSubs = subs.filter((s: Stripe.Subscription) => {
+      const products: string[] = (s.items?.data ?? []).map((item: Stripe.SubscriptionItem) => (item.price?.product as string) ?? '');
+      // Accept if at least one product is a recognised plan (pro or team)
+      return products.some((p: string) => p === PRO_PRODUCT_ID || p === TEAM_PRODUCT_ID);
+    });
+
+    const qualifyingSubs = planSubs
       .filter((s: Stripe.Subscription) => Object.prototype.hasOwnProperty.call(statusPriority, s.status))
       .sort((a: Stripe.Subscription, b: Stripe.Subscription) => {
         const pa = statusPriority[a.status] ?? 999;
