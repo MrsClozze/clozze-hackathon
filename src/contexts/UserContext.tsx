@@ -11,29 +11,32 @@ interface User {
 
 interface UserContextType {
   user: User;
+  loading: boolean;
   refreshUser: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [user, setUser] = useState<User>({
-    name: "Guy Hawkins",
-    title: "Real Estate Agent",
-    initials: "GH",
+    name: "",
+    title: "",
+    initials: "",
     avatarUrl: ""
   });
+  const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async () => {
     if (!authUser) {
-      // Reset to default when no user
+      // Reset to empty when no user (avoid showing stale data)
       setUser({
-        name: "Guy Hawkins",
-        title: "Real Estate Agent",
-        initials: "GH",
+        name: "",
+        title: "",
+        initials: "",
         avatarUrl: ""
       });
+      setLoading(false);
       return;
     }
 
@@ -59,6 +62,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           avatarUrl: profile.avatar_url || ""
         });
       }
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       // Fallback to email-based name
@@ -69,6 +73,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         initials: emailName.charAt(0).toUpperCase(),
         avatarUrl: ""
       });
+      setLoading(false);
     }
   };
 
@@ -77,7 +82,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [authUser]);
 
   return (
-    <UserContext.Provider value={{ user, refreshUser: fetchUserProfile }}>
+    <UserContext.Provider value={{ user, loading, refreshUser: fetchUserProfile }}>
       {children}
     </UserContext.Provider>
   );
