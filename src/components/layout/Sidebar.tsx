@@ -15,6 +15,7 @@ import clozzeLogoBlack from "@/assets/clozze-logo-black.png";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const navigationItems = [
   { name: "Home", href: "/", icon: Home },
@@ -29,7 +30,7 @@ const navigationItems = [
 ];
 
 export default function Sidebar() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const { theme } = useTheme();
   const navigate = useNavigate();
   
@@ -74,14 +75,32 @@ export default function Sidebar() {
       {/* User Profile Section */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
         <div className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-card-elevated transition-colors">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.avatarUrl} alt={user.name} />
-            <AvatarFallback className="text-sm font-semibold">{user.initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-heading truncate">{user.name}</p>
-            <p className="text-xs text-text-muted truncate">{user.title}</p>
-          </div>
+          {loading ? (
+            <>
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="flex-1 min-w-0 space-y-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </>
+          ) : (
+            <>
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.avatarUrl} alt={user.name || 'User'} />
+                <AvatarFallback className="text-sm font-semibold">
+                  {user.initials || user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-heading truncate">
+                  {user.name || 'Loading...'}
+                </p>
+                <p className="text-xs text-text-muted truncate">
+                  {user.title || 'Real Estate Agent'}
+                </p>
+              </div>
+            </>
+          )}
         </div>
         
         {/* Credit Usage */}

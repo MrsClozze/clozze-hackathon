@@ -19,15 +19,19 @@ import {
 
 export default function Header() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const { user: authUser, subscription, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
 
   const isTrialAccount = subscription?.status === 'trial';
-  const displayName = authUser 
-    ? `${user.name}${isTrialAccount ? ' (Trial Account)' : ''}`
-    : user.name;
+  
+  // Show loading or actual name (never show empty)
+  const displayName = userLoading 
+    ? 'Loading...'
+    : user.name || authUser?.email?.split('@')[0] || 'User';
+  const displayTitle = userLoading ? '' : user.title || 'Real Estate Agent';
+  const displayInitials = userLoading ? '' : user.initials || displayName.charAt(0).toUpperCase();
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 z-50">
@@ -84,15 +88,17 @@ export default function Header() {
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-3 hover:bg-card px-3 py-2 rounded-lg transition-colors cursor-pointer">
                 <div>
-                  <p className="text-sm font-medium text-text-heading text-left">{displayName}</p>
-                  <p className="text-xs text-text-muted text-left">{user.title}</p>
+                  <p className="text-sm font-medium text-text-heading text-left">
+                    {displayName}{isTrialAccount && !userLoading ? ' (Trial Account)' : ''}
+                  </p>
+                  <p className="text-xs text-text-muted text-left">{displayTitle}</p>
                 </div>
                 {isTrialAccount && (
                   <Badge variant="secondary">Trial</Badge>
                 )}
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback className="text-sm font-semibold">{user.initials}</AvatarFallback>
+                  <AvatarImage src={user.avatarUrl} alt={displayName} />
+                  <AvatarFallback className="text-sm font-semibold">{displayInitials}</AvatarFallback>
                 </Avatar>
                 <ChevronDown className="h-4 w-4 text-text-muted" />
               </button>
