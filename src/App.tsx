@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
+import TeamMemberProfile from "./pages/TeamMemberProfile";
 import Listings from "./pages/Listings";
 import Buyers from "./pages/Buyers";
 import Contacts from "./pages/Contacts";
@@ -32,6 +33,7 @@ const queryClient = new QueryClient();
 const router = createBrowserRouter([
   { path: "/", element: <Index /> },
   { path: "/team", element: <Team /> },
+  { path: "/team/member/:memberId", element: <TeamMemberProfile /> },
   { path: "/listings", element: <Listings /> },
   { path: "/buyers", element: <Buyers /> },
   { path: "/contacts", element: <Contacts /> },

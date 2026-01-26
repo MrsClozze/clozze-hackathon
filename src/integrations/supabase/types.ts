@@ -551,6 +551,36 @@ export type Database = {
           },
         ]
       }
+      team_member_slots: {
+        Row: {
+          created_at: string
+          id: string
+          stripe_subscription_id: string | null
+          stripe_subscription_item_id: string | null
+          total_slots: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          stripe_subscription_id?: string | null
+          stripe_subscription_item_id?: string | null
+          total_slots?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          stripe_subscription_id?: string | null
+          stripe_subscription_item_id?: string | null
+          total_slots?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           id: string
