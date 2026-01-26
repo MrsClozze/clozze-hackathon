@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
@@ -9,6 +9,7 @@ import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
 import { Users, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@/contexts/UserContext";
 import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
 import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
@@ -25,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Team() {
   const { subscription, user, refreshSubscription } = useAuth();
+  const { refreshUser } = useUser();
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
@@ -38,26 +40,32 @@ export default function Team() {
     subscription?.plan_type === 'team' || 
     (subscription?.plan_type as string) === 'enterprise';
 
-  // Refresh subscription status when returning from checkout
+  // Refresh subscription + slots + user profile when returning from checkout
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('session_id') || urlParams.get('checkout_success')) {
-      // Clear URL params
+      // Clear URL params first
       window.history.replaceState({}, '', window.location.pathname);
-      
-      // Refresh subscription and slots after a short delay to allow webhook processing
-      const refreshData = async () => {
-        await refreshSubscription();
-        await refetchSlots();
+
+      // Immediately refresh all relevant data
+      const refreshAll = async () => {
+        await Promise.all([
+          refreshSubscription(),
+          refetchSlots(),
+          refreshUser(),
+        ]);
+        toast({
+          title: "Account Updated",
+          description: "Your subscription information has been refreshed.",
+        });
       };
-      
-      // Initial refresh
-      refreshData();
-      
-      // Retry after 2 seconds in case webhook hasn't processed yet
-      setTimeout(refreshData, 2000);
+
+      refreshAll();
+      // Retry after 2s in case Stripe webhook hasn't finished yet
+      const timer = setTimeout(refreshAll, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [refreshSubscription, refetchSlots]);
+  }, [refreshSubscription, refetchSlots, refreshUser, toast]);
 
   useEffect(() => {
     async function checkOnboarding() {
