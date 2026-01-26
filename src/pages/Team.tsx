@@ -8,6 +8,7 @@ import TeamDealPipeline from "@/components/team/TeamDealPipeline";
 import AgentPerformance from "@/components/team/AgentPerformance";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
 import LockedTeamMembers from "@/components/team/LockedTeamMembers";
+import UnlockedTeamMembers from "@/components/team/UnlockedTeamMembers";
 import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
 import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
 import { Users, User } from "lucide-react";
@@ -16,6 +17,7 @@ import { exampleTeamStats, exampleListings, exampleBuyers } from "@/data/teamExa
 import { useAuth } from "@/contexts/AuthContext";
 import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
+import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -31,6 +33,7 @@ export default function Team() {
   const { subscription, user } = useAuth();
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
+  const { hasTeamMemberAccess, totalSlots, loading: slotsLoading } = useTeamMemberSlots();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
@@ -130,10 +133,10 @@ export default function Team() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <Users className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold text-text-heading">Performance Dashboard</h1>
+            <h1 className="text-3xl font-bold text-text-heading">Dashboard</h1>
           </div>
           <p className="text-text-muted">
-            View your personal performance and team-wide analytics
+            Track your metrics and manage your team
           </p>
         </div>
 
@@ -202,102 +205,22 @@ export default function Team() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
               <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
-              {isTrialOrFree && (
+              {!hasTeamMemberAccess && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
                 </span>
               )}
             </div>
 
-            {isTrialOrFree ? (
+            {hasTeamMemberAccess ? (
+              <div className="space-y-6 animate-slide-up">
+                <UnlockedTeamMembers />
+              </div>
+            ) : (
               <div className="space-y-6 animate-slide-up">
                 <LockedTeamKPIs />
                 <LockedTeamMembers />
               </div>
-            ) : (
-              <>
-                {/* Team Stats Overview */}
-                <div className="animate-slide-up">
-                  <TeamStatsOverview stats={teamStats} />
-                </div>
-
-                {/* Deal Pipeline */}
-                <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
-                  <TeamDealPipeline />
-                </div>
-
-                {/* Agent Performance */}
-                <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
-                  <AgentPerformance />
-                </div>
-
-                {/* Active Overview - Listings and Buyers */}
-                <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.3s" }}>
-                  <BentoCard title="Team Active Listings" subtitle={`${exampleListings.length} total`}>
-                    <div className="space-y-3">
-                      {exampleListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-card-border hover:border-accent-gold/30 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium text-text-heading text-sm">
-                              {listing.address}
-                            </p>
-                            <p className="text-xs text-text-muted">{listing.city}</p>
-                            <p className="text-xs text-text-muted mt-1">{listing.agent}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-text-heading text-sm">
-                              {formatCurrency(listing.price)}
-                            </p>
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              listing.status === "Active" 
-                                ? "bg-success/10 text-success" 
-                                : "bg-warning/10 text-warning"
-                            }`}>
-                              {listing.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </BentoCard>
-
-                  <BentoCard title="Team Active Buyers" subtitle={`${exampleBuyers.length} total`}>
-                    <div className="space-y-3">
-                      {exampleBuyers.map((buyer) => (
-                        <div
-                          key={buyer.id}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-card-border hover:border-accent-gold/30 transition-colors"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-text-heading text-sm">
-                              {buyer.name}
-                            </p>
-                            <p className="text-xs text-text-muted truncate">{buyer.email}</p>
-                            <p className="text-xs text-text-muted mt-1">{buyer.agent}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-text-heading text-xs">
-                              {formatCurrency(buyer.budget)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </BentoCard>
-                </div>
-
-                {/* Recent Activity and Upcoming Closings */}
-                <div className="grid grid-cols-2 gap-bento animate-slide-up" style={{ animationDelay: "0.4s" }}>
-                  <RecentActivityFeed />
-                  <UpcomingClosings />
-                </div>
-              </>
             )}
           </div>
         </div>
