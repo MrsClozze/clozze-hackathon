@@ -3,6 +3,15 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 interface SubscriptionInfo {
   subscribed: boolean;
   plan_type: 'free' | 'pro' | 'team';
@@ -36,7 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('check-subscription'),
+        8000,
+        'check-subscription'
+      );
       
       if (error) throw error;
       
@@ -58,17 +71,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSubscription(subData);
       
       // Update database subscription record
-      await supabase
-        .from('subscriptions')
-        .upsert(
-          {
-            user_id: currentSession.user.id,
-            plan_type: subData.plan_type,
-            status: subData.status,
-            current_period_end: subData.subscription_end
-          },
-          { onConflict: 'user_id' }
-        );
+      await withTimeout(
+        (async () => {
+          const { error: upsertError } = await supabase
+            .from('subscriptions')
+            .upsert(
+              {
+                user_id: currentSession.user.id,
+                plan_type: subData.plan_type,
+                status: subData.status,
+                current_period_end: subData.subscription_end,
+              },
+              { onConflict: 'user_id' }
+            );
+
+          if (upsertError) throw upsertError;
+        })(),
+        8000,
+        'subscriptions upsert'
+      );
     } catch (error) {
       console.error('Error checking subscription:', error);
     }
@@ -88,13 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
-        if (currentSession?.user) {
-          await checkSubscription(currentSession);
-        } else {
-          setSubscription(null);
+        try {
+          if (currentSession?.user) {
+            await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
+          } else {
+            setSubscription(null);
+          }
+        } catch (e) {
+          console.error('Subscription check timed out:', e);
+        } finally {
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
@@ -105,11 +130,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
-      if (currentSession?.user) {
-        await checkSubscription(currentSession);
+      try {
+        if (currentSession?.user) {
+          await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
+        }
+      } catch (e) {
+        console.error('Initial subscription check timed out:', e);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     })();
 
     return () => authSubscription.unsubscribe();
