@@ -101,6 +101,10 @@ serve(async (req) => {
       planName = "Team Member Add-on";
     }
 
+    const cps = activeSubscription.current_period_start;
+    const cpe = activeSubscription.current_period_end;
+    logStep("Period dates", { current_period_start: cps, current_period_end: cpe });
+
     const subscriptionDetails = {
       id: activeSubscription.id,
       status: activeSubscription.status,
@@ -110,11 +114,12 @@ serve(async (req) => {
       amount: (price?.unit_amount || 0) / 100,
       currency: price?.currency?.toUpperCase() || 'USD',
       interval: price?.recurring?.interval || 'month',
-      currentPeriodStart: activeSubscription.current_period_start 
-        ? new Date(activeSubscription.current_period_start * 1000).toISOString() 
+      // Use explicit type checks (avoid falsy checks) to prevent accidentally returning null.
+      currentPeriodStart: typeof cps === "number"
+        ? new Date(cps * 1000).toISOString()
         : null,
-      currentPeriodEnd: activeSubscription.current_period_end 
-        ? new Date(activeSubscription.current_period_end * 1000).toISOString() 
+      currentPeriodEnd: typeof cpe === "number"
+        ? new Date(cpe * 1000).toISOString()
         : null,
       cancelAtPeriodEnd: activeSubscription.cancel_at_period_end,
       cancelAt: activeSubscription.cancel_at 

@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from('subscriptions')
           .select('trial_end')
           .eq('user_id', currentSession.user.id)
-          .single();
+           .maybeSingle();
         
         if (dbSub) {
           subData.trial_end = dbSub.trial_end;
@@ -81,13 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        // Prevent UI from flashing between "no subscription" and "active subscription" states
+        // by keeping the app in a loading state until subscription status has been checked.
+        setLoading(true);
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          setTimeout(() => {
-            checkSubscription(currentSession);
-          }, 0);
+          await checkSubscription(currentSession);
         } else {
           setSubscription(null);
         }
@@ -96,16 +98,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    (async () => {
+      setLoading(true);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      
+
       if (currentSession?.user) {
-        checkSubscription(currentSession);
+        await checkSubscription(currentSession);
       }
-      
+
       setLoading(false);
-    });
+    })();
 
     return () => authSubscription.unsubscribe();
   }, []);
