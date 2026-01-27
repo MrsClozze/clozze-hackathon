@@ -4,8 +4,6 @@ import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
 import LockedTeamMembers from "@/components/team/LockedTeamMembers";
 import UnlockedTeamMembers from "@/components/team/UnlockedTeamMembers";
-import TeamOnboardingModal from "@/components/team/TeamOnboardingModal";
-import TeamTourSlideshow from "@/components/team/TeamTourSlideshow";
 import { Users, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +12,6 @@ import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
 import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -34,8 +31,6 @@ export default function Team() {
   // Combined loading state - must wait for BOTH auth AND subscription data before showing lock/unlock state
   // This prevents the lock icon from flashing before we know the user's actual plan
   const teamMembersLoading = slotsLoading || authLoading || subscription === null;
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showTour, setShowTour] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
 
@@ -71,69 +66,6 @@ export default function Team() {
     }
   }, [refreshSubscription, refetchSlots, refreshUser, toast]);
 
-  useEffect(() => {
-    async function checkOnboarding() {
-      if (!user) return;
-
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('team_onboarding_completed')
-          .eq('id', user.id)
-          .single();
-
-        if (profile && !profile.team_onboarding_completed) {
-          setShowOnboarding(true);
-        }
-      } catch (error) {
-        console.error('Error checking team onboarding:', error);
-      }
-    }
-
-    checkOnboarding();
-  }, [user]);
-
-  const handleOnboardingComplete = async () => {
-    if (!user) return;
-
-    try {
-      await supabase
-        .from('profiles')
-        .update({ team_onboarding_completed: true })
-        .eq('id', user.id);
-
-      setShowOnboarding(false);
-    } catch (error) {
-      console.error('Error updating team onboarding:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save onboarding status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSeeTour = () => {
-    setShowOnboarding(false);
-    setShowTour(true);
-  };
-
-  const handleCloseTour = async () => {
-    setShowTour(false);
-    
-    // Mark onboarding as completed when tour is closed
-    if (user) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ team_onboarding_completed: true })
-          .eq('id', user.id);
-      } catch (error) {
-        console.error('Error updating team onboarding:', error);
-      }
-    }
-  };
-
   // Check if user has access to Team KPIs (Pro, Team, or Enterprise plan with active status)
   const hasTeamAccess = subscription?.plan_type === 'pro' || 
     subscription?.plan_type === 'team' || 
@@ -150,17 +82,6 @@ export default function Team() {
 
   return (
     <Layout>
-      <TeamOnboardingModal 
-        isOpen={showOnboarding}
-        onGotIt={handleOnboardingComplete}
-        onSeeTour={handleSeeTour}
-      />
-      
-      <TeamTourSlideshow 
-        isOpen={showTour}
-        onClose={handleCloseTour}
-      />
-      
       <div className="p-8">
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
