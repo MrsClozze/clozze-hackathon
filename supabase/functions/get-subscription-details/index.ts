@@ -52,6 +52,11 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
+    // Map product IDs to plan names
+    const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
+    const TEAM_PRODUCT_ID = "prod_T9RRLKSinSr7xt";
+    const TEAM_MEMBER_PRODUCT_ID = "prod_T9RYlxkUl1DvRo";
+
     // Fetch active subscriptions
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -59,12 +64,12 @@ serve(async (req) => {
       limit: 10,
     });
 
-    // Find the active or trialing subscription
-    const activeSubscription = subscriptions.data.find(
+    // Find active or trialing subscriptions
+    const activeSubscriptions = subscriptions.data.filter(
       (sub: Stripe.Subscription) => sub.status === "active" || sub.status === "trialing"
     );
 
-    if (!activeSubscription) {
+    if (activeSubscriptions.length === 0) {
       logStep("No active subscription found");
       return new Response(JSON.stringify({ subscription: null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,19 +77,28 @@ serve(async (req) => {
       });
     }
 
+    // Prioritize main Pro/Team subscription over add-on subscriptions (like team member seats)
+    let activeSubscription = activeSubscriptions.find((sub: Stripe.Subscription) => {
+      const productId = sub.items?.data?.[0]?.price?.product as string;
+      return productId === PRO_PRODUCT_ID || productId === TEAM_PRODUCT_ID;
+    });
+
+    // Fallback to first active subscription if no main subscription found
+    if (!activeSubscription) {
+      activeSubscription = activeSubscriptions[0];
+    }
+
     const subscriptionItem = activeSubscription.items?.data?.[0];
     const price = subscriptionItem?.price;
     const product = price?.product as string;
-
-    // Map product IDs to plan names
-    const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
-    const TEAM_PRODUCT_ID = "prod_T9RRLKSinSr7xt";
     
     let planName = "Pro";
     if (product === TEAM_PRODUCT_ID) {
       planName = "Team";
     } else if (product === PRO_PRODUCT_ID) {
       planName = "Pro";
+    } else if (product === TEAM_MEMBER_PRODUCT_ID) {
+      planName = "Team Member Add-on";
     }
 
     const subscriptionDetails = {
