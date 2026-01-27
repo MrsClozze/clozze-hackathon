@@ -28,13 +28,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async () => {
-    // Wait for auth to finish loading before attempting to fetch profile
+    // If auth is still loading, we can't determine user state yet
+    // Keep our loading state true and wait for the next effect trigger
     if (authLoading) {
       return;
     }
 
+    // Auth finished loading but no user - reset state and stop loading
     if (!authUser) {
-      // Reset to empty when no user (avoid showing stale data)
       setUser({
         name: "",
         title: "",
@@ -44,6 +45,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+
+    // We have an authenticated user - fetch their profile
 
     setLoading(true);
     try {
