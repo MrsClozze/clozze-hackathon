@@ -103,16 +103,12 @@ export default function Header() {
                 <ChevronDown className="h-4 w-4 text-text-muted" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 bg-popover border border-border">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate('/pricing')}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 Subscription
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/integrations')}>
-                <Upload className="mr-2 h-4 w-4" />
-                Integrations
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
