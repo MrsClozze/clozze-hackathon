@@ -92,9 +92,12 @@ export default function UnlockedTeamMembers() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchSlots();
-    fetchTeamMembers();
-    fetchPendingInvitations();
+    if (user) {
+      console.log('[UnlockedTeamMembers] User available, fetching data for:', user.id);
+      fetchSlots();
+      fetchTeamMembers();
+      fetchPendingInvitations();
+    }
   }, [user]);
 
   const fetchSlots = async () => {
@@ -184,14 +187,18 @@ export default function UnlockedTeamMembers() {
     
     setInvitationsLoading(true);
     try {
+      console.log('[UnlockedTeamMembers] Fetching teams for user:', user.id);
       // Get teams where user is owner
       const { data: teams, error: teamsError } = await supabase
         .from('teams')
         .select('id')
         .eq('created_by', user.id);
 
+      console.log('[UnlockedTeamMembers] Teams query result:', { teams, teamsError });
+      
       if (teamsError) throw teamsError;
       if (!teams || teams.length === 0) {
+        console.log('[UnlockedTeamMembers] No teams found, setting empty invitations');
         setPendingInvitations([]);
         setInvitationsLoading(false);
         return;
