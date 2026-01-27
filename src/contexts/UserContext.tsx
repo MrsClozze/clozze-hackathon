@@ -28,6 +28,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async () => {
+    // Wait for auth to finish loading before attempting to fetch profile
+    if (authLoading) {
+      return;
+    }
+
     if (!authUser) {
       // Reset to empty when no user (avoid showing stale data)
       setUser({
@@ -40,6 +45,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    setLoading(true);
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -53,7 +59,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const firstName = profile.first_name || '';
         const lastName = profile.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim() || authUser.email?.split('@')[0] || 'User';
-        const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || 'U';
+        const initials = firstName || lastName 
+          ? `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+          : (authUser.email?.charAt(0) || 'U').toUpperCase();
 
         setUser({
           name: fullName,
@@ -61,8 +69,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
           initials: initials,
           avatarUrl: profile.avatar_url || ""
         });
+      } else {
+        // No profile found, use email-based name
+        const emailName = authUser.email?.split('@')[0] || 'User';
+        setUser({
+          name: emailName,
+          title: "Real Estate Agent",
+          initials: emailName.charAt(0).toUpperCase(),
+          avatarUrl: ""
+        });
       }
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       // Fallback to email-based name
@@ -73,13 +89,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         initials: emailName.charAt(0).toUpperCase(),
         avatarUrl: ""
       });
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUserProfile();
-  }, [authUser]);
+  }, [authUser, authLoading]);
 
   return (
     <UserContext.Provider value={{ user, loading, refreshUser: fetchUserProfile }}>
