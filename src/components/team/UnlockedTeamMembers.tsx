@@ -76,6 +76,7 @@ export default function UnlockedTeamMembers() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invitationsLoading, setInvitationsLoading] = useState(true);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -176,8 +177,12 @@ export default function UnlockedTeamMembers() {
   };
 
   const fetchPendingInvitations = async () => {
-    if (!user) return;
+    if (!user) {
+      setInvitationsLoading(false);
+      return;
+    }
     
+    setInvitationsLoading(true);
     try {
       // Get teams where user is owner
       const { data: teams, error: teamsError } = await supabase
@@ -188,6 +193,7 @@ export default function UnlockedTeamMembers() {
       if (teamsError) throw teamsError;
       if (!teams || teams.length === 0) {
         setPendingInvitations([]);
+        setInvitationsLoading(false);
         return;
       }
 
@@ -201,9 +207,12 @@ export default function UnlockedTeamMembers() {
         .eq('status', 'pending');
 
       if (invitationsError) throw invitationsError;
+      console.log('[UnlockedTeamMembers] Fetched pending invitations:', invitations);
       setPendingInvitations(invitations || []);
     } catch (error) {
       console.error('Error fetching pending invitations:', error);
+    } finally {
+      setInvitationsLoading(false);
     }
   };
 
@@ -406,7 +415,7 @@ export default function UnlockedTeamMembers() {
     }
   };
 
-  if (loading) {
+  if (loading || invitationsLoading) {
     return (
       <BentoCard title="Team Members" subtitle="Loading...">
         <div className="flex items-center justify-center py-8">

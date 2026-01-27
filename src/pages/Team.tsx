@@ -25,11 +25,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 export default function Team() {
-  const { subscription, user, refreshSubscription } = useAuth();
+  const { subscription, user, refreshSubscription, loading: authLoading } = useAuth();
   const { refreshUser } = useUser();
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
+  
+  // Combined loading state for team members section
+  const teamMembersLoading = slotsLoading || authLoading;
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
@@ -233,14 +236,14 @@ export default function Team() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
               <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
-              {!hasProPlan && !slotsLoading && (
+              {!hasProPlan && !teamMembersLoading && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
                 </span>
               )}
             </div>
 
-            {slotsLoading ? (
+            {teamMembersLoading ? (
               <div className="space-y-6 animate-slide-up">
                 <div className="bg-card rounded-xl border border-card-border p-8">
                   <div className="flex items-center justify-center">
