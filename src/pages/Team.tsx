@@ -31,8 +31,9 @@ export default function Team() {
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
   
-  // Combined loading state for team members section
-  const teamMembersLoading = slotsLoading || authLoading;
+  // Combined loading state - must wait for BOTH auth AND subscription data before showing lock/unlock state
+  // This prevents the lock icon from flashing before we know the user's actual plan
+  const teamMembersLoading = slotsLoading || authLoading || subscription === null;
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
@@ -246,8 +247,9 @@ export default function Team() {
             {teamMembersLoading ? (
               <div className="space-y-6 animate-slide-up">
                 <div className="bg-card rounded-xl border border-card-border p-8">
-                  <div className="flex items-center justify-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="text-sm text-text-muted">Loading team data...</p>
                   </div>
                 </div>
               </div>
