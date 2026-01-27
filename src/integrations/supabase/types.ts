@@ -515,8 +515,10 @@ export type Database = {
           created_at: string
           email: string
           expires_at: string
+          first_name: string | null
           id: string
           invited_by: string
+          last_name: string | null
           status: Database["public"]["Enums"]["invitation_status"]
           team_id: string
           token: string
@@ -525,8 +527,10 @@ export type Database = {
           created_at?: string
           email: string
           expires_at: string
+          first_name?: string | null
           id?: string
           invited_by: string
+          last_name?: string | null
           status?: Database["public"]["Enums"]["invitation_status"]
           team_id: string
           token?: string
@@ -535,8 +539,10 @@ export type Database = {
           created_at?: string
           email?: string
           expires_at?: string
+          first_name?: string | null
           id?: string
           invited_by?: string
+          last_name?: string | null
           status?: Database["public"]["Enums"]["invitation_status"]
           team_id?: string
           token?: string
