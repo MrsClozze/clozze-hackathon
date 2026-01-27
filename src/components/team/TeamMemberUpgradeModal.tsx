@@ -66,6 +66,18 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUp
         return;
       }
 
+      // Handle internal users who get slots granted directly
+      if (data?.internalUser && data?.success) {
+        toast({
+          title: "Team Member Slots Added",
+          description: `You now have ${data.totalSlots} team member slot${data.totalSlots !== 1 ? 's' : ''} available.`,
+        });
+        onClose();
+        // Reload to refresh slot data
+        window.location.reload();
+        return;
+      }
+
       if (data?.url) {
         window.open(data.url, '_blank');
         onClose();
