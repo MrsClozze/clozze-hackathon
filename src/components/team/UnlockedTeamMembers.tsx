@@ -31,7 +31,8 @@ import {
   Trash2, 
   Mail, 
   CheckCircle,
-  Clock
+  Clock,
+  RefreshCw
 } from "lucide-react";
 import TeamMemberUpgradeModal from "./TeamMemberUpgradeModal";
 
@@ -82,7 +83,10 @@ export default function UnlockedTeamMembers() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showEditInviteModal, setShowEditInviteModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<PendingInvitation | null>(null);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -422,6 +426,113 @@ export default function UnlockedTeamMembers() {
     }
   };
 
+  const handleResendInvite = async (invitation: PendingInvitation) => {
+    setResendingInvite(invitation.id);
+    try {
+      // Get inviter's profile for the email
+      const { data: inviterProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user!.id)
+        .single();
+
+      const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+        ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+        : user!.email?.split('@')[0] || 'A team owner';
+
+      // Get the invitation token
+      const { data: inviteData, error: inviteError } = await supabase
+        .from('team_invitations')
+        .select('token')
+        .eq('id', invitation.id)
+        .single();
+
+      if (inviteError) throw inviteError;
+
+      // Resend invitation email
+      const { error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
+        body: {
+          inviteeEmail: invitation.email,
+          inviteeFirstName: invitation.first_name || '',
+          inviteeLastName: invitation.last_name || '',
+          inviterName,
+          invitationToken: inviteData.token,
+        },
+      });
+
+      if (emailError) throw emailError;
+
+      toast({
+        title: "Invitation Resent",
+        description: `A new invitation email has been sent to ${invitation.email}.`,
+      });
+    } catch (error: any) {
+      console.error('Error resending invitation:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend invitation.",
+        variant: "destructive",
+      });
+    } finally {
+      setResendingInvite(null);
+    }
+  };
+
+  const handleEditInvite = (invitation: PendingInvitation) => {
+    setSelectedInvitation(invitation);
+    setFormData({
+      firstName: invitation.first_name || '',
+      lastName: invitation.last_name || '',
+      email: invitation.email,
+    });
+    setShowEditInviteModal(true);
+  };
+
+  const submitEditInvite = async () => {
+    if (!selectedInvitation) return;
+
+    if (!formData.email) {
+      toast({
+        title: "Missing Information",
+        description: "Email address is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .update({
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+        })
+        .eq('id', selectedInvitation.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Invitation Updated",
+        description: "The invitation details have been updated. You may want to resend the invite.",
+      });
+
+      setShowEditInviteModal(false);
+      setSelectedInvitation(null);
+      fetchPendingInvitations();
+    } catch (error: any) {
+      console.error('Error updating invitation:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update invitation.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading || invitationsLoading) {
     return (
       <BentoCard title="Team Members" subtitle="Loading...">
@@ -586,8 +697,30 @@ export default function UnlockedTeamMembers() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right text-sm text-text-muted">
-                    <p>Expires {new Date(invitation.expires_at).toLocaleDateString()}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right text-sm text-text-muted">
+                      <p>Expires {new Date(invitation.expires_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleResendInvite(invitation)}
+                        disabled={resendingInvite === invitation.id}
+                        className="text-primary hover:text-primary/80"
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-1 ${resendingInvite === invitation.id ? 'animate-spin' : ''}`} />
+                        {resendingInvite === invitation.id ? 'Sending...' : 'Resend'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditInvite(invitation)}
+                        className="h-8 w-8"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -734,6 +867,54 @@ export default function UnlockedTeamMembers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Invitation Modal */}
+      <Dialog open={showEditInviteModal} onOpenChange={setShowEditInviteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Invitation</DialogTitle>
+            <DialogDescription>
+              Update the invitation details. After saving, you may want to resend the invite.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="inviteFirstName">First Name</Label>
+                <Input
+                  id="inviteFirstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="inviteLastName">Last Name</Label>
+                <Input
+                  id="inviteLastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteEmail">Email Address</Label>
+              <Input
+                id="inviteEmail"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <Button 
+              onClick={submitEditInvite} 
+              className="w-full"
+              disabled={submitting}
+            >
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Upgrade Modal */}
       <TeamMemberUpgradeModal 
