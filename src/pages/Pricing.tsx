@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import SubscriptionManagement from "@/components/subscription/SubscriptionManagement";
 
 const plans = [
   {
@@ -63,7 +64,7 @@ const plans = [
   }
 ];
 
-export default function Pricing() {
+function PlanSelection() {
   const navigate = useNavigate();
   const { user, subscription } = useAuth();
   const { toast } = useToast();
@@ -76,7 +77,6 @@ export default function Pricing() {
     }
 
     if (!priceId) {
-      // Free plan
       toast({
         title: "You're already on the free trial!",
         description: "Upgrade to unlock more features.",
@@ -108,81 +108,116 @@ export default function Pricing() {
   };
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-text-heading mb-4">Choose Your Plan</h1>
-          <p className="text-lg text-text-muted max-w-2xl mx-auto">
-            Select the perfect plan for your real estate business
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-          {plans.map((plan) => {
-            const isCurrentPlan = subscription?.plan_type === plan.planType;
-            
-            return (
-              <Card
-                key={plan.name}
-                className={`p-8 relative ${
-                  plan.popular
-                    ? 'border-primary shadow-lg ring-2 ring-primary'
-                    : isCurrentPlan
-                    ? 'border-primary'
-                    : ''
-                }`}
-              >
-                {plan.badge && (
-                  <div className="absolute top-4 right-4">
-                    <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
-                      {plan.badge}
-                    </span>
-                  </div>
-                )}
-                
-                {isCurrentPlan && (
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-secondary text-secondary-foreground text-xs px-2 py-1 rounded">
-                      Your Plan
-                    </span>
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <h3 className="text-2xl font-bold text-text-heading mb-2">{plan.name}</h3>
-                  <div className="flex items-baseline mb-4">
-                    <span className="text-5xl font-bold text-text-heading">{plan.price}</span>
-                    {plan.period && <span className="text-text-muted ml-2">{plan.period}</span>}
-                  </div>
-                  <p className="text-text-muted text-sm">{plan.description}</p>
-                </div>
-
-                <Button
-                  className="w-full mb-6"
-                  variant={plan.popular ? "default" : "outline"}
-                  disabled={loading === plan.planType || isCurrentPlan}
-                  onClick={() => handleSignUp(plan.priceId, plan.planType)}
-                >
-                  {loading === plan.planType
-                    ? "Loading..."
-                    : isCurrentPlan
-                    ? "Current Plan"
-                    : "Sign Up"}
-                </Button>
-
-                <ul className="space-y-3">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-text-muted">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            );
-          })}
-        </div>
+    <div className="container mx-auto px-4 py-12">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-text-heading mb-4">Choose Your Plan</h1>
+        <p className="text-lg text-text-muted max-w-2xl mx-auto">
+          Select the perfect plan for your real estate business
+        </p>
       </div>
+
+      <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        {plans.map((plan) => {
+          const isCurrentPlan = subscription?.plan_type === plan.planType;
+          
+          return (
+            <Card
+              key={plan.name}
+              className={`p-8 relative ${
+                plan.popular
+                  ? 'border-primary shadow-lg ring-2 ring-primary'
+                  : isCurrentPlan
+                  ? 'border-primary'
+                  : ''
+              }`}
+            >
+              {plan.badge && (
+                <div className="absolute top-4 right-4">
+                  <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
+                    {plan.badge}
+                  </span>
+                </div>
+              )}
+              
+              {isCurrentPlan && (
+                <div className="absolute top-4 left-4">
+                  <span className="bg-secondary text-secondary-foreground text-xs px-2 py-1 rounded">
+                    Your Plan
+                  </span>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-text-heading mb-2">{plan.name}</h3>
+                <div className="flex items-baseline mb-4">
+                  <span className="text-5xl font-bold text-text-heading">{plan.price}</span>
+                  {plan.period && <span className="text-text-muted ml-2">{plan.period}</span>}
+                </div>
+                <p className="text-text-muted text-sm">{plan.description}</p>
+              </div>
+
+              <Button
+                className="w-full mb-6"
+                variant={plan.popular ? "default" : "outline"}
+                disabled={loading === plan.planType || isCurrentPlan}
+                onClick={() => handleSignUp(plan.priceId, plan.planType)}
+              >
+                {loading === plan.planType
+                  ? "Loading..."
+                  : isCurrentPlan
+                  ? "Current Plan"
+                  : "Sign Up"}
+              </Button>
+
+              <ul className="space-y-3">
+                {plan.features.map((feature, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-text-muted">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function Pricing() {
+  const { subscription, loading } = useAuth();
+
+  // Check if user has an active paid subscription (not trial or free)
+  const hasActiveSubscription = subscription && 
+    subscription.status === 'active' && 
+    (subscription.plan_type === 'pro' || subscription.plan_type === 'team');
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      {hasActiveSubscription ? (
+        <div className="container mx-auto px-4 py-12 max-w-5xl">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-text-heading mb-2">Subscription</h1>
+            <p className="text-lg text-text-muted">
+              Manage your subscription, billing, and team members
+            </p>
+          </div>
+          <SubscriptionManagement />
+        </div>
+      ) : (
+        <PlanSelection />
+      )}
     </Layout>
   );
 }
