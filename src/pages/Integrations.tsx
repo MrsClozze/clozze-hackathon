@@ -158,11 +158,19 @@ export default function Integrations() {
             return (
               <Card key={integration.id} className="p-6 flex flex-col">
                 <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={integration.icon as string}
-                    alt={integration.name}
-                    className="w-12 h-12 object-contain"
-                  />
+                  <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 overflow-visible">
+                    <img
+                      src={integration.icon as string}
+                      alt={integration.name}
+                      className={`object-contain ${
+                        integration.id === "dotloop" 
+                          ? "w-20 h-20 scale-150" 
+                          : integration.id === "follow_up_boss"
+                          ? "w-16 h-16 scale-125"
+                          : "w-12 h-12"
+                      }`}
+                    />
+                  </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-text-heading">
                       {integration.name}
