@@ -233,14 +233,22 @@ export default function Team() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
               <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
-              {!hasProPlan && (
+              {!hasProPlan && !slotsLoading && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
                 </span>
               )}
             </div>
 
-            {hasProPlan ? (
+            {slotsLoading ? (
+              <div className="space-y-6 animate-slide-up">
+                <div className="bg-card rounded-xl border border-card-border p-8">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                </div>
+              </div>
+            ) : hasProPlan ? (
               <div className="space-y-6 animate-slide-up">
                 <UnlockedTeamMembers />
               </div>
