@@ -6,13 +6,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
 import { WhatsAppConnectionModal } from "@/components/integrations/WhatsAppConnectionModal";
+import { RefreshCw, UserCheck } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
-import slackLogo from "@/assets/slack-logo-new.png";
 import whatsappLogo from "@/assets/whatsapp-logo.webp";
 import outlookEmailLogo from "@/assets/outlook-email-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
@@ -68,11 +68,18 @@ const integrations = [
     isImage: true,
   },
   {
-    id: "slack",
-    name: "Slack",
-    description: "Team communication",
-    icon: slackLogo,
-    isImage: true,
+    id: "dotloop",
+    name: "Dotloop",
+    description: "Transaction management platform",
+    icon: RefreshCw,
+    isImage: false,
+  },
+  {
+    id: "follow_up_boss",
+    name: "Follow Up Boss",
+    description: "Real estate CRM",
+    icon: UserCheck,
+    isImage: false,
   },
 ];
 
@@ -150,11 +157,19 @@ export default function Integrations() {
             return (
               <Card key={integration.id} className="p-6 flex flex-col">
                 <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={integration.icon as string}
-                    alt={integration.name}
-                    className="w-12 h-12 object-contain"
-                  />
+                  {integration.isImage ? (
+                    <img
+                      src={integration.icon as string}
+                      alt={integration.name}
+                      className="w-12 h-12 object-contain"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      {React.createElement(integration.icon as React.ComponentType<{ className?: string }>, {
+                        className: "w-6 h-6 text-primary"
+                      })}
+                    </div>
+                  )}
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-text-heading">
                       {integration.name}
