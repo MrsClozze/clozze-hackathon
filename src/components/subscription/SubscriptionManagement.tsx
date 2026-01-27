@@ -79,9 +79,26 @@ export default function SubscriptionManagement() {
     fetchBillingHistory();
   }, []);
 
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timer: number | undefined;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timer) window.clearTimeout(timer);
+    }
+  };
+
   const fetchSubscriptionDetails = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-subscription-details');
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('get-subscription-details'),
+        15000,
+        'Loading subscription'
+      );
       if (error) throw error;
       setSubscriptionDetails(data.subscription);
     } catch (error: any) {
@@ -98,7 +115,11 @@ export default function SubscriptionManagement() {
 
   const fetchBillingHistory = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-billing-history');
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('get-billing-history'),
+        15000,
+        'Loading billing history'
+      );
       if (error) throw error;
       setInvoices(data.invoices || []);
     } catch (error: any) {

@@ -7,6 +7,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const getRequestOrigin = (req: Request) => {
+  const origin = req.headers.get("origin");
+  if (origin) return origin;
+
+  const referer = req.headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin;
+    } catch {
+      // ignore
+    }
+  }
+
+  const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+  const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
+
+  return "https://lovable.dev";
+};
+
 const TEAM_MEMBER_PRICE_ID = "price_1StwWwRkZlhjPqo6C2YuhMir";
 const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
 
@@ -131,8 +151,8 @@ serve(async (req) => {
       ],
       mode: "subscription",
       allow_promotion_codes: true,
-      success_url: `${req.headers.get("origin")}/team?checkout_success=true&slots=${quantity}`,
-      cancel_url: `${req.headers.get("origin")}/team`,
+      success_url: `${getRequestOrigin(req)}/team?checkout_success=true&slots=${quantity}`,
+      cancel_url: `${getRequestOrigin(req)}/team`,
       metadata: {
         user_id: user.id,
         type: "team_member_addon",

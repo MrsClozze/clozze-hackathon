@@ -28,9 +28,9 @@ export default function Team() {
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
   
-  // Combined loading state - must wait for BOTH auth AND subscription data before showing lock/unlock state
-  // This prevents the lock icon from flashing before we know the user's actual plan
-  const teamMembersLoading = slotsLoading || authLoading || subscription === null;
+  // Combined loading state: don't block the whole page on subscription resolving.
+  // If subscription fails to load for any reason, we'll render the locked state instead of spinning forever.
+  const teamMembersLoading = slotsLoading || authLoading;
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
 
