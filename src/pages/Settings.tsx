@@ -50,20 +50,28 @@ export default function Settings() {
     if (!authUser) return;
 
     try {
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('first_name, last_name, email, avatar_url, professional_title, license_number, broker_license_number')
         .eq('id', authUser.id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
 
       if (profile) {
         setFirstName(profile.first_name || '');
         setLastName(profile.last_name || '');
-        setEmail(profile.email || '');
+        setEmail(profile.email || authUser.email || '');
         setAvatarUrl(profile.avatar_url || '');
         setProfessionalTitle(profile.professional_title || '');
         setLicenseNumber(profile.license_number || '');
         setBrokerLicenseNumber(profile.broker_license_number || '');
+      } else {
+        // No profile found - use auth user's email at minimum
+        setEmail(authUser.email || '');
       }
 
       // Check if there's a pending email change
@@ -81,12 +89,17 @@ export default function Settings() {
     if (!authUser) return;
 
     try {
-      const { data: teamMember } = await supabase
+      const { data: teamMember, error } = await supabase
         .from('team_members')
         .select('team_id, role, teams(name)')
         .eq('user_id', authUser.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.log('Error fetching team info:', error);
+        return;
+      }
 
       if (teamMember) {
         setTeamInfo(teamMember);
