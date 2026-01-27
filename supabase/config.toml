@@ -35,3 +35,5 @@ verify_jwt = false
 [functions.send-whatsapp-verification]
 
 [functions.verify-whatsapp-code]
+
+[functions.send-team-invitation-email]

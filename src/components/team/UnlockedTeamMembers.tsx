@@ -50,6 +50,17 @@ interface TeamMember {
   taskCount?: number;
 }
 
+interface PendingInvitation {
+  id: string;
+  team_id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+}
+
 interface TeamMemberSlots {
   totalSlots: number;
   usedSlots: number;
@@ -63,6 +74,7 @@ export default function UnlockedTeamMembers() {
   
   const [slots, setSlots] = useState<TeamMemberSlots>({ totalSlots: 0, usedSlots: 0, availableSlots: 0 });
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -81,6 +93,7 @@ export default function UnlockedTeamMembers() {
   useEffect(() => {
     fetchSlots();
     fetchTeamMembers();
+    fetchPendingInvitations();
   }, [user]);
 
   const fetchSlots = async () => {
@@ -162,6 +175,39 @@ export default function UnlockedTeamMembers() {
     }
   };
 
+  const fetchPendingInvitations = async () => {
+    if (!user) return;
+    
+    try {
+      // Get teams where user is owner
+      const { data: teams, error: teamsError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('created_by', user.id);
+
+      if (teamsError) throw teamsError;
+      if (!teams || teams.length === 0) {
+        setPendingInvitations([]);
+        return;
+      }
+
+      const teamIds = teams.map(t => t.id);
+
+      // Get pending invitations
+      const { data: invitations, error: invitationsError } = await supabase
+        .from('team_invitations')
+        .select('*')
+        .in('team_id', teamIds)
+        .eq('status', 'pending');
+
+      if (invitationsError) throw invitationsError;
+      setPendingInvitations(invitations || []);
+    } catch (error) {
+      console.error('Error fetching pending invitations:', error);
+    }
+  };
+  };
+
   const handleAddMember = () => {
     // If no slots purchased yet, or all slots are used, show upgrade modal
     if (slots.totalSlots === 0 || slots.availableSlots <= 0) {
@@ -228,17 +274,46 @@ export default function UnlockedTeamMembers() {
         teamId = newTeam.id;
       }
 
-      // Create invitation
-      const { error: inviteError } = await supabase
+      // Create invitation and get the token
+      const { data: invitation, error: inviteError } = await supabase
         .from('team_invitations')
         .insert({
           team_id: teamId,
           email: formData.email,
           invited_by: user!.id,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-        });
+        })
+        .select('token')
+        .single();
 
       if (inviteError) throw inviteError;
+
+      // Get inviter's profile for the email
+      const { data: inviterProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user!.id)
+        .single();
+
+      const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+        ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+        : user!.email?.split('@')[0] || 'A team owner';
+
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
+        body: {
+          inviteeEmail: formData.email,
+          inviteeFirstName: formData.firstName,
+          inviteeLastName: formData.lastName,
+          inviterName,
+          invitationToken: invitation.token,
+        },
+      });
+
+      if (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
 
       toast({
         title: "Invitation Sent",
@@ -247,6 +322,7 @@ export default function UnlockedTeamMembers() {
 
       setShowAddModal(false);
       fetchTeamMembers();
+      fetchPendingInvitations();
       fetchSlots();
     } catch (error: any) {
       console.error('Error adding member:', error);
@@ -397,7 +473,7 @@ export default function UnlockedTeamMembers() {
             </Button>
           </div>
 
-          {teamMembers.length === 0 ? (
+          {teamMembers.length === 0 && pendingInvitations.length === 0 ? (
             <div className="text-center py-8 text-text-muted">
               <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No team members yet</p>
@@ -405,6 +481,7 @@ export default function UnlockedTeamMembers() {
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Active team members */}
               {teamMembers.map((member) => (
                 <div
                   key={member.id}
@@ -418,12 +495,18 @@ export default function UnlockedTeamMembers() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-text-heading">
-                          {member.profile?.first_name || 'Pending'} {member.profile?.last_name || 'Invite'}
+                          {member.profile?.first_name || 'Unknown'} {member.profile?.last_name || ''}
                         </p>
                         {member.status === 'active' ? (
-                          <CheckCircle className="h-4 w-4 text-success" />
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-success/10 text-success flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Active
+                          </span>
                         ) : (
-                          <Clock className="h-4 w-4 text-warning" />
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-warning/10 text-warning flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Pending
+                          </span>
                         )}
                       </div>
                       <p className="text-sm text-text-muted flex items-center gap-1">
@@ -456,6 +539,38 @@ export default function UnlockedTeamMembers() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Pending invitations */}
+              {pendingInvitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between p-4 rounded-lg bg-warning/5 border border-warning/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-warning" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-text-heading">
+                          {invitation.first_name || 'Invited User'} {invitation.last_name || ''}
+                        </p>
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-warning/10 text-warning flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Pending Invite
+                        </span>
+                      </div>
+                      <p className="text-sm text-text-muted flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {invitation.email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-sm text-text-muted">
+                    <p>Expires {new Date(invitation.expires_at).toLocaleDateString()}</p>
                   </div>
                 </div>
               ))}
