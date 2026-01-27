@@ -22,7 +22,7 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
   try {
@@ -40,6 +40,41 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
+
+    // Handle @clozze.io internal users - grant slots directly without Stripe
+    if (user.email.endsWith('@clozze.io')) {
+      logStep("Internal user detected - granting slots directly", { quantity });
+      
+      // Get existing slots or create new record
+      const { data: existingSlots } = await supabaseClient
+        .from('team_member_slots')
+        .select('total_slots')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      const currentSlots = existingSlots?.total_slots || 0;
+      const newTotalSlots = currentSlots + quantity;
+      
+      await supabaseClient
+        .from('team_member_slots')
+        .upsert({
+          user_id: user.id,
+          total_slots: newTotalSlots,
+          stripe_subscription_id: 'internal_clozze',
+          stripe_subscription_item_id: 'internal_clozze',
+        }, { onConflict: 'user_id' });
+      
+      logStep("Slots granted to internal user", { newTotalSlots });
+      
+      return new Response(JSON.stringify({ 
+        success: true,
+        internalUser: true,
+        totalSlots: newTotalSlots
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
