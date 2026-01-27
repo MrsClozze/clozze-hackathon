@@ -15,7 +15,7 @@ import gmailLogo from "@/assets/gmail-logo.webp";
 import whatsappLogo from "@/assets/whatsapp-logo.webp";
 import outlookEmailLogo from "@/assets/outlook-email-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
-import followUpBossLogo from "@/assets/follow-up-boss-logo.webp";
+import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 const integrations = [
