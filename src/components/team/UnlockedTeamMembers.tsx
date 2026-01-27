@@ -206,7 +206,6 @@ export default function UnlockedTeamMembers() {
       console.error('Error fetching pending invitations:', error);
     }
   };
-  };
 
   const handleAddMember = () => {
     // If no slots purchased yet, or all slots are used, show upgrade modal
@@ -280,6 +279,8 @@ export default function UnlockedTeamMembers() {
         .insert({
           team_id: teamId,
           email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
           invited_by: user!.id,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
         })
