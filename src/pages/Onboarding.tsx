@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Upload, Check } from "lucide-react";
+import { Camera, Check, ArrowRight, ArrowLeft } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
 
 const roleOptions = [
@@ -34,10 +35,20 @@ export default function Onboarding() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 2;
+
+  // Step 1 fields
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("");
+  const [otherRole, setOtherRole] = useState("");
   const [companyName, setCompanyName] = useState("");
+
+  // Step 2 fields
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [selectedReferral, setSelectedReferral] = useState<string>("");
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +93,11 @@ export default function Onboarding() {
         uploadedAvatarUrl = await uploadAvatar();
       }
 
+      const roleValue = selectedRole === "other" && otherRole ? otherRole : selectedRole;
+      const roleLabel = selectedRole === "other" && otherRole 
+        ? otherRole 
+        : roleOptions.find(r => r.value === selectedRole)?.label || selectedRole;
+
       const updates: Record<string, unknown> = {
         onboarding_completed: true,
         updated_at: new Date().toISOString(),
@@ -90,12 +106,21 @@ export default function Onboarding() {
       if (uploadedAvatarUrl) {
         updates.avatar_url = uploadedAvatarUrl;
       }
-      if (selectedRole) {
-        updates.role = selectedRole;
-        updates.professional_title = roleOptions.find(r => r.value === selectedRole)?.label || selectedRole;
+      if (phoneNumber) {
+        updates.phone = phoneNumber;
+      }
+      if (roleValue) {
+        updates.role = roleValue;
+        updates.professional_title = roleLabel;
       }
       if (companyName) {
         updates.company_name = companyName;
+      }
+      if (licenseNumber) {
+        updates.license_number = licenseNumber;
+      }
+      if (websiteUrl) {
+        updates.website_url = websiteUrl;
       }
       if (selectedReferral) {
         updates.referral_source = selectedReferral;
@@ -148,136 +173,242 @@ export default function Onboarding() {
     }
   };
 
+  const handleNext = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const userInitials = user?.email?.charAt(0).toUpperCase() || "U";
+  const progressValue = (currentStep / totalSteps) * 100;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg p-8">
-        <div className="flex flex-col items-center mb-6">
+        {/* Logo and Header */}
+        <div className="flex flex-col items-center mb-4">
           <img src={clozzeLogo} alt="Clozze" className="h-48 -mb-2" />
-          <h1 className="text-2xl font-bold text-text-heading">Complete Your Profile</h1>
+          <h1 className="text-2xl font-bold text-text-heading">Let's set up your profile</h1>
           <p className="text-text-muted mt-2 text-center">
             Help us personalize your experience
           </p>
         </div>
 
-        <div className="space-y-6">
-          {/* Profile Photo Upload */}
-          <div className="flex flex-col items-center">
-            <Label className="mb-3 text-sm font-medium">Profile Photo</Label>
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={avatarUrl} className="object-cover" />
-                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <label
-                htmlFor="avatar-upload"
-                className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors"
-              >
-                <Camera className="h-4 w-4" />
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
-              </label>
-            </div>
-            <p className="text-xs text-text-muted mt-2">Click the camera to upload</p>
+        {/* Progress Indicator */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-text-muted">Step {currentStep} of {totalSteps}</span>
+            <span className="text-sm text-text-muted">{Math.round(progressValue)}%</span>
           </div>
+          <Progress value={progressValue} className="h-2" />
+        </div>
 
-          {/* Role Selection */}
-          <div>
-            <Label className="mb-3 block text-sm font-medium">What best describes your role?</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {roleOptions.map((role) => (
-                <Button
-                  key={role.value}
-                  type="button"
-                  variant="outline"
-                  className={`h-auto py-3 px-4 justify-start ${
-                    selectedRole === role.value
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-secondary border-border hover:bg-primary/5 hover:border-primary/30"
-                  }`}
-                  onClick={() => setSelectedRole(role.value)}
+        {/* Step 1: Basic Info */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            {/* Profile Photo Upload */}
+            <div className="flex flex-col items-center">
+              <Label className="mb-3 text-sm font-medium">Profile Photo</Label>
+              <div className="relative">
+                <Avatar className="h-24 w-24">
+                  <AvatarImage src={avatarUrl} className="object-cover" />
+                  <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <label
+                  htmlFor="avatar-upload"
+                  className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors"
                 >
-                  {selectedRole === role.value && (
-                    <Check className="h-4 w-4 mr-2 shrink-0" />
-                  )}
-                  <span className="text-sm">{role.label}</span>
-                </Button>
-              ))}
+                  <Camera className="h-4 w-4" />
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-text-muted mt-2">Click the camera to upload</p>
             </div>
-          </div>
 
-          {/* Company Name */}
-          {selectedRole && (
+            {/* Phone Number */}
             <div>
-              <Label htmlFor="company" className="mb-2 block text-sm font-medium">
-                Company Name <span className="text-text-muted">(optional)</span>
+              <Label htmlFor="phone" className="mb-2 block text-sm font-medium">
+                Phone Number <span className="text-text-muted">(optional)</span>
               </Label>
               <Input
-                id="company"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Enter your company or brokerage name"
+                id="phone"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="(555) 123-4567"
               />
             </div>
-          )}
 
-          {/* Referral Source */}
-          <div>
-            <Label className="mb-3 block text-sm font-medium">How did you hear about us?</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {referralOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={`h-auto py-2 px-3 ${
-                    selectedReferral === option.value
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-secondary border-border hover:bg-primary/5 hover:border-primary/30"
-                  }`}
-                  onClick={() => setSelectedReferral(option.value)}
-                >
-                  {selectedReferral === option.value && (
-                    <Check className="h-3 w-3 mr-1 shrink-0" />
-                  )}
-                  <span className="text-xs">{option.label}</span>
-                </Button>
-              ))}
+            {/* Role Selection */}
+            <div>
+              <Label className="mb-3 block text-sm font-medium">What best describes your role?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {roleOptions.map((role) => (
+                  <Button
+                    key={role.value}
+                    type="button"
+                    variant="outline"
+                    className={`h-auto py-3 px-4 justify-start ${
+                      selectedRole === role.value
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "bg-secondary border-border hover:bg-primary/5 hover:border-primary/30"
+                    }`}
+                    onClick={() => setSelectedRole(role.value)}
+                  >
+                    {selectedRole === role.value && (
+                      <Check className="h-4 w-4 mr-2 shrink-0" />
+                    )}
+                    <span className="text-sm">{role.label}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Other Role Text Field */}
+            {selectedRole === "other" && (
+              <div>
+                <Label htmlFor="other-role" className="mb-2 block text-sm font-medium">
+                  Please specify your role
+                </Label>
+                <Input
+                  id="other-role"
+                  value={otherRole}
+                  onChange={(e) => setOtherRole(e.target.value)}
+                  placeholder="Enter your role"
+                />
+              </div>
+            )}
+
+            {/* Company Name */}
+            {selectedRole && (
+              <div>
+                <Label htmlFor="company" className="mb-2 block text-sm font-medium">
+                  Company / Brokerage Name <span className="text-text-muted">(optional)</span>
+                </Label>
+                <Input
+                  id="company"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Enter your company or brokerage name"
+                />
+              </div>
+            )}
+
+            {/* Next Button */}
+            <Button
+              onClick={handleNext}
+              className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110"
+            >
+              Continue
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Additional Info */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            {/* License Number */}
+            <div>
+              <Label htmlFor="license" className="mb-2 block text-sm font-medium">
+                Real Estate License Number <span className="text-text-muted">(optional)</span>
+              </Label>
+              <Input
+                id="license"
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                placeholder="Enter your license number"
+              />
+            </div>
+
+            {/* Website URL */}
+            <div>
+              <Label htmlFor="website" className="mb-2 block text-sm font-medium">
+                Website / Social Media <span className="text-text-muted">(optional)</span>
+              </Label>
+              <Input
+                id="website"
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://your-website.com or social profile link"
+              />
+            </div>
+
+            {/* Referral Source */}
+            <div>
+              <Label className="mb-3 block text-sm font-medium">How did you hear about us?</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {referralOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={`h-auto py-2 px-3 ${
+                      selectedReferral === option.value
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "bg-secondary border-border hover:bg-primary/5 hover:border-primary/30"
+                    }`}
+                    onClick={() => setSelectedReferral(option.value)}
+                  >
+                    {selectedReferral === option.value && (
+                      <Check className="h-3 w-3 mr-1 shrink-0" />
+                    )}
+                    <span className="text-xs">{option.label}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Navigation Buttons */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                className="flex-1"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                className="flex-1 transition-all duration-300 hover:shadow-lg hover:brightness-110"
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Complete Setup"}
+              </Button>
             </div>
           </div>
+        )}
 
-          {/* Submit Button */}
+        {/* Skip Option */}
+        <div className="text-center mt-6">
           <Button
-            onClick={handleSubmit}
-            className="w-full transition-all duration-300 hover:shadow-lg hover:brightness-110"
+            variant="ghost"
+            onClick={handleSkip}
             disabled={loading}
+            className="text-text-muted hover:text-text-heading"
           >
-            {loading ? "Saving..." : "Complete Setup"}
+            Skip
           </Button>
-
-          {/* Skip Option */}
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              onClick={handleSkip}
-              disabled={loading}
-              className="text-text-muted hover:text-text-heading"
-            >
-              Skip
-            </Button>
-            <p className="text-xs text-text-muted mt-1">
-              Fill out later in user settings
-            </p>
-          </div>
+          <p className="text-xs text-text-muted mt-1">
+            Fill out later in user settings
+          </p>
         </div>
       </Card>
     </div>
