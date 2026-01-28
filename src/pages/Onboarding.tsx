@@ -275,7 +275,7 @@ export default function Onboarding() {
               Skip
             </Button>
             <p className="text-xs text-text-muted mt-1">
-              Fill out later in your user settings
+              Fill out later in user settings
             </p>
           </div>
         </div>
