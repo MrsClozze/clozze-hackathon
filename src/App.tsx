@@ -24,6 +24,7 @@ import Tasks from "./pages/Tasks";
 import CommunicationHub from "./pages/CommunicationHub";
 // Marketing page removed - replaced by Integrations in navigation
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
@@ -46,6 +47,7 @@ const router = createBrowserRouter([
       { path: "/communication-hub", element: <CommunicationHub /> },
       // Marketing route removed - use /integrations instead
       { path: "/auth", element: <Auth /> },
+      { path: "/onboarding", element: <Onboarding /> },
       { path: "/reset-password", element: <ResetPassword /> },
       { path: "/reset-password/*", element: <ResetPassword /> },
       { path: "/pricing", element: <Pricing /> },
