@@ -119,7 +119,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
               <div className="grid grid-cols-3 gap-3">
                 <Button
                   variant="outline"
-                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
                   onClick={handleDocuSignUpload}
                   disabled={isAuthenticating}
                 >
@@ -127,14 +127,14 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
                   onClick={() => toast({ title: "Follow Up Boss", description: "Integration coming soon..." })}
                 >
                   <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
                   onClick={() => toast({ title: "Dotloop", description: "Integration coming soon..." })}
                 >
                   <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
