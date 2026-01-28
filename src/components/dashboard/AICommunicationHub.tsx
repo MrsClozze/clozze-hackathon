@@ -104,12 +104,12 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
           {displayedTextMessages.map((message) => (
             <div
               key={message.id}
-              className="p-4 rounded-lg bg-background-elevated border border-card-border hover:border-accent-gold/30 transition-all duration-200 group cursor-pointer"
+              className="p-4 rounded-lg bg-secondary border border-border hover:border-primary/40 transition-all duration-200 group cursor-pointer"
             >
               {/* Message Header */}
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-accent-gold" />
+                  <MessageSquare className="h-4 w-4 text-primary" />
                   <h4 className="text-sm font-semibold text-text-heading">
                     {message.sender}
                   </h4>
@@ -118,12 +118,12 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               </div>
 
               {/* Original Message Snippet */}
-              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-accent-gold/30 pl-3">
+              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-primary/40 pl-3">
                 "{message.snippet}"
               </p>
 
               {/* AI Action Item */}
-              <div className="bg-accent-gold/5 border border-accent-gold/20 rounded-md p-3">
+              <div className="bg-primary/10 border border-primary/25 rounded-md p-3">
                 <p className="text-xs text-text-heading leading-relaxed">
                   {message.actionItem}
                 </p>
@@ -133,7 +133,7 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full mt-3 text-xs group-hover:text-accent-gold transition-colors"
+                className="w-full mt-3 text-xs group-hover:text-primary transition-colors"
                 onClick={() => handleTextAction(message)}
               >
                 Take Action
@@ -175,12 +175,12 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
           {displayedEmailMessages.map((email) => (
             <div
               key={email.id}
-              className="p-4 rounded-lg bg-background-elevated border border-card-border hover:border-accent-gold/30 transition-all duration-200 group cursor-pointer"
+              className="p-4 rounded-lg bg-secondary border border-border hover:border-primary/40 transition-all duration-200 group cursor-pointer"
             >
               {/* Email Header */}
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-accent-gold" />
+                  <Mail className="h-4 w-4 text-primary" />
                   <h4 className="text-sm font-semibold text-text-heading">
                     {email.sender}
                   </h4>
@@ -194,12 +194,12 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               </p>
 
               {/* Original Email Snippet */}
-              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-accent-gold/30 pl-3">
+              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-primary/40 pl-3">
                 "{email.snippet}"
               </p>
 
               {/* AI Action Item */}
-              <div className="bg-accent-gold/5 border border-accent-gold/20 rounded-md p-3">
+              <div className="bg-primary/10 border border-primary/25 rounded-md p-3">
                 <p className="text-xs text-text-heading leading-relaxed">
                   {email.actionItem}
                 </p>
@@ -209,7 +209,7 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full mt-3 text-xs group-hover:text-accent-gold transition-colors"
+                className="w-full mt-3 text-xs group-hover:text-primary transition-colors"
                 onClick={() => handleEmailAction(email)}
               >
                 Take Action
