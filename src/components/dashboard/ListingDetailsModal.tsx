@@ -4,12 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ContactSelect } from "@/components/ui/contact-select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
+import AddTaskModal from "./AddTaskModal";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { ListingData } from "@/contexts/ListingsContext";
@@ -28,12 +28,8 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDueDate, setNewTaskDueDate] = useState("");
-  const [newTaskPriority, setNewTaskPriority] = useState<"high" | "medium" | "low">("medium");
-  const [newTaskNotes, setNewTaskNotes] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { tasks, openTaskModal, addTask } = useTasks();
+  const { tasks, openTaskModal } = useTasks();
   const { toast } = useToast();
 
   if (!listing) return null;
@@ -118,40 +114,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
     fileInputRef.current?.click();
   };
 
-  const handleAddTask = () => {
-    if (!newTaskTitle.trim()) {
-      toast({
-        title: "Title required",
-        description: "Please enter a task title",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    addTask({
-      title: newTaskTitle,
-      date: newTaskDueDate || new Date().toISOString().split('T')[0],
-      dueDate: newTaskDueDate,
-      address: listing.address,
-      assignee: "",
-      hasAIAssist: false,
-      priority: newTaskPriority,
-      notes: newTaskNotes,
-      status: "pending",
-      listingId: listing.id,
-    });
-
-    setNewTaskTitle("");
-    setNewTaskDueDate("");
-    setNewTaskPriority("medium");
-    setNewTaskNotes("");
-    setIsAddTaskOpen(false);
-
-    toast({
-      title: "Task added",
-      description: "New task has been created successfully",
-    });
-  };
+  // handleAddTask removed - now using standardized AddTaskModal
 
   const associatedTasks = tasks.filter((task) => task.listingId === listing.id);
 
@@ -678,65 +641,13 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
           </div>
         </div>
 
-        {/* Add Task Dialog */}
-        <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Task for {listing.address}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Label>Task Title</Label>
-                <Input
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Enter task title"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input
-                  type="date"
-                  value={newTaskDueDate}
-                  onChange={(e) => setNewTaskDueDate(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Priority</Label>
-                <Select value={newTaskPriority} onValueChange={(value: any) => setNewTaskPriority(value)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={newTaskNotes}
-                  onChange={(e) => setNewTaskNotes(e.target.value)}
-                  placeholder="Add any notes..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setIsAddTaskOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddTask}>
-                  Add Task
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Add Task Modal - Using standardized form */}
+        <AddTaskModal 
+          open={isAddTaskOpen} 
+          onOpenChange={setIsAddTaskOpen}
+          listingId={listing.id}
+          defaultAddress={listing.address}
+        />
       </DialogContent>
       <TaskDetailsModal />
     </Dialog>
