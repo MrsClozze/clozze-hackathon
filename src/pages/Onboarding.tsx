@@ -154,7 +154,7 @@ export default function Onboarding() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-lg p-8">
         <div className="flex flex-col items-center mb-6">
-          <img src={clozzeLogo} alt="Clozze" className="h-48 mb-1" />
+          <img src={clozzeLogo} alt="Clozze" className="h-48 -mb-2" />
           <h1 className="text-2xl font-bold text-text-heading">Complete Your Profile</h1>
           <p className="text-text-muted mt-2 text-center">
             Help us personalize your experience
