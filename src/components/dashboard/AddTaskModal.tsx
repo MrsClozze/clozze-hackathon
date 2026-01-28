@@ -5,10 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon, Users, Contact } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { useTasks } from "@/contexts/TasksContext";
-import { useBuyers } from "@/contexts/BuyersContext";
-import { useListings } from "@/contexts/ListingsContext";
+import { useContacts } from "@/contexts/ContactsContext";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -17,25 +21,20 @@ interface AddTaskModalProps {
 
 export default function AddTaskModal({ open, onOpenChange }: AddTaskModalProps) {
   const { addTask } = useTasks();
-  const { buyers } = useBuyers();
-  const { listings } = useListings();
-  
+  const { contacts, loading: contactsLoading } = useContacts();
+  const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
+
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
-  const [assignmentType, setAssignmentType] = useState<"none" | "buyer" | "listing">("none");
-  const [selectedBuyerId, setSelectedBuyerId] = useState("");
-  const [selectedListingId, setSelectedListingId] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState("");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Filter buyers and listings by Active/Pending status
-  const activeBuyers = buyers.filter(b => b.status === "Active" || b.status === "Pending");
-  const activeListings = listings.filter(l => l.status === "Active" || l.status === "Pending");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim()) {
       return;
     }
@@ -43,28 +42,26 @@ export default function AddTaskModal({ open, onOpenChange }: AddTaskModalProps) 
     setIsSubmitting(true);
 
     try {
+      // Find the selected team member to get their name for the assignee field
+      const selectedMember = teamMembers.find(m => m.userId === selectedAssigneeId);
+
       await addTask({
         title: title.trim(),
         notes: notes.trim(),
-        dueDate: dueDate || undefined,
+        dueDate: dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
         priority,
         status: "pending",
-        date: dueDate ? new Date(dueDate).toLocaleDateString() : "",
+        date: dueDate ? format(dueDate, "MMM d, yyyy") : "",
         address: "",
-        assignee: "",
+        assignee: selectedMember?.name || "",
         hasAIAssist: false,
-        buyerId: assignmentType === "buyer" ? selectedBuyerId : undefined,
-        listingId: assignmentType === "listing" ? selectedListingId : undefined,
+        // These will be handled by the context/database
+        contactId: selectedContactId || undefined,
+        assigneeUserId: selectedAssigneeId || undefined,
       });
 
       // Reset form
-      setTitle("");
-      setNotes("");
-      setDueDate("");
-      setPriority("medium");
-      setAssignmentType("none");
-      setSelectedBuyerId("");
-      setSelectedListingId("");
+      resetForm();
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating task:", error);
@@ -73,29 +70,32 @@ export default function AddTaskModal({ open, onOpenChange }: AddTaskModalProps) 
     }
   };
 
-  const handleCancel = () => {
+  const resetForm = () => {
     setTitle("");
     setNotes("");
-    setDueDate("");
+    setDueDate(undefined);
     setPriority("medium");
-    setAssignmentType("none");
-    setSelectedBuyerId("");
-    setSelectedListingId("");
+    setSelectedContactId("");
+    setSelectedAssigneeId("");
+  };
+
+  const handleCancel = () => {
+    resetForm();
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background">
         <DialogHeader>
           <DialogTitle className="text-text-heading">Add New Task</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Task Title */}
           <div className="space-y-2">
             <Label htmlFor="title" className="text-text-heading">
-              Task Title *
+              Task Title <span className="text-destructive">*</span>
             </Label>
             <Input
               id="title"
@@ -107,107 +107,120 @@ export default function AddTaskModal({ open, onOpenChange }: AddTaskModalProps) 
             />
           </div>
 
+          {/* Due Date */}
+          <div className="space-y-2">
+            <Label className="text-text-heading">Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal bg-background-elevated",
+                    !dueDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dueDate}
+                  onSelect={setDueDate}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           {/* Priority */}
           <div className="space-y-2">
-            <Label className="text-text-heading">Priority</Label>
+            <Label className="text-text-heading">Priority Level</Label>
             <Select value={priority} onValueChange={(value: "high" | "medium" | "low") => setPriority(value)}>
               <SelectTrigger className="bg-background-elevated">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="high">High Priority</SelectItem>
+                <SelectItem value="medium">Medium Priority</SelectItem>
+                <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Due Date */}
+          {/* Assign to Team Member */}
           <div className="space-y-2">
-            <Label htmlFor="dueDate" className="text-text-heading">
-              Due Date
+            <Label className="text-text-heading flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Assign to Team Member
             </Label>
-            <Input
-              id="dueDate"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="bg-background-elevated"
-            />
+            {teamMembersLoading ? (
+              <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                Loading team members...
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border border-dashed">
+                <Users className="h-4 w-4 inline mr-2" />
+                Add a team member to assign tasks
+              </div>
+            ) : (
+              <Select value={selectedAssigneeId} onValueChange={setSelectedAssigneeId}>
+                <SelectTrigger className="bg-background-elevated">
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="">None</SelectItem>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.userId} value={member.userId}>
+                      {member.name}
+                      {member.role === "owner" && (
+                        <span className="ml-2 text-xs text-muted-foreground">(Owner)</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
-          {/* Assignment Type */}
-          <div className="space-y-3">
-            <Label className="text-text-heading">Assign To</Label>
-            <RadioGroup value={assignmentType} onValueChange={(value: "none" | "buyer" | "listing") => {
-              setAssignmentType(value);
-              setSelectedBuyerId("");
-              setSelectedListingId("");
-            }}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="none" id="none" />
-                <Label htmlFor="none" className="font-normal cursor-pointer">None</Label>
+          {/* Contact */}
+          <div className="space-y-2">
+            <Label className="text-text-heading flex items-center gap-2">
+              <Contact className="h-4 w-4" />
+              Contact
+            </Label>
+            {contactsLoading ? (
+              <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md">
+                Loading contacts...
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="buyer" id="buyer" />
-                <Label htmlFor="buyer" className="font-normal cursor-pointer">Buyer</Label>
+            ) : contacts.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border border-dashed">
+                <Contact className="h-4 w-4 inline mr-2" />
+                Load contacts to show list of available contacts
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="listing" id="listing" />
-                <Label htmlFor="listing" className="font-normal cursor-pointer">Listing</Label>
-              </div>
-            </RadioGroup>
+            ) : (
+              <Select value={selectedContactId} onValueChange={setSelectedContactId}>
+                <SelectTrigger className="bg-background-elevated">
+                  <SelectValue placeholder="Select a contact..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[200px]">
+                  <SelectItem value="">None</SelectItem>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.first_name} {contact.last_name}
+                      {contact.company && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({contact.company})
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-
-          {/* Buyer Selection */}
-          {assignmentType === "buyer" && (
-            <div className="space-y-2">
-              <Label htmlFor="buyer-select" className="text-text-heading">
-                Select Buyer (Active/Pending Only)
-              </Label>
-              {activeBuyers.length === 0 ? (
-                <p className="text-sm text-text-muted">No active or pending buyers available</p>
-              ) : (
-                <Select value={selectedBuyerId} onValueChange={setSelectedBuyerId}>
-                  <SelectTrigger id="buyer-select" className="bg-background-elevated">
-                    <SelectValue placeholder="Choose a buyer" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {activeBuyers.map((buyer) => (
-                      <SelectItem key={buyer.id} value={buyer.id}>
-                        {buyer.firstName} {buyer.lastName} ({buyer.status})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
-
-          {/* Listing Selection */}
-          {assignmentType === "listing" && (
-            <div className="space-y-2">
-              <Label htmlFor="listing-select" className="text-text-heading">
-                Select Listing (Active/Pending Only)
-              </Label>
-              {activeListings.length === 0 ? (
-                <p className="text-sm text-text-muted">No active or pending listings available</p>
-              ) : (
-                <Select value={selectedListingId} onValueChange={setSelectedListingId}>
-                  <SelectTrigger id="listing-select" className="bg-background-elevated">
-                    <SelectValue placeholder="Choose a listing" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {activeListings.map((listing) => (
-                      <SelectItem key={listing.id} value={listing.id}>
-                        {listing.address} - {listing.city} ({listing.status})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
 
           {/* Notes */}
           <div className="space-y-2">
@@ -219,7 +232,7 @@ export default function AddTaskModal({ open, onOpenChange }: AddTaskModalProps) 
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add additional details..."
-              className="min-h-[100px] bg-background-elevated"
+              className="min-h-[80px] bg-background-elevated"
             />
           </div>
 
