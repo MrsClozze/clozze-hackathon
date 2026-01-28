@@ -445,7 +445,9 @@ export type Database = {
         Row: {
           address: string | null
           assignee: string | null
+          assignee_user_id: string | null
           buyer_id: string | null
+          contact_id: string | null
           created_at: string
           date: string | null
           due_date: string | null
@@ -462,7 +464,9 @@ export type Database = {
         Insert: {
           address?: string | null
           assignee?: string | null
+          assignee_user_id?: string | null
           buyer_id?: string | null
+          contact_id?: string | null
           created_at?: string
           date?: string | null
           due_date?: string | null
@@ -479,7 +483,9 @@ export type Database = {
         Update: {
           address?: string | null
           assignee?: string | null
+          assignee_user_id?: string | null
           buyer_id?: string | null
+          contact_id?: string | null
           created_at?: string
           date?: string | null
           due_date?: string | null
@@ -506,6 +512,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]

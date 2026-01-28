@@ -16,6 +16,8 @@ export interface Task {
   buyerId?: string;
   listingId?: string;
   userId?: string;
+  contactId?: string;
+  assigneeUserId?: string;
 }
 
 interface TasksContextType {
@@ -162,6 +164,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         buyerId: task.buyer_id || undefined,
         listingId: task.listing_id || undefined,
         userId: task.user_id,
+        contactId: task.contact_id || undefined,
+        assigneeUserId: task.assignee_user_id || undefined,
       }));
 
       setTasks(mappedTasks);
@@ -200,6 +204,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
           buyer_id: updates.buyerId || null,
           listing_id: updates.listingId || null,
+          contact_id: updates.contactId || null,
+          assignee_user_id: updates.assigneeUserId || null,
         };
 
         // Remove undefined values
@@ -294,6 +300,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
         buyer_id: task.buyerId || null,
         listing_id: task.listingId || null,
+        contact_id: task.contactId || null,
+        assignee_user_id: task.assigneeUserId || null,
       };
 
       const { data, error } = await supabase
@@ -318,6 +326,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         buyerId: data.buyer_id || undefined,
         listingId: data.listing_id || undefined,
         userId: data.user_id,
+        contactId: data.contact_id || undefined,
+        assigneeUserId: data.assignee_user_id || undefined,
       };
 
       setTasks((prevTasks) => [...prevTasks, mappedTask]);
