@@ -124,12 +124,12 @@ export default function MessageActionModal({
 
         <div className="space-y-4">
           {/* Original Message Context */}
-          <div className="bg-background-elevated rounded-lg p-4 border border-card-border">
+          <div className="bg-secondary rounded-lg p-4 border border-border">
             <p className="text-xs text-text-muted mb-2">Original Message:</p>
-            <p className="text-sm text-text-subtle italic border-l-2 border-accent-gold/30 pl-3 mb-3">
+            <p className="text-sm text-text-subtle italic border-l-2 border-primary/40 pl-3 mb-3">
               "{originalMessage}"
             </p>
-            <div className="bg-accent-gold/5 border border-accent-gold/20 rounded-md p-3">
+            <div className="bg-primary/10 border border-primary/25 rounded-md p-3">
               <p className="text-xs text-text-muted mb-1">Action Item:</p>
               <p className="text-xs text-text-heading">{actionItem}</p>
             </div>
@@ -138,8 +138,8 @@ export default function MessageActionModal({
           {/* Integration Lock Warning */}
           {mode === "locked" && (
             <div className="space-y-4">
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-text-heading">
                     {messageType === "text" ? "Phone" : "Email"} Not Connected
@@ -172,22 +172,22 @@ export default function MessageActionModal({
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2 hover:border-accent-gold/50 transition-colors"
+                  className="h-auto py-4 flex flex-col gap-2 bg-secondary hover:bg-secondary-hover hover:border-primary/50 transition-colors border-border"
                   onClick={handleAIAssist}
                 >
-                  <Sparkles className="h-5 w-5 text-accent-gold" />
-                  <span className="font-semibold">AI Assist</span>
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-text-heading">AI Assist</span>
                   <span className="text-xs text-text-muted">
                     Generate response with AI
                   </span>
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2 hover:border-accent-gold/50 transition-colors"
+                  className="h-auto py-4 flex flex-col gap-2 bg-secondary hover:bg-secondary-hover hover:border-primary/50 transition-colors border-border"
                   onClick={handleManualMode}
                 >
-                  <Edit3 className="h-5 w-5 text-accent-gold" />
-                  <span className="font-semibold">Write Manually</span>
+                  <Edit3 className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-text-heading">Write Manually</span>
                   <span className="text-xs text-text-muted">
                     Type your own message
                   </span>
@@ -199,7 +199,7 @@ export default function MessageActionModal({
           {/* AI Generation Loading */}
           {mode === "ai" && isGenerating && (
             <div className="flex flex-col items-center justify-center py-8 space-y-3">
-              <Loader2 className="h-8 w-8 text-accent-gold animate-spin" />
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
               <p className="text-sm text-text-muted">Generating your response...</p>
             </div>
           )}
