@@ -11,6 +11,7 @@ import { ListingsProvider } from "@/contexts/ListingsContext";
 import { BuyersProvider } from "@/contexts/BuyersContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
 import { ThemeProvider } from "@/components/theme-provider";
+import { RootLayout } from "@/components/layout/RootLayout";
 import ResetPassword from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
@@ -31,23 +32,28 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const router = createBrowserRouter([
-  { path: "/", element: <Index /> },
-  { path: "/team", element: <Team /> },
-  { path: "/team/member/:memberId", element: <TeamMemberProfile /> },
-  { path: "/listings", element: <Listings /> },
-  { path: "/buyers", element: <Buyers /> },
-  { path: "/contacts", element: <Contacts /> },
-  { path: "/documents", element: <Documents /> },
-  { path: "/tasks", element: <Tasks /> },
-  { path: "/communication-hub", element: <CommunicationHub /> },
-  // Marketing route removed - use /integrations instead
-  { path: "/auth", element: <Auth /> },
-  { path: "/reset-password", element: <ResetPassword /> },
-  { path: "/reset-password/*", element: <ResetPassword /> },
-  { path: "/pricing", element: <Pricing /> },
-  { path: "/integrations", element: <Integrations /> },
-  { path: "/settings", element: <Settings /> },
-  { path: "*", element: <NotFound /> },
+  {
+    element: <RootLayout />,
+    children: [
+      { path: "/", element: <Index /> },
+      { path: "/team", element: <Team /> },
+      { path: "/team/member/:memberId", element: <TeamMemberProfile /> },
+      { path: "/listings", element: <Listings /> },
+      { path: "/buyers", element: <Buyers /> },
+      { path: "/contacts", element: <Contacts /> },
+      { path: "/documents", element: <Documents /> },
+      { path: "/tasks", element: <Tasks /> },
+      { path: "/communication-hub", element: <CommunicationHub /> },
+      // Marketing route removed - use /integrations instead
+      { path: "/auth", element: <Auth /> },
+      { path: "/reset-password", element: <ResetPassword /> },
+      { path: "/reset-password/*", element: <ResetPassword /> },
+      { path: "/pricing", element: <Pricing /> },
+      { path: "/integrations", element: <Integrations /> },
+      { path: "/settings", element: <Settings /> },
+      { path: "*", element: <NotFound /> },
+    ],
+  },
 ]);
 
 const App = () => (
