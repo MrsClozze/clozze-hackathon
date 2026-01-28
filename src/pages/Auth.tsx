@@ -23,20 +23,35 @@ export default function Auth() {
   const [lastName, setLastName] = useState("");
 
   useEffect(() => {
-    if (user) {
-      const sessionId = searchParams.get('session_id');
-      if (sessionId) {
-        refreshSubscription().then(() => {
-          toast({
-            title: "Subscription activated!",
-            description: "Welcome to your new plan.",
+    const checkOnboardingAndRedirect = async () => {
+      if (user) {
+        const sessionId = searchParams.get('session_id');
+        if (sessionId) {
+          refreshSubscription().then(() => {
+            toast({
+              title: "Subscription activated!",
+              description: "Welcome to your new plan.",
+            });
+            navigate("/integrations");
           });
-          navigate("/integrations");
-        });
-      } else {
-        navigate("/");
+        } else {
+          // Check if user has completed onboarding
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (profile && !profile.onboarding_completed) {
+            navigate("/onboarding");
+          } else {
+            navigate("/");
+          }
+        }
       }
-    }
+    };
+    
+    checkOnboardingAndRedirect();
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
   // Handle OAuth code exchange on redirect

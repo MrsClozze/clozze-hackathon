@@ -326,6 +326,8 @@ export type Database = {
           onboarding_completed: boolean | null
           phone: string | null
           professional_title: string | null
+          referral_source: string | null
+          role: string | null
           team_onboarding_completed: boolean | null
           updated_at: string
         }
@@ -342,6 +344,8 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           professional_title?: string | null
+          referral_source?: string | null
+          role?: string | null
           team_onboarding_completed?: boolean | null
           updated_at?: string
         }
@@ -358,6 +362,8 @@ export type Database = {
           onboarding_completed?: boolean | null
           phone?: string | null
           professional_title?: string | null
+          referral_source?: string | null
+          role?: string | null
           team_onboarding_completed?: boolean | null
           updated_at?: string
         }
