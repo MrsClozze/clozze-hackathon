@@ -8,6 +8,8 @@ import { ContactSelect } from "@/components/ui/contact-select";
 import { Upload, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import docusignLogo from "@/assets/docusign-logo-new.png";
+import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
+import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 
 interface AddBuyerModalProps {
@@ -111,17 +113,33 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
               </label>
             </div>
 
-            {/* DocuSign Integration */}
+            {/* Integration Options */}
             <div>
-              <h3 className="text-sm font-semibold mb-3">Load from DocuSign</h3>
-            <Button
-              variant="outline"
-              className="w-full h-20 text-base hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all"
-              onClick={handleDocuSignUpload}
-              disabled={isAuthenticating}
-            >
-              <img src={docusignLogo} alt="DocuSign" className="h-12 object-contain" />
-            </Button>
+              <h3 className="text-sm font-semibold mb-3">Load from the following apps</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <Button
+                  variant="outline"
+                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  onClick={handleDocuSignUpload}
+                  disabled={isAuthenticating}
+                >
+                  <img src={docusignLogo} alt="DocuSign" className="h-10 object-contain" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  onClick={() => toast({ title: "Follow Up Boss", description: "Integration coming soon..." })}
+                >
+                  <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 hover:bg-primary/5 hover:border-primary/30 transition-all"
+                  onClick={() => toast({ title: "Dotloop", description: "Integration coming soon..." })}
+                >
+                  <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
+                </Button>
+              </div>
             </div>
 
             {/* Manual Entry Option */}
