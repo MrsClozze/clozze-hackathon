@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Check, ArrowRight, ArrowLeft } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
+import ImageCropModal from "@/components/onboarding/ImageCropModal";
 
 const roleOptions = [
   { value: "real_estate_agent", label: "Real Estate Agent" },
@@ -51,13 +52,27 @@ export default function Onboarding() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [selectedReferral, setSelectedReferral] = useState<string>("");
 
+  // Image cropping state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [rawImageSrc, setRawImageSrc] = useState<string>("");
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setAvatarFile(file);
       const previewUrl = URL.createObjectURL(file);
-      setAvatarUrl(previewUrl);
+      setRawImageSrc(previewUrl);
+      setCropModalOpen(true);
     }
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    // Create a File from the Blob for upload
+    const croppedFile = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" });
+    setAvatarFile(croppedFile);
+    
+    // Create preview URL for display
+    const previewUrl = URL.createObjectURL(croppedBlob);
+    setAvatarUrl(previewUrl);
   };
 
   const uploadAvatar = async (): Promise<string | null> => {
@@ -411,6 +426,14 @@ export default function Onboarding() {
           </p>
         </div>
       </Card>
+
+      {/* Image Crop Modal */}
+      <ImageCropModal
+        open={cropModalOpen}
+        onClose={() => setCropModalOpen(false)}
+        imageSrc={rawImageSrc}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 }
