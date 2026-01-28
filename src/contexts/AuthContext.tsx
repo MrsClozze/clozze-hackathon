@@ -100,8 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let previousUserId: string | null = null;
+
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        const newUserId = currentSession?.user?.id ?? null;
+        
+        // Detect user switch and clear stale data
+        if (previousUserId && newUserId && previousUserId !== newUserId) {
+          console.warn('[AUTH] User changed from', previousUserId, 'to', newUserId, '- clearing stale subscription data');
+          setSubscription(null);
+        }
+        previousUserId = newUserId;
+
         // Prevent UI from flashing between "no subscription" and "active subscription" states
         // by keeping the app in a loading state until subscription status has been checked.
         setLoading(true);
