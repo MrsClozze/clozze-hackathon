@@ -16,7 +16,6 @@ import { toast } from "@/hooks/use-toast";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
-import outlookLogo from "@/assets/outlook-logo.png";
 
 interface CalendarEvent {
   id: string;
@@ -142,7 +141,6 @@ export default function CalendarView() {
     isConnected, 
     getConnection,
     connectGoogle, 
-    connectOutlook, 
     connectApple,
     disconnect 
   } = useCalendarConnections();
@@ -232,14 +230,6 @@ export default function CalendarView() {
       await disconnect("google");
     } else {
       await connectGoogle();
-    }
-  };
-
-  const handleOutlookConnect = async () => {
-    if (isConnected("outlook")) {
-      await disconnect("outlook");
-    } else {
-      await connectOutlook();
     }
   };
 
@@ -337,36 +327,6 @@ export default function CalendarView() {
                   {connecting === "apple" ? (
                     <Loader2 className="h-5 w-5 text-primary animate-spin" />
                   ) : isConnected("apple") ? (
-                    <Check className="h-5 w-5 text-success" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                  )}
-                </button>
-
-                {/* Outlook Calendar */}
-                <button 
-                  className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${
-                    isConnected("outlook") 
-                      ? "border-success/50 bg-success/5" 
-                      : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
-                  }`}
-                  onClick={handleOutlookConnect}
-                  disabled={connecting === "outlook"}
-                >
-                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
-                    <img src={outlookLogo} alt="Outlook Calendar" className="w-8 h-8 object-contain" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Outlook Calendar</h3>
-                    <p className="text-sm text-text-muted mt-0.5">
-                      {isConnected("outlook") 
-                        ? `Connected: ${getConnection("outlook")?.providerEmail || ""}` 
-                        : "Sync with Microsoft 365"}
-                    </p>
-                  </div>
-                  {connecting === "outlook" ? (
-                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                  ) : isConnected("outlook") ? (
                     <Check className="h-5 w-5 text-success" />
                   ) : (
                     <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
