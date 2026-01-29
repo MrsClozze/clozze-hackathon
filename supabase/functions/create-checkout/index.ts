@@ -38,10 +38,12 @@ serve(async (req) => {
   );
 
   try {
-    const { priceId } = await req.json();
+    const body = await req.json();
+    const priceId = typeof body?.priceId === 'string' ? body.priceId.trim() : null;
     
-    if (!priceId) {
-      throw new Error("Price ID is required");
+    // Validate priceId format (Stripe price IDs start with "price_")
+    if (!priceId || !priceId.startsWith('price_') || priceId.length > 100) {
+      throw new Error("Invalid or missing Price ID");
     }
 
     const authHeader = req.headers.get("Authorization")!;
