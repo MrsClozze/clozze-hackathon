@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Globe, Plus, Clock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import outlookLogo from "@/assets/outlook-logo.png";
@@ -27,26 +28,124 @@ interface CalendarEvent {
   textColor: string;
 }
 
-const initialEvents: CalendarEvent[] = [
-  { id: "1", date: 1, title: "Listing Appt", time: "10:00 AM", color: "bg-blue-500", textColor: "text-white" },
-  { id: "2", date: 2, title: "Open House", time: "2:00 PM", color: "bg-green-500", textColor: "text-white" },
-  { id: "3", date: 3, title: "Client Meeting", time: "11:00 AM", color: "bg-blue-500", textColor: "text-white" },
-  { id: "4", date: 5, title: "Property Tour", time: "3:00 PM", color: "bg-purple-500", textColor: "text-white" },
-  { id: "5", date: 8, title: "Contract Review", time: "9:00 AM", color: "bg-blue-500", textColor: "text-white" },
-  { id: "6", date: 16, title: "Listing Appt", time: "1:00 PM", color: "bg-blue-500", textColor: "text-white" },
-  { id: "7", date: 19, title: "Closing", time: "4:00 PM", color: "bg-red-500", textColor: "text-white" },
-];
+const initialEvents: CalendarEvent[] = [];
 
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+// Apple Calendar Connection Modal
+function AppleCalendarModal({ 
+  isOpen, 
+  onClose, 
+  onConnect 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  onConnect: (appleId: string, password: string) => Promise<boolean>;
+}) {
+  const [appleId, setAppleId] = useState("");
+  const [appPassword, setAppPassword] = useState("");
+  const [connecting, setConnecting] = useState(false);
+
+  const handleConnect = async () => {
+    if (!appleId || !appPassword) return;
+    setConnecting(true);
+    const success = await onConnect(appleId, appPassword);
+    setConnecting(false);
+    if (success) {
+      setAppleId("");
+      setAppPassword("");
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md bg-card border border-card-border">
+        <DialogHeader>
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <img src={appleCalendarLogo} alt="Apple Calendar" className="w-10 h-10 object-contain" />
+          </div>
+          <DialogTitle className="text-center">Connect Apple Calendar</DialogTitle>
+          <DialogDescription className="text-center">
+            To connect your Apple Calendar, you'll need to use an App-Specific Password. 
+            <a 
+              href="https://support.apple.com/en-us/102654" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline ml-1"
+            >
+              Learn how to create one
+            </a>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-4">
+          <div>
+            <Label htmlFor="apple-id">Apple ID (Email)</Label>
+            <Input
+              id="apple-id"
+              type="email"
+              value={appleId}
+              onChange={(e) => setAppleId(e.target.value)}
+              placeholder="your@icloud.com"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="app-password">App-Specific Password</Label>
+            <Input
+              id="app-password"
+              type="password"
+              value={appPassword}
+              onChange={(e) => setAppPassword(e.target.value)}
+              placeholder="xxxx-xxxx-xxxx-xxxx"
+              className="mt-1"
+            />
+            <p className="text-xs text-text-muted mt-1">
+              This is NOT your Apple ID password. Create an app-specific password at appleid.apple.com
+            </p>
+          </div>
+          <Button 
+            onClick={handleConnect} 
+            disabled={!appleId || !appPassword || connecting}
+            className="w-full"
+          >
+            {connecting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              "Connect Apple Calendar"
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CalendarView() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 8)); // September 2025
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isDailyViewOpen, setIsDailyViewOpen] = useState(false);
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
+  const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
   const [newEventDescription, setNewEventDescription] = useState("");
+
+  const { 
+    connections, 
+    loading: connectionsLoading, 
+    connecting,
+    isConnected, 
+    getConnection,
+    connectGoogle, 
+    connectOutlook, 
+    connectApple,
+    disconnect 
+  } = useCalendarConnections();
   
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -96,8 +195,8 @@ export default function CalendarView() {
       title: newEventTitle,
       time: newEventTime,
       description: newEventDescription,
-      color: "bg-blue-500",
-      textColor: "text-white",
+      color: "bg-primary",
+      textColor: "text-primary-foreground",
     };
 
     setCalendarEvents([...calendarEvents, newEvent]);
@@ -128,12 +227,38 @@ export default function CalendarView() {
     });
   };
 
+  const handleGoogleConnect = async () => {
+    if (isConnected("google")) {
+      await disconnect("google");
+    } else {
+      await connectGoogle();
+    }
+  };
+
+  const handleOutlookConnect = async () => {
+    if (isConnected("outlook")) {
+      await disconnect("outlook");
+    } else {
+      await connectOutlook();
+    }
+  };
+
+  const handleAppleConnect = () => {
+    if (isConnected("apple")) {
+      disconnect("apple");
+    } else {
+      setIsAppleModalOpen(true);
+    }
+  };
+
+  const connectedCount = connections.length;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold text-text-heading">Calendar</h2>
-          <Dialog>
+          <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
             <DialogTrigger asChild>
               <Button 
                 size="sm" 
@@ -141,7 +266,9 @@ export default function CalendarView() {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
                 <Calendar className="h-4 w-4 relative z-10" />
-                <span className="relative z-10">Connect calendar</span>
+                <span className="relative z-10">
+                  {connectedCount > 0 ? `${connectedCount} connected` : "Connect calendar"}
+                </span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg bg-card border border-card-border shadow-elevated">
@@ -158,51 +285,102 @@ export default function CalendarView() {
               <div className="grid gap-3 mt-6">
                 {/* Google Calendar */}
                 <button 
-                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
-                  onClick={() => toast({ title: "Coming soon", description: "Google Calendar integration will be available soon!" })}
+                  className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${
+                    isConnected("google") 
+                      ? "border-success/50 bg-success/5" 
+                      : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
+                  }`}
+                  onClick={handleGoogleConnect}
+                  disabled={connecting === "google"}
                 >
                   <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
                     <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 object-contain" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Google Calendar</h3>
-                    <p className="text-sm text-text-muted mt-0.5">Sync with your Google account</p>
+                    <p className="text-sm text-text-muted mt-0.5">
+                      {isConnected("google") 
+                        ? `Connected: ${getConnection("google")?.providerEmail || ""}` 
+                        : "Sync with your Google account"}
+                    </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  {connecting === "google" ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  ) : isConnected("google") ? (
+                    <Check className="h-5 w-5 text-success" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  )}
                 </button>
 
                 {/* Apple Calendar */}
                 <button 
-                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
-                  onClick={() => toast({ title: "Coming soon", description: "Apple Calendar integration will be available soon!" })}
+                  className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${
+                    isConnected("apple") 
+                      ? "border-success/50 bg-success/5" 
+                      : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
+                  }`}
+                  onClick={handleAppleConnect}
+                  disabled={connecting === "apple"}
                 >
                   <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
                     <img src={appleCalendarLogo} alt="Apple Calendar" className="w-8 h-8 object-contain" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Apple Calendar</h3>
-                    <p className="text-sm text-text-muted mt-0.5">Sync with iCloud Calendar</p>
+                    <p className="text-sm text-text-muted mt-0.5">
+                      {isConnected("apple") 
+                        ? `Connected: ${getConnection("apple")?.providerEmail || ""}` 
+                        : "Sync with iCloud Calendar"}
+                    </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  {connecting === "apple" ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  ) : isConnected("apple") ? (
+                    <Check className="h-5 w-5 text-success" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  )}
                 </button>
 
                 {/* Outlook Calendar */}
                 <button 
-                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
-                  onClick={() => toast({ title: "Coming soon", description: "Outlook Calendar integration will be available soon!" })}
+                  className={`group relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left ${
+                    isConnected("outlook") 
+                      ? "border-success/50 bg-success/5" 
+                      : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
+                  }`}
+                  onClick={handleOutlookConnect}
+                  disabled={connecting === "outlook"}
                 >
                   <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
                     <img src={outlookLogo} alt="Outlook Calendar" className="w-8 h-8 object-contain" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Outlook Calendar</h3>
-                    <p className="text-sm text-text-muted mt-0.5">Sync with Microsoft 365</p>
+                    <p className="text-sm text-text-muted mt-0.5">
+                      {isConnected("outlook") 
+                        ? `Connected: ${getConnection("outlook")?.providerEmail || ""}` 
+                        : "Sync with Microsoft 365"}
+                    </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  {connecting === "outlook" ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  ) : isConnected("outlook") ? (
+                    <Check className="h-5 w-5 text-success" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  )}
                 </button>
               </div>
 
-              <p className="text-xs text-text-subtle text-center mt-6">
+              {connectedCount > 0 && (
+                <p className="text-xs text-text-subtle text-center mt-4">
+                  Click a connected calendar to disconnect it.
+                </p>
+              )}
+
+              <p className="text-xs text-text-subtle text-center mt-2">
                 Your calendar data is securely synced and never shared.
               </p>
             </DialogContent>
@@ -235,6 +413,10 @@ export default function CalendarView() {
         <div className="grid grid-cols-7">
           {calendarDays.map((day, index) => {
             const events = getEventsForDay(day);
+            const isToday = day === new Date().getDate() && 
+              currentDate.getMonth() === new Date().getMonth() && 
+              currentDate.getFullYear() === new Date().getFullYear();
+            
             return (
               <div
                 key={index}
@@ -243,7 +425,7 @@ export default function CalendarView() {
               >
                 {day && (
                   <>
-                    <div className="text-sm font-medium text-text-heading mb-1">
+                    <div className={`text-sm font-medium mb-1 ${isToday ? 'bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center' : 'text-text-heading'}`}>
                       {day}
                     </div>
                     <div className="space-y-1">
@@ -369,6 +551,13 @@ export default function CalendarView() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Apple Calendar Modal */}
+      <AppleCalendarModal 
+        isOpen={isAppleModalOpen}
+        onClose={() => setIsAppleModalOpen(false)}
+        onConnect={connectApple}
+      />
     </div>
   );
 }
