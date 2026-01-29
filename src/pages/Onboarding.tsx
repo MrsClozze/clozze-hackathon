@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUser } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Camera, Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Camera, Check, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
 import ImageCropModal from "@/components/onboarding/ImageCropModal";
 
@@ -34,11 +34,12 @@ const referralOptions = [
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { refreshUser } = useUser();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [waitingForSession, setWaitingForSession] = useState(true);
   const totalSteps = 2;
 
   // Step 1 fields
@@ -57,6 +58,25 @@ export default function Onboarding() {
   // Image cropping state
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [rawImageSrc, setRawImageSrc] = useState<string>("");
+
+  // Wait for auth to resolve before allowing interaction
+  useEffect(() => {
+    // If auth is still loading, wait
+    if (authLoading) {
+      setWaitingForSession(true);
+      return;
+    }
+    
+    // Auth finished loading
+    if (user) {
+      // User is authenticated, allow onboarding
+      setWaitingForSession(false);
+    } else {
+      // No user after auth resolved - redirect to auth page
+      console.log('[ONBOARDING] No user after auth resolved, redirecting to auth');
+      navigate("/auth");
+    }
+  }, [authLoading, user, navigate]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,11 +121,12 @@ export default function Onboarding() {
   };
 
   const handleSubmit = async () => {
+    // Double-check user exists (should always be true if we got here)
     if (!user) {
-      console.error('[ONBOARDING] No user found - cannot save');
+      console.error('[ONBOARDING] No user found during submit - this should not happen');
       toast({
         title: "Error",
-        description: "Session expired. Please sign in again.",
+        description: "Please sign in again to continue.",
         variant: "destructive",
       });
       navigate("/auth");
@@ -226,6 +247,21 @@ export default function Onboarding() {
 
   const userInitials = user?.email?.charAt(0).toUpperCase() || "U";
   const progressValue = (currentStep / totalSteps) * 100;
+
+  // Show loading state while waiting for auth to resolve
+  if (waitingForSession || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-lg p-8">
+          <div className="flex flex-col items-center">
+            <img src={clozzeLogo} alt="Clozze" className="h-48 -mb-2" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-text-muted mt-4">Loading your profile...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
