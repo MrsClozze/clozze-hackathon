@@ -104,9 +104,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!currentSession) return false;
     
     try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error?.message?.includes('User from sub claim in JWT does not exist') || 
-          error?.message?.includes('user_not_found')) {
+      const { data, error } = await withTimeout(
+        supabase.auth.getUser(),
+        8000,
+        'auth.getUser'
+      );
+
+      const msg = error?.message || '';
+
+      // Only treat known "deleted user" errors as invalid.
+      // Transient auth/network errors should NOT force a sign-out or block state updates.
+      if (
+        msg.includes('User from sub claim in JWT does not exist') ||
+        msg.includes('user_not_found')
+      ) {
         console.warn('[AUTH] User no longer exists - clearing stale session');
         await supabase.auth.signOut();
         setUser(null);
@@ -114,10 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSubscription(null);
         return false;
       }
+
+      if (error) {
+        console.warn('[AUTH] Non-fatal session validation error (allowing session):', error);
+        return true;
+      }
+
       return !!data?.user;
     } catch (e) {
-      console.error('[AUTH] Error validating session:', e);
-      return false;
+      console.warn('[AUTH] Session validation threw (allowing session):', e);
+      return true;
     }
   };
 
@@ -139,16 +156,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         previousUserId = newUserId;
 
-        // Validate session before proceeding - handles deleted users
-        if (currentSession) {
-          const isValid = await validateSession(currentSession);
-          if (!isValid) {
-            return;
-          }
-        }
-
+        // Always update local state first; validate in background.
+        // This avoids getting stuck in a state where login succeeded but UI never updates.
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+
+        if (currentSession) {
+          // Handles deleted users (clears session) but won't block on transient errors.
+          validateSession(currentSession).catch((e) => {
+            console.warn('[AUTH] Session validation failed (non-blocking):', e);
+          });
+        }
         
         // Fire-and-forget subscription check - don't await, don't affect loading state
         if (currentSession?.user) {
@@ -167,16 +185,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        // Validate session before proceeding - handles deleted users
-        if (currentSession) {
-          const isValid = await validateSession(currentSession);
-          if (!isValid) {
-            return;
-          }
-        }
-
+        // Set state first to avoid UI deadlocks; validate in background.
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+
+        if (currentSession) {
+          await validateSession(currentSession);
+        }
 
         // Fetch subscription BEFORE setting loading false
         if (currentSession?.user) {
