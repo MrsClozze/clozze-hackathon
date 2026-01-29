@@ -52,11 +52,24 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    if (customers.data.length === 0) {
+    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
+    
+    // Find customer that matches this specific user ID
+    let matchedCustomer = customers.data.find(
+      (c: Stripe.Customer) => c.metadata?.supabase_user_id === user.id
+    );
+    
+    // Fall back to orphaned customer without user ID set
+    if (!matchedCustomer) {
+      matchedCustomer = customers.data.find(
+        (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+      );
+    }
+    
+    if (!matchedCustomer) {
       throw new Error("No Stripe customer found for this user");
     }
-    const customerId = customers.data[0].id;
+    const customerId = matchedCustomer.id;
 
     const origin = getRequestOrigin(req);
     const portalSession = await stripe.billingPortal.sessions.create({

@@ -100,11 +100,24 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
     
-    // Check if user has a Stripe customer
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    // Check if user has a Stripe customer matching their user ID
+    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
+    
+    // Find customer that matches this specific user ID
+    let matchedCustomer = customers.data.find(
+      (c: Stripe.Customer) => c.metadata?.supabase_user_id === user.id
+    );
+    
+    // Fall back to orphaned customer without user ID set
+    if (!matchedCustomer) {
+      matchedCustomer = customers.data.find(
+        (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+      );
+    }
+    
     let customerId;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
+    if (matchedCustomer) {
+      customerId = matchedCustomer.id;
       logStep("Found existing customer", { customerId });
       
       // Check if customer has an active Pro subscription
