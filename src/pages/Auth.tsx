@@ -96,13 +96,12 @@ export default function Auth() {
     checkOnboardingAndRedirect();
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
-  // Handle OAuth code exchange on redirect
+  // Handle OAuth errors from URL params (Lovable Cloud handles code exchange automatically)
   useEffect(() => {
-    const code = searchParams.get('code');
     const errorDesc = searchParams.get('error_description');
     const errorCode = searchParams.get('error_code');
 
-    // Also parse hash params (Supabase often returns tokens in the URL hash)
+    // Also parse hash params (tokens may be returned in the URL hash)
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const hashErrorDesc = hashParams.get('error_description');
     const hashErrorCode = hashParams.get('error_code');
@@ -118,39 +117,8 @@ export default function Auth() {
       });
     }
 
-    if (code && !finalErrorDesc) {
-      (async () => {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          toast({ title: 'Sign in failed', description: error.message, variant: 'destructive' });
-          return;
-        }
-        
-        // Check if this is a new OAuth signup (created within last 60 seconds)
-        const user = data.session?.user;
-        if (user) {
-          const createdAt = new Date(user.created_at).getTime();
-          const now = Date.now();
-          const isNewUser = (now - createdAt) < 60000; // 60 seconds
-          
-          if (isNewUser) {
-            // Extract name from user metadata (Google provides these)
-            const firstName = user.user_metadata?.full_name?.split(' ')[0] || 
-                            user.user_metadata?.given_name || '';
-            const lastName = user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
-                           user.user_metadata?.family_name || '';
-            
-            // Send welcome email for new OAuth signups (fire-and-forget)
-            supabase.functions.invoke('send-welcome-email', {
-              body: { email: user.email, firstName, lastName }
-            }).catch(emailError => {
-              console.warn('[AUTH] Welcome email for OAuth signup failed (non-critical):', emailError);
-            });
-          }
-        }
-        // Session is now set; AuthContext listener will redirect
-      })();
-    }
+    // Note: Lovable Cloud OAuth handles code exchange automatically via /~oauth/callback
+    // The session is set by the lovable.auth library, and AuthContext will detect the user
   }, [searchParams, toast]);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
