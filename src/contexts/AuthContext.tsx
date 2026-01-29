@@ -99,6 +99,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await checkSubscription(session);
   };
 
+  // Helper to validate session and clear if user no longer exists
+  const validateSession = async (currentSession: Session | null): Promise<boolean> => {
+    if (!currentSession) return false;
+    
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error?.message?.includes('User from sub claim in JWT does not exist') || 
+          error?.message?.includes('user_not_found')) {
+        console.warn('[AUTH] User no longer exists - clearing stale session');
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setSubscription(null);
+        return false;
+      }
+      return !!data?.user;
+    } catch (e) {
+      console.error('[AUTH] Error validating session:', e);
+      return false;
+    }
+  };
+
   useEffect(() => {
     let previousUserId: string | null = null;
 
@@ -116,6 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Prevent UI from flashing between "no subscription" and "active subscription" states
         // by keeping the app in a loading state until subscription status has been checked.
         setLoading(true);
+
+        // Validate session before proceeding - handles deleted users
+        if (currentSession) {
+          const isValid = await validateSession(currentSession);
+          if (!isValid) {
+            setLoading(false);
+            return;
+          }
+        }
 
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -137,6 +168,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       setLoading(true);
       const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      // Validate session before proceeding - handles deleted users
+      if (currentSession) {
+        const isValid = await validateSession(currentSession);
+        if (!isValid) {
+          setLoading(false);
+          return;
+        }
+      }
 
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
