@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import Layout from "@/components/layout/Layout";
 import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import ActiveListingsCard from "@/components/dashboard/ActiveListingsCard";
@@ -7,6 +8,9 @@ import TasksSidebar from "@/components/dashboard/TasksSidebar";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
 
 const Index = () => {
+  useEffect(() => {
+    document.title = "Home | Clozze";
+  }, []);
   return (
     <Layout>
       <div className="p-8">
