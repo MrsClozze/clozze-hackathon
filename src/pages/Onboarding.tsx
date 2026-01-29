@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Check, ArrowRight, ArrowLeft } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
@@ -34,6 +35,7 @@ const referralOptions = [
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { refreshUser } = useUser();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -147,6 +149,9 @@ export default function Onboarding() {
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // Refresh user context so dashboard shows updated data
+      await refreshUser();
 
       toast({
         title: "Profile updated!",

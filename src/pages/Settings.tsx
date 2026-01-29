@@ -28,6 +28,8 @@ export default function Settings() {
   const [professionalTitle, setProfessionalTitle] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [brokerLicenseNumber, setBrokerLicenseNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,7 +54,7 @@ export default function Settings() {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email, avatar_url, professional_title, license_number, broker_license_number')
+        .select('first_name, last_name, email, avatar_url, professional_title, license_number, broker_license_number, phone, website_url')
         .eq('id', authUser.id)
         .maybeSingle();
 
@@ -69,6 +71,8 @@ export default function Settings() {
         setProfessionalTitle(profile.professional_title || '');
         setLicenseNumber(profile.license_number || '');
         setBrokerLicenseNumber(profile.broker_license_number || '');
+        setPhone(profile.phone || '');
+        setWebsiteUrl(profile.website_url || '');
       } else {
         // No profile found - use auth user's email at minimum
         setEmail(authUser.email || '');
@@ -220,6 +224,8 @@ export default function Settings() {
           professional_title: professionalTitle,
           license_number: licenseNumber,
           broker_license_number: brokerLicenseNumber,
+          phone: phone,
+          website_url: websiteUrl,
         })
         .eq('id', authUser.id);
 
@@ -569,6 +575,29 @@ export default function Settings() {
                       value={brokerLicenseNumber}
                       onChange={(e) => setBrokerLicenseNumber(e.target.value)}
                       placeholder="Enter broker license number"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="websiteUrl">Website / Social Media</Label>
+                    <Input
+                      id="websiteUrl"
+                      type="url"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      placeholder="https://your-website.com"
                     />
                   </div>
                 </div>
