@@ -14,6 +14,8 @@ const Index = () => {
   return (
     <Layout>
       <div className="p-8">
+        {/* Welcome Banner */}
+        <WelcomeBanner />
 
         {/* Main Dashboard Grid */}
         <div className="flex gap-8">

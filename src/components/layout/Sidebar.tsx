@@ -102,6 +102,16 @@ export default function Sidebar() {
             </>
           )}
         </div>
+        
+        {/* Credit Usage */}
+        <div className="mt-3 px-3">
+          <div className="flex justify-between text-xs text-text-muted mb-1">
+            <span>600/1200 credits used</span>
+          </div>
+          <div className="w-full bg-background-elevated rounded-full h-1">
+            <div className="bg-accent-gold h-1 rounded-full" style={{ width: '50%' }}></div>
+          </div>
+        </div>
       </div>
     </aside>
   );
