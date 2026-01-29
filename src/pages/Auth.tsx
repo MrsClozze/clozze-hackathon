@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -252,21 +253,13 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth`,
-          skipBrowserRedirect: true,
-        },
+      const redirectUri = `${window.location.origin}/auth`;
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: redirectUri,
       });
 
-      if (error) throw error;
-      if (data?.url) {
-        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-          window.location.href = data.url;
-        }
-      }
+      if (result?.error) throw result.error;
+      // If redirected, the browser will navigate to the provider.
     } catch (error: any) {
       toast({
         title: "Google sign in failed",
