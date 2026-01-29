@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -8,11 +8,36 @@ interface DocuSignAuthResult {
   expiresIn: number;
 }
 
+// Get allowed origins for postMessage validation
+const getAllowedOrigins = (): string[] => {
+  const origins = [window.location.origin];
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (supabaseUrl) {
+    try {
+      origins.push(new URL(supabaseUrl).origin);
+    } catch {
+      // Ignore invalid URL
+    }
+  }
+  return origins;
+};
+
 export const useDocuSignAuth = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
-  const handleMessage = useCallback(async (event: MessageEvent, resolve: (value: DocuSignAuthResult | null) => void, reject: (error: Error) => void) => {
+  const handleMessage = useCallback(async (
+    event: MessageEvent, 
+    resolve: (value: DocuSignAuthResult | null) => void, 
+    reject: (error: Error) => void
+  ) => {
+    // SECURITY: Validate the origin of the postMessage
+    const allowedOrigins = getAllowedOrigins();
+    if (!allowedOrigins.includes(event.origin)) {
+      console.warn('Rejected postMessage from unauthorized origin:', event.origin);
+      return;
+    }
+
     if (event.data.type === 'docusign-success') {
       try {
         // Securely store tokens in Supabase Vault

@@ -16,6 +16,49 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // SECURITY: Verify caller is authenticated and has admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    // Verify the caller's identity using anon client
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user: caller }, error: callerError } = await userClient.auth.getUser();
+    
+    if (callerError || !caller) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Check if caller has admin role using service role client
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: isAdmin, error: roleError } = await supabaseAdmin.rpc('is_admin', {
+      _user_id: caller.id,
+    });
+
+    if (roleError || !isAdmin) {
+      console.warn(`Unauthorized admin action attempt by user: ${caller.id} (${caller.email})`);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Admin privileges required" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Proceed with deletion - caller is verified admin
     const { email }: DeleteUserRequest = await req.json();
 
     if (!email) {
@@ -25,10 +68,16 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254) {
+      return new Response(JSON.stringify({ error: "Invalid email format" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log(`Admin ${caller.email} requesting deletion of user: ${email}`);
 
     // List users and find by email (case-insensitive)
     const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
@@ -67,6 +116,8 @@ const handler = async (req: Request): Promise<Response> => {
       { table: "tasks", key: "user_id" },
       { table: "team_members", key: "user_id" },
       { table: "agent_communication_preferences", key: "user_id" },
+      { table: "calendar_connections", key: "user_id" },
+      { table: "whatsapp_integrations", key: "user_id" },
     ] as const;
 
     const cleanupResults: Record<string, any> = {};
@@ -91,8 +142,17 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    console.log(`Admin ${caller.email} successfully deleted user: ${email} (${userId})`);
+
     return new Response(
-      JSON.stringify({ success: true, message: "User and related data deleted", email, userId, cleanupResults }),
+      JSON.stringify({ 
+        success: true, 
+        message: "User and related data deleted", 
+        email, 
+        userId, 
+        cleanupResults,
+        deletedBy: caller.email 
+      }),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },

@@ -123,28 +123,24 @@ serve(async (req) => {
       });
       const userInfo = await userInfoResponse.json();
 
-      // Store connection in database using service role
+      // Store connection securely using vault via RPC function
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-      const { error: upsertError } = await adminClient
-        .from("calendar_connections")
-        .upsert({
-          user_id: userId,
-          provider: "google",
-          provider_account_id: userInfo.id,
-          provider_email: userInfo.email,
-          access_token_encrypted: tokenData.access_token, // In production, encrypt this
-          refresh_token_encrypted: tokenData.refresh_token,
-          token_expires_at: expiresAt.toISOString(),
-          sync_enabled: true,
-        }, { onConflict: "user_id,provider" });
+      const { data: connectionId, error: rpcError } = await adminClient.rpc('store_calendar_tokens', {
+        _user_id: userId,
+        _provider: 'google',
+        _provider_email: userInfo.email || null,
+        _provider_account_id: userInfo.id || null,
+        _access_token: tokenData.access_token,
+        _refresh_token: tokenData.refresh_token || null,
+        _expires_at: expiresAt.toISOString(),
+      });
 
-      if (upsertError) {
-        console.error("Database error:", upsertError);
+      if (rpcError) {
+        console.error("Database error:", rpcError);
         return new Response(
-          JSON.stringify({ error: "Failed to save connection" }),
+          JSON.stringify({ error: "Failed to save connection securely" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -162,6 +158,15 @@ serve(async (req) => {
     if (action === "disconnect") {
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+      // Get the vault_secret_id before deleting the connection
+      const { data: connection } = await adminClient
+        .from("calendar_connections")
+        .select("vault_secret_id")
+        .eq("user_id", userId)
+        .eq("provider", "google")
+        .single();
+
+      // Delete the connection
       const { error } = await adminClient
         .from("calendar_connections")
         .delete()
@@ -173,6 +178,14 @@ serve(async (req) => {
           JSON.stringify({ error: "Failed to disconnect" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Clean up vault secret if it exists
+      if (connection?.vault_secret_id) {
+        await adminClient
+          .from("vault.secrets")
+          .delete()
+          .eq("id", connection.vault_secret_id);
       }
 
       return new Response(

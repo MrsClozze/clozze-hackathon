@@ -27,11 +27,38 @@ const escapeJs = (str: string): string => {
     .replace(/>/g, '\\x3e');
 };
 
+// Parse and validate the state parameter to get the allowed origin
+const parseStateOrigin = (stateParam: string | null): string => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  
+  if (!stateParam) {
+    return supabaseUrl;
+  }
+  
+  try {
+    const decoded = JSON.parse(atob(stateParam));
+    if (decoded.origin && typeof decoded.origin === 'string') {
+      // Validate it's a proper URL origin
+      const url = new URL(decoded.origin);
+      return url.origin;
+    }
+  } catch {
+    console.warn('Failed to parse state parameter, using fallback origin');
+  }
+  
+  return supabaseUrl;
+};
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const error = url.searchParams.get('error');
+    const stateParam = url.searchParams.get('state');
+    
+    // Get the allowed origin from state parameter
+    const allowedOrigin = parseStateOrigin(stateParam);
+    const safeOrigin = escapeJs(allowedOrigin);
 
     if (error) {
       const safeError = escapeJs(error.substring(0, 200)); // Limit error length
@@ -41,7 +68,7 @@ serve(async (req) => {
 <head><meta charset="utf-8"><title>DocuSign Error</title></head>
 <body>
 <script>
-  window.opener.postMessage({ type: 'docusign-error', error: '${safeError}' }, '*');
+  window.opener.postMessage({ type: 'docusign-error', error: '${safeError}' }, '${safeOrigin}');
   window.close();
 </script>
 <p>Authentication error. This window will close automatically.</p>
@@ -102,7 +129,7 @@ serve(async (req) => {
     const safeRefreshToken = escapeJs(tokenData.refresh_token || '');
     const expiresIn = typeof tokenData.expires_in === 'number' ? tokenData.expires_in : 3600;
 
-    // Send token data to parent window and close popup
+    // Send token data to parent window with specific origin (not wildcard)
     return new Response(
       `<!DOCTYPE html>
 <html>
@@ -114,7 +141,7 @@ serve(async (req) => {
     accessToken: '${safeAccessToken}',
     refreshToken: '${safeRefreshToken}',
     expiresIn: ${expiresIn}
-  }, '*');
+  }, '${safeOrigin}');
   window.close();
 </script>
 <p>Authentication successful! This window will close automatically...</p>
@@ -128,13 +155,17 @@ serve(async (req) => {
     const safeErrorMessage = escapeJs(errorMessage.substring(0, 200));
     const safeHtmlError = escapeHtml(errorMessage.substring(0, 200));
     
+    // Use Supabase URL as fallback for error responses
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const safeOrigin = escapeJs(supabaseUrl);
+    
     return new Response(
       `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>DocuSign Error</title></head>
 <body>
 <script>
-  window.opener.postMessage({ type: 'docusign-error', error: '${safeErrorMessage}' }, '*');
+  window.opener.postMessage({ type: 'docusign-error', error: '${safeErrorMessage}' }, '${safeOrigin}');
   window.close();
 </script>
 <p>Error: ${safeHtmlError}</p>
