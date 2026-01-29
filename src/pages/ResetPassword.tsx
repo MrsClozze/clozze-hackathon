@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,27 @@ export default function ResetPassword() {
   const [needsManualVerify, setNeedsManualVerify] = useState(false);
   const [manualVerifyTokenHash, setManualVerifyTokenHash] = useState<string | null>(null);
 
+  // IMPORTANT:
+  // Use an *ephemeral* auth client for password recovery so the temporary recovery session
+  // does NOT persist to localStorage and therefore does not sign-in/out other open tabs.
+  const resetAuthClient = useMemo(() => {
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+    if (!url || !key) {
+      // Fallback to the shared client (will cause cross-tab session sync, but avoids hard crash)
+      return supabase;
+    }
+
+    return createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  }, []);
+
   const getRecoveryParams = () => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const type = hashParams.get("type") || searchParams.get("type");
@@ -50,7 +72,7 @@ export default function ResetPassword() {
   // If the auth session arrives slightly after initial validation (common with hash-token recovery links),
   // treat the link as valid and keep the user on the reset form.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+    const { data: { subscription } } = resetAuthClient.auth.onAuthStateChange((_event, currentSession) => {
       if (!currentSession?.user) return;
       setIsValidLink(true);
       setUserEmail(currentSession.user.email || "");
@@ -74,7 +96,7 @@ export default function ResetPassword() {
 
       // Check if we already have a valid session from recovery
       // This handles the case where the code was already exchanged
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await resetAuthClient.auth.getSession();
       if (sessionData.session?.user) {
         console.log('[RESET] Found existing session, using it for password reset');
         setIsValidLink(true);
@@ -95,7 +117,7 @@ export default function ResetPassword() {
       if (finalType === 'recovery' && finalCode) {
         try {
           // Exchange code for session
-          const { data, error } = await supabase.auth.exchangeCodeForSession(finalCode);
+          const { data, error } = await resetAuthClient.auth.exchangeCodeForSession(finalCode);
           
           if (error) {
             console.error('[RESET] Code exchange failed:', error.message);
@@ -119,7 +141,7 @@ export default function ResetPassword() {
         // Wait briefly before declaring the link invalid.
         if (finalType === 'recovery' && hasTokensInHash) {
           await sleep(1200);
-          const { data: sessionAfterWait } = await supabase.auth.getSession();
+          const { data: sessionAfterWait } = await resetAuthClient.auth.getSession();
           if (sessionAfterWait.session?.user) {
             setIsValidLink(true);
             setUserEmail(sessionAfterWait.session.user.email || "");
@@ -147,7 +169,7 @@ export default function ResetPassword() {
 
     setValidatingLink(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      const { data, error } = await resetAuthClient.auth.verifyOtp({
         type: 'recovery',
         token_hash: manualVerifyTokenHash,
       });
@@ -194,7 +216,7 @@ export default function ResetPassword() {
 
     try {
       // Update the user's password
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { error: updateError } = await resetAuthClient.auth.updateUser({
         password: newPassword
       });
 
@@ -220,10 +242,9 @@ export default function ResetPassword() {
         description: "Check your email to confirm the password reset. You'll be redirected to login shortly.",
       });
 
-      // Sign out the user
-      await supabase.auth.signOut();
-
-      // Redirect to login after 3 seconds
+      // IMPORTANT: Do NOT sign out here.
+      // With the ephemeral auth client, this session is not persisted and won't affect other tabs.
+      // Redirect to login after 3 seconds.
       setTimeout(() => {
         navigate("/auth");
       }, 3000);
