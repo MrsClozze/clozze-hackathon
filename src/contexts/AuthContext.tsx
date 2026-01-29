@@ -31,12 +31,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Flag used by ResetPassword page to prevent auto-redirect during password reset
+const PASSWORD_RESET_FLAG = 'clozze_password_reset_active';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // Check if we're in password reset flow - don't auto-redirect
+  const isPasswordResetActive = () => {
+    return sessionStorage.getItem(PASSWORD_RESET_FLAG) === 'true';
+  };
 
   const checkSubscription = async (currentSession: Session | null) => {
     if (!currentSession) {

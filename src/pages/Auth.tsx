@@ -34,6 +34,13 @@ export default function Auth() {
 
   useEffect(() => {
     const checkOnboardingAndRedirect = async () => {
+      // Don't redirect if password reset is active
+      const isPasswordResetActive = sessionStorage.getItem('clozze_password_reset_active') === 'true';
+      if (isPasswordResetActive) {
+        console.log('[AUTH] Password reset active, skipping redirect');
+        return;
+      }
+
       if (user) {
         console.log('[AUTH] User detected, checking redirect...', user.id);
         
