@@ -61,18 +61,15 @@ serve(async (req) => {
     }
 
     // TODO: In production, integrate with WhatsApp Business API or Twilio to send actual SMS
-    // For now, we'll log the code (in production, this should be removed)
-    console.log(`Verification code for ${phoneNumber}: ${verificationCode}`);
-
+    // For now, store the code in database for verification (code is not exposed to client)
+    
     // In a real implementation, you would send the code via WhatsApp Business API:
     // await sendWhatsAppMessage(phoneNumber, `Your Clozze verification code is: ${verificationCode}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Verification code sent',
-        // Only for development - remove in production!
-        devCode: verificationCode 
+        message: 'Verification code sent'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

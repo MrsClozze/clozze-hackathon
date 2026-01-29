@@ -38,9 +38,14 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Grant unrestricted access to @clozze.io email addresses
-    if (user.email.endsWith('@clozze.io')) {
-      logStep("Clozze.io user detected - granting full access");
+    // Grant access to verified @clozze.io email addresses
+    // Additional security: only grant if email is verified
+    if (user.email.endsWith('@clozze.io') && user.email_confirmed_at) {
+      logStep("Verified Clozze.io user detected - granting internal access", { 
+        userId: user.id, 
+        email: user.email,
+        emailVerifiedAt: user.email_confirmed_at 
+      });
       return new Response(JSON.stringify({
         subscribed: true,
         product_id: 'clozze_internal',
