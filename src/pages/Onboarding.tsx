@@ -101,13 +101,25 @@ export default function Onboarding() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user) {
+      console.error('[ONBOARDING] No user found - cannot save');
+      toast({
+        title: "Error",
+        description: "Session expired. Please sign in again.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
 
+    console.log('[ONBOARDING] Starting save for user:', user.id);
     setLoading(true);
+    
     try {
       let uploadedAvatarUrl = null;
       if (avatarFile) {
         uploadedAvatarUrl = await uploadAvatar();
+        console.log('[ONBOARDING] Avatar uploaded:', uploadedAvatarUrl);
       }
 
       const roleValue = selectedRole === "other" && otherRole ? otherRole : selectedRole;
@@ -143,14 +155,20 @@ export default function Onboarding() {
         updates.referral_source = selectedReferral;
       }
 
-      const { error } = await supabase
+      console.log('[ONBOARDING] Updating profile with:', updates);
+
+      const { error, data } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select();
+
+      console.log('[ONBOARDING] Update result - error:', error, 'data:', data);
 
       if (error) throw error;
 
       // Refresh user context so dashboard shows updated data
+      console.log('[ONBOARDING] Refreshing user context...');
       await refreshUser();
 
       toast({
@@ -158,9 +176,10 @@ export default function Onboarding() {
         description: "Your profile has been set up successfully.",
       });
 
+      console.log('[ONBOARDING] Navigating to dashboard...');
       navigate("/");
     } catch (error: unknown) {
-      console.error('Error updating profile:', error);
+      console.error('[ONBOARDING] Error updating profile:', error);
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
