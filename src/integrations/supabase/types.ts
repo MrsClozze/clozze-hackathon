@@ -171,6 +171,7 @@ export type Database = {
           token_expires_at: string | null
           updated_at: string
           user_id: string
+          vault_secret_id: string | null
         }
         Insert: {
           access_token_encrypted?: string | null
@@ -185,6 +186,7 @@ export type Database = {
           token_expires_at?: string | null
           updated_at?: string
           user_id: string
+          vault_secret_id?: string | null
         }
         Update: {
           access_token_encrypted?: string | null
@@ -199,6 +201,7 @@ export type Database = {
           token_expires_at?: string | null
           updated_at?: string
           user_id?: string
+          vault_secret_id?: string | null
         }
         Relationships: []
       }
@@ -778,6 +781,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_integrations: {
         Row: {
           created_at: string
@@ -835,6 +859,7 @@ export type Database = {
           wants_needs: string
         }[]
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_team_owner: {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
@@ -844,6 +869,18 @@ export type Database = {
         Returns: boolean
       }
       shared_team: { Args: { _u1: string; _u2: string }; Returns: boolean }
+      store_calendar_tokens: {
+        Args: {
+          _access_token: string
+          _expires_at: string
+          _provider: string
+          _provider_account_id: string
+          _provider_email: string
+          _refresh_token: string
+          _user_id: string
+        }
+        Returns: string
+      }
       store_integration_tokens: {
         Args: {
           _access_token: string
@@ -860,6 +897,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       invitation_status: "pending" | "accepted" | "declined" | "expired"
       team_member_role: "owner" | "admin" | "member"
     }
@@ -989,6 +1027,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       invitation_status: ["pending", "accepted", "declined", "expired"],
       team_member_role: ["owner", "admin", "member"],
     },

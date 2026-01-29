@@ -95,23 +95,23 @@ serve(async (req) => {
         // Continue anyway - some network configurations may block CalDAV but it may still work
       }
 
-      // Store connection in database
+      // Store connection securely using vault via RPC function
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-      const { error: upsertError } = await adminClient
-        .from("calendar_connections")
-        .upsert({
-          user_id: userId,
-          provider: "apple",
-          provider_email: apple_id,
-          access_token_encrypted: app_specific_password, // In production, encrypt this
-          sync_enabled: true,
-        }, { onConflict: "user_id,provider" });
+      const { data: connectionId, error: rpcError } = await adminClient.rpc('store_calendar_tokens', {
+        _user_id: userId,
+        _provider: 'apple',
+        _provider_email: apple_id,
+        _provider_account_id: null,
+        _access_token: app_specific_password,
+        _refresh_token: null,
+        _expires_at: null,
+      });
 
-      if (upsertError) {
-        console.error("Database error:", upsertError);
+      if (rpcError) {
+        console.error("Database error:", rpcError);
         return new Response(
-          JSON.stringify({ error: "Failed to save connection" }),
+          JSON.stringify({ error: "Failed to save connection securely" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -129,6 +129,15 @@ serve(async (req) => {
     if (action === "disconnect") {
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+      // Get the vault_secret_id before deleting the connection
+      const { data: connection } = await adminClient
+        .from("calendar_connections")
+        .select("vault_secret_id")
+        .eq("user_id", userId)
+        .eq("provider", "apple")
+        .single();
+
+      // Delete the connection
       const { error } = await adminClient
         .from("calendar_connections")
         .delete()
@@ -140,6 +149,14 @@ serve(async (req) => {
           JSON.stringify({ error: "Failed to disconnect" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Clean up vault secret if it exists
+      if (connection?.vault_secret_id) {
+        await adminClient
+          .from("vault.secrets")
+          .delete()
+          .eq("id", connection.vault_secret_id);
       }
 
       return new Response(

@@ -12,24 +12,70 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // SECURITY: Verify caller is authenticated and has admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Missing authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+    // Verify the caller's identity using anon client
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user: caller }, error: callerError } = await userClient.auth.getUser();
+    
+    if (callerError || !caller) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if caller has admin role
+    const { data: isAdmin, error: roleError } = await supabaseAdmin.rpc('is_admin', {
+      _user_id: caller.id,
+    });
+
+    if (roleError || !isAdmin) {
+      console.warn(`Unauthorized cleanup attempt by user: ${caller.id} (${caller.email})`);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Admin privileges required" }),
+        { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // Try to read body for targeted deletion by email; fallback to cleanup if none provided
     let requestedEmail: string | undefined;
     try {
       const body = await req.json();
       if (body && typeof body.email === "string") {
-        requestedEmail = body.email.trim();
+        const emailCandidate = body.email.trim();
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailCandidate) || emailCandidate.length > 254) {
+          return new Response(
+            JSON.stringify({ error: "Invalid email format" }),
+            { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+        requestedEmail = emailCandidate;
       }
     } catch (_) {
       // No JSON body provided, proceed with cleanup
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
     if (requestedEmail) {
-      console.log(`Requested deletion for email: ${requestedEmail}`);
+      console.log(`Admin ${caller.email} requested deletion for email: ${requestedEmail}`);
 
       // List users and find matching email
       const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
@@ -60,6 +106,8 @@ const handler = async (req: Request): Promise<Response> => {
         { table: "tasks", key: "user_id" },
         { table: "team_members", key: "user_id" },
         { table: "agent_communication_preferences", key: "user_id" },
+        { table: "calendar_connections", key: "user_id" },
+        { table: "whatsapp_integrations", key: "user_id" },
       ] as const;
 
       const cleanupResults: Record<string, any> = {};
@@ -77,14 +125,23 @@ const handler = async (req: Request): Promise<Response> => {
         );
       }
 
+      console.log(`Admin ${caller.email} successfully deleted user: ${requestedEmail} (${userId})`);
+
       return new Response(
-        JSON.stringify({ success: true, message: "User and related data deleted", email: requestedEmail, userId, cleanupResults }),
+        JSON.stringify({ 
+          success: true, 
+          message: "User and related data deleted", 
+          email: requestedEmail, 
+          userId, 
+          cleanupResults,
+          deletedBy: caller.email 
+        }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
     // Fallback: cleanup unverified users older than 3 days
-    console.log("Starting cleanup of unverified users...");
+    console.log(`Admin ${caller.email} starting cleanup of unverified users...`);
 
     // Calculate the cutoff date (3 days ago)
     const threeDaysAgo = new Date();
@@ -117,7 +174,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log(`Cleanup complete. Deleted ${deletedUsers.length} unverified users.`);
+    console.log(`Admin ${caller.email} cleanup complete. Deleted ${deletedUsers.length} unverified users.`);
     
     return new Response(
       JSON.stringify({
@@ -126,6 +183,7 @@ const handler = async (req: Request): Promise<Response> => {
         deletedUsers,
         errors,
         message: `Successfully deleted ${deletedUsers.length} unverified users older than 3 days`,
+        triggeredBy: caller.email,
       }),
       {
         status: 200,

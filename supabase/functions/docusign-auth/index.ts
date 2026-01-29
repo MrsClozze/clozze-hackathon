@@ -19,12 +19,28 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
+    // Get the origin from the request to pass through state for secure postMessage
+    const requestOrigin = req.headers.get('origin') || req.headers.get('referer');
+    let allowedOrigin = supabaseUrl; // Default fallback
+    
+    if (requestOrigin) {
+      try {
+        allowedOrigin = new URL(requestOrigin).origin;
+      } catch {
+        // Keep default if URL parsing fails
+      }
+    }
+
+    // Encode the allowed origin in the state parameter for secure callback
+    const state = btoa(JSON.stringify({ origin: allowedOrigin }));
+
     // Build DocuSign OAuth authorization URL
     const authUrl = new URL('https://account-d.docusign.com/oauth/auth');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'signature impersonation');
     authUrl.searchParams.set('client_id', integrationKey);
     authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('state', state);
 
     return new Response(
       JSON.stringify({ authUrl: authUrl.toString() }),
