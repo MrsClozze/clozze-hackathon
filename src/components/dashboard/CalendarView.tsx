@@ -149,9 +149,9 @@ export default function CalendarView() {
                 <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <Calendar className="h-7 w-7 text-primary" />
                 </div>
-                <DialogTitle className="text-xl font-semibold text-text-heading">Connect Your Calendar</DialogTitle>
-                <DialogDescription className="text-text-muted mt-2">
-                  Sync your appointments and showings seamlessly with your preferred calendar service.
+                <DialogTitle className="text-xl font-semibold text-text-heading text-center">Connect Your Calendars</DialogTitle>
+                <DialogDescription className="text-text-muted mt-2 text-center">
+                  Stay organized by syncing your schedule, tasks, and important dates across your favorite calendar services.
                 </DialogDescription>
               </DialogHeader>
               
