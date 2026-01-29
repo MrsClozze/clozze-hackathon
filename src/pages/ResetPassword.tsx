@@ -26,11 +26,36 @@ export default function ResetPassword() {
   const [userEmail, setUserEmail] = useState("");
   const validationAttempted = useRef(false);
 
+  const getRecoveryParams = () => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const type = hashParams.get("type") || searchParams.get("type");
+    const code = hashParams.get("code") || searchParams.get("code");
+    const hasTokensInHash = !!hashParams.get("access_token") || !!hashParams.get("refresh_token");
+    return { type, code, hasTokensInHash };
+  };
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   // Set flag on mount, clear on unmount
   useEffect(() => {
     sessionStorage.setItem(PASSWORD_RESET_FLAG, 'true');
     return () => {
       sessionStorage.removeItem(PASSWORD_RESET_FLAG);
+    };
+  }, []);
+
+  // If the auth session arrives slightly after initial validation (common with hash-token recovery links),
+  // treat the link as valid and keep the user on the reset form.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      if (!currentSession?.user) return;
+      setIsValidLink(true);
+      setUserEmail(currentSession.user.email || "");
+      setValidatingLink(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -40,15 +65,8 @@ export default function ResetPassword() {
     
     const validateResetLink = async () => {
       validationAttempted.current = true;
-      
-      const code = searchParams.get('code');
-      const type = searchParams.get('type');
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const hashType = hashParams.get('type');
-      const hashCode = hashParams.get('code');
-      
-      const finalType = hashType || type;
-      const finalCode = hashCode || code;
+
+      const { type: finalType, code: finalCode, hasTokensInHash } = getRecoveryParams();
 
       // Check if we already have a valid session from recovery
       // This handles the case where the code was already exchanged
@@ -84,7 +102,19 @@ export default function ResetPassword() {
           setIsValidLink(false);
         }
       } else {
-        // No code/type - check if we have an existing session (user might have refreshed)
+        // Some recovery links arrive with tokens in the URL hash, and the session can take a moment to appear.
+        // Wait briefly before declaring the link invalid.
+        if (finalType === 'recovery' && hasTokensInHash) {
+          await sleep(1200);
+          const { data: sessionAfterWait } = await supabase.auth.getSession();
+          if (sessionAfterWait.session?.user) {
+            setIsValidLink(true);
+            setUserEmail(sessionAfterWait.session.user.email || "");
+            setValidatingLink(false);
+            return;
+          }
+        }
+
         toast({
           title: "Invalid reset link",
           description: "This link is not valid. Please request a new password reset.",
@@ -212,7 +242,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md p-8">
           <div className="flex flex-col items-center space-y-6">
-            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            <CheckCircle2 className="h-16 w-16 text-primary" />
             <div className="text-center space-y-2">
               <h1 className="text-2xl font-bold text-text-heading">Password Reset Complete!</h1>
               <p className="text-text-muted">
