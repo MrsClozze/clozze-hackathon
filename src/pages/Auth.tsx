@@ -159,6 +159,18 @@ export default function Auth() {
         console.warn('[AUTH] Welcome email failed (non-critical):', emailError);
       });
 
+      // Send verification email in background (fire-and-forget)
+      // Note: This is separate from the auth provider's internal emails.
+      supabase.functions.invoke('send-verification-email', {
+        body: { email, firstName, redirectOrigin: window.location.origin }
+      }).catch(emailError => {
+        console.warn('[AUTH] Verification email failed (non-critical):', emailError);
+      });
+
+      // Fallback navigation: some sessions don't trigger the AuthContext redirect reliably.
+      // We still want users to proceed to onboarding immediately.
+      setTimeout(() => navigate('/onboarding'), 0);
+
       // The useEffect will handle navigation when user state updates
       // But add a fallback in case it doesn't trigger
       console.log('[AUTH] Signup complete, navigation should happen via useEffect');

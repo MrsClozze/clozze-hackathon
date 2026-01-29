@@ -6,7 +6,8 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface VerificationEmailRequest {
@@ -31,10 +32,9 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Generate email verification link using magic link type
-    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
-      ? redirectOrigin
-      : 'https://clozze.lovable.app';
+    // Generate an email verification link
+    // Prefer the caller-provided origin (preview/published) and fall back to the primary app domain.
+    const baseOrigin = redirectOrigin || 'https://clozze.lovable.app';
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
@@ -77,9 +77,9 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
               <div class="content">
                 <p>Hi ${displayName},</p>
-                <p>Thank you for signing up for Clozze! Please verify your email address to activate your account.</p>
+                <p>Thank you for signing up for Clozze! Please confirm your email address to secure your account.</p>
                 <div class="warning">
-                  <strong>⚠️ Important:</strong> This verification link will expire in 3 days. If you don't verify your account within this timeframe, you'll need to re-register.
+                  <strong>⚠️ Important:</strong> This verification link will expire in 6 days.
                 </div>
                 <p style="text-align: center;">
                   <a href="${verificationLink}" class="button">Verify Email Address</a>
