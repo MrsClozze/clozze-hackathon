@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 
     // Verify the caller's identity using anon client
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -79,6 +81,69 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Admin ${caller.email} requesting deletion of user: ${email}`);
 
+    // ========== STRIPE CLEANUP ==========
+    // Cancel all active Stripe subscriptions for this email to prevent
+    // subscription inheritance when the user re-registers
+    const stripeCleanupResults: Record<string, any> = {};
+    
+    if (stripeKey) {
+      try {
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+        
+        // Find Stripe customer by email
+        const customers = await stripe.customers.list({ email: email.toLowerCase(), limit: 10 });
+        
+        if (customers.data.length > 0) {
+          console.log(`Found ${customers.data.length} Stripe customer(s) for email: ${email}`);
+          
+          for (const customer of customers.data) {
+            // Cancel all subscriptions for this customer
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'all',
+              limit: 100,
+            });
+
+            const activeStatuses = ['active', 'trialing', 'past_due', 'unpaid'];
+            const activeSubs = subscriptions.data.filter((s: Stripe.Subscription) => activeStatuses.includes(s.status));
+            
+            console.log(`Customer ${customer.id} has ${activeSubs.length} active subscription(s)`);
+            
+            for (const sub of activeSubs) {
+              try {
+                await stripe.subscriptions.cancel(sub.id);
+                console.log(`Canceled subscription: ${sub.id}`);
+                stripeCleanupResults[sub.id] = { ok: true, action: 'canceled' };
+              } catch (cancelError: any) {
+                console.warn(`Failed to cancel subscription ${sub.id}:`, cancelError.message);
+                stripeCleanupResults[sub.id] = { ok: false, error: cancelError.message };
+              }
+            }
+            
+            // Optionally delete the Stripe customer entirely to prevent any data remnants
+            try {
+              await stripe.customers.del(customer.id);
+              console.log(`Deleted Stripe customer: ${customer.id}`);
+              stripeCleanupResults[`customer_${customer.id}`] = { ok: true, action: 'deleted' };
+            } catch (deleteError: any) {
+              console.warn(`Failed to delete Stripe customer ${customer.id}:`, deleteError.message);
+              stripeCleanupResults[`customer_${customer.id}`] = { ok: false, error: deleteError.message };
+            }
+          }
+        } else {
+          console.log(`No Stripe customer found for email: ${email}`);
+          stripeCleanupResults['customer'] = { ok: true, action: 'not_found' };
+        }
+      } catch (stripeError: any) {
+        console.error("Stripe cleanup error:", stripeError.message);
+        stripeCleanupResults['stripe'] = { ok: false, error: stripeError.message };
+      }
+    } else {
+      console.warn("STRIPE_SECRET_KEY not configured - skipping Stripe cleanup");
+      stripeCleanupResults['stripe'] = { ok: false, error: 'STRIPE_SECRET_KEY not configured' };
+    }
+
+    // ========== SUPABASE USER LOOKUP ==========
     // List users and find by email (case-insensitive)
     const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
@@ -87,7 +152,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (listError) {
       console.error("Error listing users:", listError);
-      return new Response(JSON.stringify({ error: listError.message }), {
+      return new Response(JSON.stringify({ error: listError.message, stripeCleanupResults }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -96,14 +161,18 @@ const handler = async (req: Request): Promise<Response> => {
     const user = usersData.users.find((u) => (u.email ?? "").toLowerCase() === email.toLowerCase());
 
     if (!user) {
-      return new Response(JSON.stringify({ success: true, message: "User not found (already deleted)", email }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "User not found in auth (already deleted). Stripe cleanup completed.", 
+        email,
+        stripeCleanupResults 
+      }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    // Best-effort cleanup of related public rows that reference the auth user
-    // These operations use the service role and bypass RLS.
+    // ========== SUPABASE DATA CLEANUP ==========
     const userId = user.id;
 
     const cleanupTables = [
@@ -115,8 +184,10 @@ const handler = async (req: Request): Promise<Response> => {
       { table: "listings", key: "user_id" },
       { table: "tasks", key: "user_id" },
       { table: "team_members", key: "user_id" },
+      { table: "team_member_slots", key: "user_id" },
       { table: "agent_communication_preferences", key: "user_id" },
       { table: "calendar_connections", key: "user_id" },
+      { table: "calendar_events", key: "user_id" },
       { table: "whatsapp_integrations", key: "user_id" },
     ] as const;
 
@@ -136,7 +207,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (deleteError) {
       console.error("Failed to delete auth user:", deleteError);
-      return new Response(JSON.stringify({ error: deleteError.message, cleanupResults }), {
+      return new Response(JSON.stringify({ error: deleteError.message, cleanupResults, stripeCleanupResults }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
@@ -147,10 +218,11 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "User and related data deleted", 
+        message: "User, related data, and Stripe subscriptions deleted", 
         email, 
         userId, 
         cleanupResults,
+        stripeCleanupResults,
         deletedBy: caller.email 
       }),
       {
