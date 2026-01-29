@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import clozzeLogo from "@/assets/clozze-logo.png";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+
+// Flag to signal AuthContext that we're in password reset mode
+// This prevents auto-redirect after session is created
+const PASSWORD_RESET_FLAG = 'clozze_password_reset_active';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -20,9 +24,23 @@ export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const validationAttempted = useRef(false);
+
+  // Set flag on mount, clear on unmount
+  useEffect(() => {
+    sessionStorage.setItem(PASSWORD_RESET_FLAG, 'true');
+    return () => {
+      sessionStorage.removeItem(PASSWORD_RESET_FLAG);
+    };
+  }, []);
 
   useEffect(() => {
+    // Prevent double execution
+    if (validationAttempted.current) return;
+    
     const validateResetLink = async () => {
+      validationAttempted.current = true;
+      
       const code = searchParams.get('code');
       const type = searchParams.get('type');
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -32,12 +50,24 @@ export default function ResetPassword() {
       const finalType = hashType || type;
       const finalCode = hashCode || code;
 
+      // Check if we already have a valid session from recovery
+      // This handles the case where the code was already exchanged
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.user) {
+        console.log('[RESET] Found existing session, using it for password reset');
+        setIsValidLink(true);
+        setUserEmail(sessionData.session.user.email || "");
+        setValidatingLink(false);
+        return;
+      }
+
       if (finalType === 'recovery' && finalCode) {
         try {
           // Exchange code for session
           const { data, error } = await supabase.auth.exchangeCodeForSession(finalCode);
           
           if (error) {
+            console.error('[RESET] Code exchange failed:', error.message);
             toast({
               title: "Invalid or expired reset link",
               description: "Please request a new password reset link.",
@@ -45,14 +75,16 @@ export default function ResetPassword() {
             });
             setIsValidLink(false);
           } else {
+            console.log('[RESET] Code exchange successful for:', data.user?.email);
             setIsValidLink(true);
             setUserEmail(data.user?.email || "");
           }
         } catch (err) {
-          console.error("Error validating reset link:", err);
+          console.error("[RESET] Error validating reset link:", err);
           setIsValidLink(false);
         }
       } else {
+        // No code/type - check if we have an existing session (user might have refreshed)
         toast({
           title: "Invalid reset link",
           description: "This link is not valid. Please request a new password reset.",
