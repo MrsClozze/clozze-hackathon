@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface CalendarConnection {
   id: string;
-  provider: "google" | "outlook" | "apple";
+  provider: "google" | "apple";
   providerEmail: string | null;
   syncEnabled: boolean;
   lastSyncedAt: string | null;
@@ -54,11 +54,11 @@ export function useCalendarConnections() {
     fetchConnections();
   }, [fetchConnections]);
 
-  const isConnected = (provider: "google" | "outlook" | "apple") => {
+  const isConnected = (provider: "google" | "apple") => {
     return connections.some((c) => c.provider === provider);
   };
 
-  const getConnection = (provider: "google" | "outlook" | "apple") => {
+  const getConnection = (provider: "google" | "apple") => {
     return connections.find((c) => c.provider === provider);
   };
 
@@ -93,43 +93,6 @@ export function useCalendarConnections() {
       toast({
         title: "Connection Failed",
         description: error.message || "Failed to connect to Google Calendar",
-        variant: "destructive",
-      });
-    } finally {
-      setConnecting(null);
-    }
-  };
-
-  const connectOutlook = async () => {
-    setConnecting("outlook");
-    try {
-      const redirectUri = `${window.location.origin}/integrations`;
-      
-      const { data, error } = await supabase.functions.invoke("outlook-calendar-auth", {
-        body: { action: "get_auth_url", redirect_uri: redirectUri },
-      });
-
-      if (error) throw error;
-
-      if (data.setup_required) {
-        toast({
-          title: "Setup Required",
-          description: "Outlook Calendar integration requires configuration. Please contact support.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data.auth_url) {
-        sessionStorage.setItem("calendar_oauth_provider", "outlook");
-        sessionStorage.setItem("calendar_oauth_redirect", redirectUri);
-        window.location.href = data.auth_url;
-      }
-    } catch (error: any) {
-      console.error("Error initiating Outlook auth:", error);
-      toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect to Outlook Calendar",
         variant: "destructive",
       });
     } finally {
@@ -173,9 +136,9 @@ export function useCalendarConnections() {
     }
   };
 
-  const disconnect = async (provider: "google" | "outlook" | "apple") => {
+  const disconnect = async (provider: "google" | "apple") => {
     try {
-      const functionName = `${provider === "outlook" ? "outlook" : provider}-calendar-auth`;
+      const functionName = `${provider}-calendar-auth`;
       
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: { action: "disconnect" },
@@ -200,7 +163,7 @@ export function useCalendarConnections() {
     }
   };
 
-  const handleOAuthCallback = async (code: string, provider: "google" | "outlook") => {
+  const handleOAuthCallback = async (code: string, provider: "google") => {
     setConnecting(provider);
     try {
       const redirectUri = sessionStorage.getItem("calendar_oauth_redirect") || 
@@ -253,7 +216,6 @@ export function useCalendarConnections() {
     isConnected,
     getConnection,
     connectGoogle,
-    connectOutlook,
     connectApple,
     disconnect,
     handleOAuthCallback,
