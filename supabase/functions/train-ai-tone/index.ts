@@ -6,13 +6,60 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation helpers
+const isValidString = (val: unknown, maxLength = 2000): val is string => 
+  typeof val === 'string' && val.length <= maxLength;
+
+const isValidUrl = (val: unknown): boolean => {
+  if (typeof val !== 'string' || val === 'no') return true; // 'no' is valid
+  if (val.length > 500) return false;
+  try {
+    new URL(val);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isValidEmail = (val: unknown): boolean => {
+  if (typeof val !== 'string' || val === 'no') return true; // 'no' is valid
+  if (val.length > 254) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(val);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { responses } = await req.json();
+    const body = await req.json();
+    const responses = body?.responses;
+
+    // Validate responses object exists
+    if (!responses || typeof responses !== 'object') {
+      throw new Error("Invalid request: 'responses' object is required");
+    }
+
+    // Validate all scenario fields (q1-q8)
+    const scenarioFields = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
+    for (const field of scenarioFields) {
+      if (!isValidString(responses[field], 5000)) {
+        throw new Error(`Invalid ${field}: must be a string with max 5000 characters`);
+      }
+    }
+
+    // Validate optional booking link (q9)
+    if (responses.q9 !== undefined && !isValidUrl(responses.q9)) {
+      throw new Error("Invalid booking link URL format");
+    }
+
+    // Validate optional email (q10)
+    if (responses.q10 !== undefined && !isValidEmail(responses.q10)) {
+      throw new Error("Invalid email format");
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

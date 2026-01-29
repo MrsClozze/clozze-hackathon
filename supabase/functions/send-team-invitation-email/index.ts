@@ -8,6 +8,38 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation helpers
+const isValidEmail = (email: unknown): email is string => {
+  if (typeof email !== 'string' || email.length > 254) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const isValidName = (name: unknown): name is string => {
+  if (typeof name !== 'string') return false;
+  // Allow empty string but limit length
+  return name.length <= 100;
+};
+
+const isValidToken = (token: unknown): token is string => {
+  if (typeof token !== 'string') return false;
+  // UUID format validation
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(token);
+};
+
+// HTML escape function to prevent XSS
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
+};
+
 interface TeamInvitationRequest {
   inviteeEmail: string;
   inviteeFirstName: string;
@@ -22,24 +54,49 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    const body = await req.json();
+    
     const { 
       inviteeEmail, 
       inviteeFirstName, 
       inviteeLastName,
       inviterName,
       invitationToken 
-    }: TeamInvitationRequest = await req.json();
+    } = body as TeamInvitationRequest;
+
+    // Validate all inputs
+    if (!isValidEmail(inviteeEmail)) {
+      throw new Error("Invalid invitee email format");
+    }
+
+    if (!isValidName(inviteeFirstName)) {
+      throw new Error("Invalid first name: must be a string with max 100 characters");
+    }
+
+    if (!isValidName(inviteeLastName)) {
+      throw new Error("Invalid last name: must be a string with max 100 characters");
+    }
+
+    if (!isValidName(inviterName) || inviterName.trim().length === 0) {
+      throw new Error("Invalid inviter name: must be a non-empty string with max 100 characters");
+    }
+
+    if (!isValidToken(invitationToken)) {
+      throw new Error("Invalid invitation token format");
+    }
 
     console.log("Sending team invitation email to:", inviteeEmail);
 
-    const displayName = inviteeFirstName || inviteeEmail.split('@')[0];
-    const acceptUrl = `https://clozze.lovable.app/auth?invitation=${invitationToken}`;
+    // Escape all user-provided content for HTML
+    const safeDisplayName = escapeHtml(inviteeFirstName || inviteeEmail.split('@')[0]);
+    const safeInviterName = escapeHtml(inviterName);
+    const acceptUrl = `https://clozze.lovable.app/auth?invitation=${encodeURIComponent(invitationToken)}`;
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
       replyTo: "contact@clozze.io",
       to: [inviteeEmail],
-      subject: `${inviterName} invited you to join their team on Clozze`,
+      subject: `${safeInviterName} invited you to join their team on Clozze`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -63,8 +120,8 @@ const handler = async (req: Request): Promise<Response> => {
                 <h1>You're Invited!</h1>
               </div>
               <div class="content">
-                <p>Hi ${displayName},</p>
-                <p><strong>${inviterName}</strong> has invited you to join their team on Clozze - the all-in-one real estate management platform!</p>
+                <p>Hi ${safeDisplayName},</p>
+                <p><strong>${safeInviterName}</strong> has invited you to join their team on Clozze - the all-in-one real estate management platform!</p>
                 <div class="highlight">
                   <p style="margin: 0;">As a team member, you'll be able to:</p>
                 </div>
@@ -95,10 +152,11 @@ const handler = async (req: Request): Promise<Response> => {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-  } catch (error: any) {
-    console.error("Error sending team invitation email:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error sending team invitation email:", errorMessage);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

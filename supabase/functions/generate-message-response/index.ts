@@ -7,13 +7,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation helpers
+const isValidString = (val: unknown, maxLength: number): val is string => 
+  typeof val === 'string' && val.trim().length > 0 && val.length <= maxLength;
+
+const VALID_MESSAGE_TYPES = ['email', 'text', 'sms'] as const;
+type MessageType = typeof VALID_MESSAGE_TYPES[number];
+
+const isValidMessageType = (val: unknown): val is MessageType => 
+  typeof val === 'string' && VALID_MESSAGE_TYPES.includes(val as MessageType);
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messageType, sender, originalMessage, actionItem } = await req.json();
+    const body = await req.json();
+    
+    // Validate all required fields
+    const { messageType, sender, originalMessage, actionItem } = body;
+
+    if (!isValidMessageType(messageType)) {
+      throw new Error(`Invalid messageType: must be one of ${VALID_MESSAGE_TYPES.join(', ')}`);
+    }
+
+    if (!isValidString(sender, 200)) {
+      throw new Error('Invalid sender: must be a non-empty string with max 200 characters');
+    }
+
+    if (!isValidString(originalMessage, 10000)) {
+      throw new Error('Invalid originalMessage: must be a non-empty string with max 10000 characters');
+    }
+
+    if (!isValidString(actionItem, 1000)) {
+      throw new Error('Invalid actionItem: must be a non-empty string with max 1000 characters');
+    }
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');

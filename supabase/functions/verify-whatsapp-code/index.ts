@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Verification code validation - exactly 6 digits
+const isValidVerificationCode = (code: unknown): code is string => {
+  if (typeof code !== 'string') return false;
+  const codeRegex = /^\d{6}$/;
+  return codeRegex.test(code);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,10 +37,12 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { code } = await req.json();
+    const body = await req.json();
+    const { code } = body;
 
-    if (!code) {
-      throw new Error('Verification code is required');
+    // Validate verification code format
+    if (!isValidVerificationCode(code)) {
+      throw new Error('Invalid verification code format. Must be exactly 6 digits.');
     }
 
     // Get the integration record
