@@ -287,7 +287,7 @@ export default function Auth() {
     try {
       // Send password reset email via custom edge function
       const { error } = await supabase.functions.invoke('send-password-reset-email', {
-        body: { email }
+        body: { email, redirectOrigin: window.location.origin }
       });
 
       if (error) throw error;
