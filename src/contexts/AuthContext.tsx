@@ -122,10 +122,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
     let previousUserId: string | null = null;
 
+    // ONGOING auth changes listener - does NOT control isLoading
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        if (!isMounted) return;
+        
         const newUserId = currentSession?.user?.id ?? null;
         
         // Detect user switch and clear stale data
@@ -135,15 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         previousUserId = newUserId;
 
-        // Prevent UI from flashing between "no subscription" and "active subscription" states
-        // by keeping the app in a loading state until subscription status has been checked.
-        setLoading(true);
-
         // Validate session before proceeding - handles deleted users
         if (currentSession) {
           const isValid = await validateSession(currentSession);
           if (!isValid) {
-            setLoading(false);
             return;
           }
         }
@@ -151,48 +150,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
-        try {
-          if (currentSession?.user) {
-            await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
-          } else {
-            setSubscription(null);
-          }
-        } catch (e) {
-          console.error('Subscription check timed out:', e);
-        } finally {
-          setLoading(false);
+        // Fire-and-forget subscription check - don't await, don't affect loading state
+        if (currentSession?.user) {
+          checkSubscription(currentSession).catch(e => {
+            console.error('[AUTH] Subscription check failed (non-blocking):', e);
+          });
+        } else {
+          setSubscription(null);
         }
       }
     );
 
-    (async () => {
-      setLoading(true);
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-
-      // Validate session before proceeding - handles deleted users
-      if (currentSession) {
-        const isValid = await validateSession(currentSession);
-        if (!isValid) {
-          setLoading(false);
-          return;
-        }
-      }
-
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-
+    // INITIAL load - controls isLoading
+    const initializeAuth = async () => {
       try {
-        if (currentSession?.user) {
-          await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
-        }
-      } catch (e) {
-        console.error('Initial subscription check timed out:', e);
-      } finally {
-        setLoading(false);
-      }
-    })();
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!isMounted) return;
 
-    return () => authSubscription.unsubscribe();
+        // Validate session before proceeding - handles deleted users
+        if (currentSession) {
+          const isValid = await validateSession(currentSession);
+          if (!isValid) {
+            return;
+          }
+        }
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        // Fetch subscription BEFORE setting loading false
+        if (currentSession?.user) {
+          try {
+            await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
+          } catch (e) {
+            console.error('[AUTH] Initial subscription check timed out:', e);
+          }
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
