@@ -26,6 +26,9 @@ export default function ResetPassword() {
   const [userEmail, setUserEmail] = useState("");
   const validationAttempted = useRef(false);
 
+  const [needsManualVerify, setNeedsManualVerify] = useState(false);
+  const [manualVerifyTokenHash, setManualVerifyTokenHash] = useState<string | null>(null);
+
   const getRecoveryParams = () => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const type = hashParams.get("type") || searchParams.get("type");
@@ -67,6 +70,7 @@ export default function ResetPassword() {
       validationAttempted.current = true;
 
       const { type: finalType, code: finalCode, hasTokensInHash } = getRecoveryParams();
+      const tokenHash = searchParams.get("token_hash");
 
       // Check if we already have a valid session from recovery
       // This handles the case where the code was already exchanged
@@ -75,6 +79,15 @@ export default function ResetPassword() {
         console.log('[RESET] Found existing session, using it for password reset');
         setIsValidLink(true);
         setUserEmail(sessionData.session.user.email || "");
+        setValidatingLink(false);
+        return;
+      }
+
+      // If we received a token_hash deep-link (used to avoid email scanners burning the one-time token),
+      // don't auto-verify. Require an explicit user click.
+      if (finalType === 'recovery' && tokenHash) {
+        setNeedsManualVerify(true);
+        setManualVerifyTokenHash(tokenHash);
         setValidatingLink(false);
         return;
       }
@@ -128,6 +141,33 @@ export default function ResetPassword() {
 
     validateResetLink();
   }, [searchParams, toast]);
+
+  const handleManualVerify = async () => {
+    if (!manualVerifyTokenHash) return;
+
+    setValidatingLink(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        type: 'recovery',
+        token_hash: manualVerifyTokenHash,
+      });
+
+      if (error) throw error;
+
+      setIsValidLink(true);
+      setUserEmail(data.user?.email || "");
+      setNeedsManualVerify(false);
+    } catch (e: any) {
+      toast({
+        title: "Invalid or expired reset link",
+        description: e?.message || "Please request a new password reset link.",
+        variant: "destructive",
+      });
+      setIsValidLink(false);
+    } finally {
+      setValidatingLink(false);
+    }
+  };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,6 +245,37 @@ export default function ResetPassword() {
           <div className="flex flex-col items-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-text-muted">Validating reset link...</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (needsManualVerify) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md p-8">
+          <div className="flex flex-col items-center mb-6">
+            <img src={clozzeLogo} alt="Clozze" className="h-24 mb-4" />
+            <h1 className="text-2xl font-bold text-text-heading">Confirm Password Reset</h1>
+            <p className="text-text-muted mt-2 text-center">
+              For your security, click continue to validate your reset link.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Button className="w-full" onClick={handleManualVerify}>
+              Continue
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/auth")}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Login
+            </Button>
           </div>
         </Card>
       </div>

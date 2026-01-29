@@ -46,7 +46,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (error) throw error;
 
-    const resetLink = data.properties?.action_link || '';
+    // IMPORTANT:
+    // Do NOT send `action_link` directly.
+    // Many email providers/security scanners prefetch links, which consumes the one-time token
+    // before the user clicks it. That creates a security and UX issue ("invalid/expired").
+    // Instead, deep-link to our app with token_hash and have the user explicitly click
+    // a button before we verify it.
+    const tokenHash = data.properties?.hashed_token || '';
+
+    const resetLink = tokenHash
+      ? `${baseOrigin}/reset-password?type=recovery&token_hash=${encodeURIComponent(tokenHash)}`
+      : '';
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
@@ -81,10 +91,10 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="warning">
                   <strong>⚠️ Important:</strong> This password reset link will expire in 1 hour for security reasons.
                 </div>
-                <p style="text-align: center;">
-                  <a href="${resetLink}" class="button">Reset Password</a>
-                </p>
-                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                 <p style="text-align: center;">
+                   <a href="${resetLink}" class="button">Continue to Reset Password</a>
+                 </p>
+                 <p>If the button doesn't work, copy and paste this link into your browser:</p>
                 <p style="word-break: break-all; color: #667eea; font-size: 14px;">${resetLink}</p>
                 <p>If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.</p>
                 <p>Best regards,<br>The Clozze Team</p>
