@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Calendar as CalendarIcon, Clock, Settings, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, Plus, X, Pencil } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,54 +13,42 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
-
-interface CalendarEvent {
-  id: string;
-  date: Date;
-  title: string;
-  time?: string;
-  description?: string;
-  address?: string;
-  client?: string;
-  type: string;
-}
-
-const initialEvents: CalendarEvent[] = [
-  {
-    id: "1",
-    date: new Date(2025, 8, 15),
-    title: "Property Showing",
-    time: "2:00 PM",
-    address: "123 Maple Street",
-    type: "showing",
-  },
-  {
-    id: "2",
-    date: new Date(2025, 8, 15),
-    title: "Client Meeting",
-    time: "4:30 PM",
-    client: "Sarah Johnson",
-    type: "meeting",
-  },
-  {
-    id: "3",
-    date: new Date(2025, 8, 15),
-    title: "Inspection Follow-up",
-    time: "6:00 PM",
-    address: "456 Oak Avenue",
-    type: "followup",
-  },
-];
+import { Switch } from "@/components/ui/switch";
+import { useCalendarEvents, CalendarEvent } from "@/hooks/useCalendarEvents";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CalendarWidget() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 15));
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [isDailyViewOpen, setIsDailyViewOpen] = useState(false);
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  
+  // Form state
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
   const [newEventDescription, setNewEventDescription] = useState("");
+  const [newEventAddress, setNewEventAddress] = useState("");
+  const [newEventClient, setNewEventClient] = useState("");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+
+  const {
+    events,
+    loading,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    getEventsForDate,
+    getTodayEvents,
+  } = useCalendarEvents();
+
+  // Update current date every minute to keep it accurate
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', { 
@@ -81,52 +69,84 @@ export default function CalendarWidget() {
     if (date) {
       setSelectedDate(date);
       setIsDailyViewOpen(true);
+      resetForm();
     }
   };
 
-  const getEventsForDate = (date: Date) => {
-    return calendarEvents.filter(event => 
-      event.date.toDateString() === date.toDateString()
-    );
+  const resetForm = () => {
+    setNewEventTitle("");
+    setNewEventTime("");
+    setNewEventDescription("");
+    setNewEventAddress("");
+    setNewEventClient("");
+    setReminderEnabled(false);
+    setIsEditMode(false);
+    setEditingEvent(null);
   };
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!newEventTitle.trim() || !selectedDate) return;
 
-    const newEvent: CalendarEvent = {
-      id: Date.now().toString(),
+    const success = await addEvent({
       date: selectedDate,
       title: newEventTitle,
       time: newEventTime,
       description: newEventDescription,
+      address: newEventAddress,
+      client: newEventClient,
       type: "custom",
-    };
-
-    setCalendarEvents([...calendarEvents, newEvent]);
-    setNewEventTitle("");
-    setNewEventTime("");
-    setNewEventDescription("");
-    
-    toast({
-      title: "Event added",
-      description: `${newEventTitle} has been added to your calendar`,
+      reminderEnabled,
     });
+
+    if (success) {
+      resetForm();
+    }
   };
 
-  const handleDeleteEvent = (eventId: string) => {
-    setCalendarEvents(calendarEvents.filter(event => event.id !== eventId));
-    toast({
-      title: "Event deleted",
-      description: "The event has been removed from your calendar",
-    });
+  const handleEditEvent = (event: CalendarEvent) => {
+    setIsEditMode(true);
+    setEditingEvent(event);
+    setNewEventTitle(event.title);
+    setNewEventTime(event.time || "");
+    setNewEventDescription(event.description || "");
+    setNewEventAddress(event.address || "");
+    setNewEventClient(event.client || "");
+    setReminderEnabled(event.reminderEnabled || false);
   };
 
-  const getTodayEvents = () => {
-    const today = new Date();
-    return calendarEvents.filter(event => 
-      event.date.toDateString() === today.toDateString()
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !newEventTitle.trim()) return;
+
+    const success = await updateEvent(editingEvent.id, {
+      title: newEventTitle,
+      time: newEventTime,
+      description: newEventDescription,
+      address: newEventAddress,
+      client: newEventClient,
+      reminderEnabled,
+    });
+
+    if (success) {
+      resetForm();
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    await deleteEvent(eventId);
+  };
+
+  const todayEvents = getTodayEvents();
+
+  if (loading) {
+    return (
+      <BentoCard title="Calendar" subtitle="Loading...">
+        <div className="space-y-4">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </div>
+      </BentoCard>
     );
-  };
+  }
 
   return (
     <>
@@ -153,7 +173,17 @@ export default function CalendarWidget() {
               onSelect={handleDateSelect}
               month={currentDate}
               onMonthChange={setCurrentDate}
-              className="w-full"
+              className="w-full pointer-events-auto"
+              modifiers={{
+                hasEvents: events.map(e => e.date),
+              }}
+              modifiersStyles={{
+                hasEvents: {
+                  fontWeight: 'bold',
+                  textDecoration: 'underline',
+                  textDecorationColor: 'hsl(var(--accent-gold))',
+                }
+              }}
             />
           </div>
 
@@ -164,15 +194,15 @@ export default function CalendarWidget() {
               Today's Schedule
             </h4>
             
-            {getTodayEvents().length > 0 ? (
-              getTodayEvents().map((event) => (
+            {todayEvents.length > 0 ? (
+              todayEvents.map((event) => (
                 <div
                   key={event.id}
                   className="flex items-start gap-3 p-3 rounded-lg bg-background-elevated border border-card-border hover:border-accent-gold/30 transition-all duration-200 cursor-pointer"
                   onClick={() => handleDateSelect(event.date)}
                 >
                   <div className="flex-shrink-0 w-16 text-sm font-medium text-accent-gold">
-                    {event.time}
+                    {event.time || "All day"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text-heading truncate">
@@ -195,30 +225,26 @@ export default function CalendarWidget() {
               <div className="text-center py-6 text-text-muted">
                 <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No events scheduled for today</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => handleDateSelect(new Date())}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Event
+                </Button>
               </div>
             )}
-          </div>
-
-          {/* Sync Options */}
-          <div className="pt-4 border-t border-card-border">
-            <p className="text-xs text-text-subtle mb-2">Sync with external calendar:</p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1 text-xs">
-                Google
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 text-xs">
-                Apple
-              </Button>
-              <Button variant="outline" size="sm" className="flex-1 text-xs">
-                Outlook
-              </Button>
-            </div>
           </div>
         </div>
       </BentoCard>
 
       {/* Daily View Dialog */}
-      <Dialog open={isDailyViewOpen} onOpenChange={setIsDailyViewOpen}>
+      <Dialog open={isDailyViewOpen} onOpenChange={(open) => {
+        setIsDailyViewOpen(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="sm:max-w-2xl bg-card border border-card-border max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-text-heading">
@@ -263,20 +289,33 @@ export default function CalendarWidget() {
                           <p className="text-sm text-text-muted ml-5 mt-1">{event.description}</p>
                         )}
                         {event.address && (
-                          <p className="text-sm text-text-muted ml-5 mt-1">{event.address}</p>
+                          <p className="text-sm text-text-muted ml-5 mt-1">📍 {event.address}</p>
                         )}
                         {event.client && (
-                          <p className="text-sm text-text-muted ml-5 mt-1">{event.client}</p>
+                          <p className="text-sm text-text-muted ml-5 mt-1">👤 {event.client}</p>
+                        )}
+                        {event.reminderEnabled && (
+                          <p className="text-xs text-accent-gold ml-5 mt-1">🔔 Reminder enabled</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteEvent(event.id)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditEvent(event)}
+                          className="text-text-muted hover:text-text-heading"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -285,15 +324,15 @@ export default function CalendarWidget() {
               </div>
             </div>
 
-            {/* Add New Event Form */}
+            {/* Add/Edit Event Form */}
             <div className="border-t border-card-border pt-4">
               <h3 className="text-sm font-semibold text-text-heading mb-3 flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Event
+                {isEditMode ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {isEditMode ? "Edit Event" : "Add New Event"}
               </h3>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="event-title" className="text-text-heading">Event Title</Label>
+                  <Label htmlFor="event-title" className="text-text-heading">Event Title *</Label>
                   <Input
                     id="event-title"
                     value={newEventTitle}
@@ -302,35 +341,88 @@ export default function CalendarWidget() {
                     className="mt-1"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="event-time" className="text-text-heading">Time</Label>
+                    <Input
+                      id="event-time"
+                      type="time"
+                      value={newEventTime}
+                      onChange={(e) => setNewEventTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="event-client" className="text-text-heading">Client Name</Label>
+                    <Input
+                      id="event-client"
+                      value={newEventClient}
+                      onChange={(e) => setNewEventClient(e.target.value)}
+                      placeholder="e.g., Sarah Johnson"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
                 <div>
-                  <Label htmlFor="event-time" className="text-text-heading">Time (optional)</Label>
+                  <Label htmlFor="event-address" className="text-text-heading">Address</Label>
                   <Input
-                    id="event-time"
-                    type="time"
-                    value={newEventTime}
-                    onChange={(e) => setNewEventTime(e.target.value)}
+                    id="event-address"
+                    value={newEventAddress}
+                    onChange={(e) => setNewEventAddress(e.target.value)}
+                    placeholder="e.g., 123 Main Street"
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="event-description" className="text-text-heading">Description (optional)</Label>
+                  <Label htmlFor="event-description" className="text-text-heading">Description</Label>
                   <Textarea
                     id="event-description"
                     value={newEventDescription}
                     onChange={(e) => setNewEventDescription(e.target.value)}
                     placeholder="Add event details..."
                     className="mt-1"
-                    rows={3}
+                    rows={2}
                   />
                 </div>
-                <Button
-                  onClick={handleAddEvent}
-                  disabled={!newEventTitle.trim()}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Event
-                </Button>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-background-elevated border border-card-border">
+                  <div>
+                    <Label htmlFor="reminder-toggle" className="text-text-heading">Email Reminder</Label>
+                    <p className="text-xs text-text-muted">Get notified before this event</p>
+                  </div>
+                  <Switch
+                    id="reminder-toggle"
+                    checked={reminderEnabled}
+                    onCheckedChange={setReminderEnabled}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {isEditMode && (
+                    <Button
+                      variant="outline"
+                      onClick={resetForm}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    onClick={isEditMode ? handleUpdateEvent : handleAddEvent}
+                    disabled={!newEventTitle.trim()}
+                    className="flex-1"
+                  >
+                    {isEditMode ? (
+                      <>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Update Event
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Event
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
