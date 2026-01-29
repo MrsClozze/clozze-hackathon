@@ -157,53 +157,115 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          provider: string
+          provider_account_id: string | null
+          provider_email: string | null
+          refresh_token_encrypted: string | null
+          sync_enabled: boolean | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          provider: string
+          provider_account_id?: string | null
+          provider_email?: string | null
+          refresh_token_encrypted?: string | null
+          sync_enabled?: boolean | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          provider?: string
+          provider_account_id?: string | null
+          provider_email?: string | null
+          refresh_token_encrypted?: string | null
+          sync_enabled?: boolean | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           address: string | null
+          calendar_connection_id: string | null
           client: string | null
           created_at: string
           description: string | null
           event_date: string
           event_time: string | null
           event_type: string | null
+          external_event_id: string | null
           id: string
           reminder_enabled: boolean | null
           reminder_sent: boolean | null
+          source: string | null
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
           address?: string | null
+          calendar_connection_id?: string | null
           client?: string | null
           created_at?: string
           description?: string | null
           event_date: string
           event_time?: string | null
           event_type?: string | null
+          external_event_id?: string | null
           id?: string
           reminder_enabled?: boolean | null
           reminder_sent?: boolean | null
+          source?: string | null
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
           address?: string | null
+          calendar_connection_id?: string | null
           client?: string | null
           created_at?: string
           description?: string | null
           event_date?: string
           event_time?: string | null
           event_type?: string | null
+          external_event_id?: string | null
           id?: string
           reminder_enabled?: boolean | null
           reminder_sent?: boolean | null
+          source?: string | null
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_calendar_connection_id_fkey"
+            columns: ["calendar_connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
