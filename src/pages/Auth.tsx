@@ -25,6 +25,8 @@ export default function Auth() {
   useEffect(() => {
     const checkOnboardingAndRedirect = async () => {
       if (user) {
+        console.log('[AUTH] User detected, checking redirect...', user.id);
+        
         const sessionId = searchParams.get('session_id');
         if (sessionId) {
           refreshSubscription().then(() => {
@@ -34,20 +36,50 @@ export default function Auth() {
             });
             navigate("/integrations");
           });
-        } else {
-          // Check if user has completed onboarding
-          const { data: profile } = await supabase
+          return;
+        }
+        
+        // Wait a moment for the database trigger to create the profile
+        // This handles the race condition where signup completes before profile is created
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        const checkProfile = async (): Promise<void> => {
+          attempts++;
+          console.log('[AUTH] Checking profile, attempt:', attempts);
+          
+          const { data: profile, error } = await supabase
             .from('profiles')
             .select('onboarding_completed')
             .eq('id', user.id)
             .maybeSingle();
-
-          if (profile && !profile.onboarding_completed) {
+          
+          console.log('[AUTH] Profile check result:', { profile, error });
+          
+          if (error) {
+            console.error('[AUTH] Profile query error:', error);
+            // If there's an error, still try to navigate to onboarding
+            navigate("/onboarding");
+            return;
+          }
+          
+          if (!profile && attempts < maxAttempts) {
+            // Profile not created yet by trigger, wait and retry
+            console.log('[AUTH] Profile not found, retrying in 500ms...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return checkProfile();
+          }
+          
+          if (!profile || !profile.onboarding_completed) {
+            console.log('[AUTH] Redirecting to onboarding');
             navigate("/onboarding");
           } else {
+            console.log('[AUTH] Onboarding complete, redirecting to home');
             navigate("/");
           }
-        }
+        };
+        
+        await checkProfile();
       }
     };
     

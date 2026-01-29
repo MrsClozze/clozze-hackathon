@@ -17,6 +17,7 @@ verify_jwt = false
 [functions.train-ai-tone]
 
 [functions.send-welcome-email]
+verify_jwt = false
 
 [functions.send-verification-email]
 
