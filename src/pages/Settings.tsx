@@ -325,6 +325,17 @@ export default function Settings() {
 
       if (error) throw error;
 
+      // Send password change confirmation email (fire-and-forget)
+      supabase.functions.invoke('send-password-reset-confirmation', {
+        body: {
+          email: email,
+          firstName: firstName || undefined,
+          redirectOrigin: window.location.origin,
+        },
+      }).catch((emailError) => {
+        console.warn('Failed to send password change confirmation email:', emailError);
+      });
+
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

@@ -56,15 +56,41 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
     
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    // Look for existing customer with matching user ID in metadata, or create new one
+    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
     let customerId;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
+    
+    // Find customer that matches this specific user ID
+    const matchedCustomer = customers.data.find(
+      (c: Stripe.Customer) => c.metadata?.supabase_user_id === user.id
+    );
+    
+    if (matchedCustomer) {
+      customerId = matchedCustomer.id;
+    } else {
+      // Check for orphaned customer (no user ID set) and claim it
+      const orphanedCustomer = customers.data.find(
+        (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+      );
+      
+      if (orphanedCustomer) {
+        // Update metadata to link to current user
+        await stripe.customers.update(orphanedCustomer.id, {
+          metadata: { supabase_user_id: user.id }
+        });
+        customerId = orphanedCustomer.id;
+      } else {
+        // Create new customer with user ID metadata
+        const newCustomer = await stripe.customers.create({
+          email: user.email,
+          metadata: { supabase_user_id: user.id }
+        });
+        customerId = newCustomer.id;
+      }
     }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_email: customerId ? undefined : user.email,
       line_items: [
         {
           price: priceId,

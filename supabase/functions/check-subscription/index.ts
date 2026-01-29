@@ -59,7 +59,7 @@ serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
     
     if (customers.data.length === 0) {
       logStep("No customer found");
@@ -69,7 +69,42 @@ serve(async (req) => {
       });
     }
 
-    const customerId = customers.data[0].id;
+    // Find customer that matches this specific user ID via metadata
+    // If no customer has matching metadata, check if ANY customer with this email has active subs
+    // This handles both new accounts (with metadata) and legacy accounts (without metadata)
+    let matchedCustomer = customers.data.find(
+      (c: Stripe.Customer) => c.metadata?.supabase_user_id === user.id
+    );
+    
+    // If no exact match, fall back to first customer BUT only if they don't have a different user_id set
+    // This prevents email-based subscription inheritance from deleted accounts
+    if (!matchedCustomer) {
+      const orphanedCustomer = customers.data.find(
+        (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+      );
+      if (orphanedCustomer) {
+        // Legacy customer without metadata - update it to link to current user
+        try {
+          await stripe.customers.update(orphanedCustomer.id, {
+            metadata: { supabase_user_id: user.id }
+          });
+          matchedCustomer = orphanedCustomer;
+          logStep("Linked orphaned customer to user", { customerId: orphanedCustomer.id, userId: user.id });
+        } catch (e) {
+          logStep("Failed to update customer metadata", { error: String(e) });
+        }
+      }
+    }
+
+    if (!matchedCustomer) {
+      logStep("No customer matched this user ID - ignoring stale customers for different users");
+      return new Response(JSON.stringify({ subscribed: false, plan_type: 'free', status: 'trial' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const customerId = matchedCustomer.id;
     logStep("Found Stripe customer", { customerId });
 
     // NOTE: promo-code / free-trial checkouts often create subscriptions in `trialing` state,
