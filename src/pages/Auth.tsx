@@ -221,7 +221,9 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      const redirectUri = `${window.location.origin}/auth`;
+      // For Lovable Cloud OAuth, use the site origin as redirect_uri.
+      // The platform completes the exchange via /~oauth/callback automatically.
+      const redirectUri = window.location.origin;
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: redirectUri,
       });
