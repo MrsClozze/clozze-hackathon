@@ -58,6 +58,31 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+// Validates CSS color values to prevent CSS injection attacks
+// Only allows valid hex, rgb, rgba, hsl, hsla, and named color formats
+const isValidCssColor = (color: string): boolean => {
+  if (!color || typeof color !== 'string') return false;
+  
+  // Trim and check for dangerous characters that could break CSS context
+  const trimmed = color.trim();
+  if (trimmed.includes(';') || trimmed.includes('}') || trimmed.includes('{') || 
+      trimmed.includes('<') || trimmed.includes('>') || trimmed.includes('url(') ||
+      trimmed.includes('expression(') || trimmed.includes('javascript:')) {
+    return false;
+  }
+  
+  // Valid CSS color patterns: hex, rgb, rgba, hsl, hsla, or CSS named colors
+  const validColorPattern = /^(#[0-9A-Fa-f]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)|hsl\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*\)|hsla\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+\s*\)|[a-zA-Z]+)$/;
+  
+  return validColorPattern.test(trimmed);
+};
+
+// Sanitizes a CSS color value, returning undefined if invalid
+const sanitizeCssColor = (color: string | undefined): string | undefined => {
+  if (!color) return undefined;
+  return isValidCssColor(color) ? color : undefined;
+};
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
@@ -74,9 +99,11 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    const rawColor = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    const color = sanitizeCssColor(rawColor);
     return color ? `  --color-${key}: ${color};` : null;
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `,
