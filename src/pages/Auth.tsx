@@ -32,12 +32,44 @@ export default function Auth() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
 
+  const isRecoveryUrl = () => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const type = searchParams.get("type") || hashParams.get("type");
+    const code = searchParams.get("code") || hashParams.get("code");
+    const accessToken = hashParams.get("access_token");
+    const refreshToken = hashParams.get("refresh_token");
+
+    // Password recovery links may come back as either:
+    // - ?code=...&type=recovery
+    // - #access_token=...&refresh_token=...&type=recovery
+    return type === "recovery" && (!!code || !!accessToken || !!refreshToken);
+  };
+
+  // If a recovery link lands on /auth, route it to /reset-password to avoid
+  // onboarding redirects auto-signing the user into the app.
+  useEffect(() => {
+    if (!isRecoveryUrl()) return;
+
+    sessionStorage.setItem("clozze_password_reset_active", "true");
+
+    const queryString = searchParams.toString();
+    const target = `/reset-password${queryString ? `?${queryString}` : ""}${window.location.hash || ""}`;
+    navigate(target, { replace: true });
+  }, [navigate, searchParams]);
+
   useEffect(() => {
     const checkOnboardingAndRedirect = async () => {
       // Don't redirect if password reset is active
       const isPasswordResetActive = sessionStorage.getItem('clozze_password_reset_active') === 'true';
       if (isPasswordResetActive) {
         console.log('[AUTH] Password reset active, skipping redirect');
+        return;
+      }
+
+      // Also skip redirects if we are currently processing a recovery link.
+      // (We may have not navigated to /reset-password yet.)
+      if (isRecoveryUrl()) {
+        console.log('[AUTH] Recovery URL detected, skipping redirect');
         return;
       }
 
