@@ -43,7 +43,7 @@ export default function Header() {
       </div>
 
       {/* Right Side - Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {isTrialAccount && (
           <Button
             variant="default"
