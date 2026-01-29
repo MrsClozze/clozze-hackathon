@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/layout/Layout";
 import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import ActiveListingsCard from "@/components/dashboard/ActiveListingsCard";
@@ -8,9 +10,21 @@ import TasksSidebar from "@/components/dashboard/TasksSidebar";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
 
 const Index = () => {
+  const { user, loading } = useAuth();
+
   useEffect(() => {
     document.title = "Home | Clozze";
   }, []);
+
+  // Show nothing while checking auth state
+  if (loading) {
+    return null;
+  }
+
+  // Redirect unauthenticated users to sign-in
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
   return (
     <Layout>
       <div className="p-8">
