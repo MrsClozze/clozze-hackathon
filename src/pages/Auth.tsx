@@ -253,32 +253,7 @@ export default function Auth() {
     }
   };
 
-  const handleMicrosoftSignIn = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo: `${window.location.origin}/auth`,
-          scopes: 'email profile openid',
-          skipBrowserRedirect: true,
-        },
-      });
 
-      if (error) throw error;
-      if (data?.url) {
-        const win = window.open(data.url, '_blank', 'noopener,noreferrer');
-        if (!win) {
-          window.location.href = data.url;
-        }
-      }
-    } catch (error: any) {
-      toast({
-        title: "Microsoft sign in failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -509,20 +484,6 @@ export default function Auth() {
               />
             </svg>
             Continue with Google
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleMicrosoftSignIn}
-            type="button"
-          >
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-              <path fill="#f25022" d="M1 1h10v10H1z" />
-              <path fill="#00a4ef" d="M13 1h10v10H13z" />
-              <path fill="#7fba00" d="M1 13h10v10H1z" />
-              <path fill="#ffb900" d="M13 13h10v10H13z" />
-            </svg>
-            Continue with Microsoft
           </Button>
         </div>
           </>
