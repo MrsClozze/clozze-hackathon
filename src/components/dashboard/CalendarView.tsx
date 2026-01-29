@@ -144,42 +144,67 @@ export default function CalendarView() {
                 <span className="relative z-10">Connect calendar</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-card border border-card-border">
-              <DialogHeader>
-                <DialogTitle className="text-text-heading">Connect Calendar</DialogTitle>
-                <DialogDescription className="text-text-muted">
-                  Choose a calendar service to sync your events with Clozze.
+            <DialogContent className="sm:max-w-lg bg-card border border-card-border shadow-elevated">
+              <DialogHeader className="text-center pb-2">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Calendar className="h-7 w-7 text-primary" />
+                </div>
+                <DialogTitle className="text-xl font-semibold text-text-heading">Connect Your Calendar</DialogTitle>
+                <DialogDescription className="text-text-muted mt-2">
+                  Sync your appointments and showings seamlessly with your preferred calendar service.
                 </DialogDescription>
               </DialogHeader>
-              <div className="flex flex-col gap-3 mt-4">
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all duration-200"
+              
+              <div className="grid gap-3 mt-6">
+                {/* Google Calendar */}
+                <button 
+                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
+                  onClick={() => toast({ title: "Coming soon", description: "Google Calendar integration will be available soon!" })}
                 >
-                  <div className="w-8 h-8 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
                     <img src={googleCalendarLogo} alt="Google Calendar" className="w-8 h-8 object-contain" />
                   </div>
-                  <span className="font-medium">Google Calendar</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all duration-200"
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Google Calendar</h3>
+                    <p className="text-sm text-text-muted mt-0.5">Sync with your Google account</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </button>
+
+                {/* Apple Calendar */}
+                <button 
+                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
+                  onClick={() => toast({ title: "Coming soon", description: "Apple Calendar integration will be available soon!" })}
                 >
-                  <div className="w-8 h-8 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
                     <img src={appleCalendarLogo} alt="Apple Calendar" className="w-8 h-8 object-contain" />
                   </div>
-                  <span className="font-medium">iCalendar</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-3 justify-start h-12 px-4 hover:bg-accent-gold/5 hover:border-accent-gold/30 transition-all duration-200"
-                >
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    <img src={outlookLogo} alt="Outlook" className="w-8 h-8 object-contain" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Apple Calendar</h3>
+                    <p className="text-sm text-text-muted mt-0.5">Sync with iCloud Calendar</p>
                   </div>
-                  <span className="font-medium">Outlook</span>
-                </Button>
+                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </button>
+
+                {/* Outlook Calendar */}
+                <button 
+                  className="group relative flex items-center gap-4 p-4 rounded-xl border border-card-border bg-background hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 text-left"
+                  onClick={() => toast({ title: "Coming soon", description: "Outlook Calendar integration will be available soon!" })}
+                >
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0 group-hover:shadow-md transition-shadow">
+                    <img src={outlookLogo} alt="Outlook Calendar" className="w-8 h-8 object-contain" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-text-heading group-hover:text-primary transition-colors">Outlook Calendar</h3>
+                    <p className="text-sm text-text-muted mt-0.5">Sync with Microsoft 365</p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-text-muted group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                </button>
               </div>
+
+              <p className="text-xs text-text-subtle text-center mt-6">
+                Your calendar data is securely synced and never shared.
+              </p>
             </DialogContent>
           </Dialog>
         </div>
