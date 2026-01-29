@@ -93,7 +93,9 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      console.log('[AUTH] Starting signup for:', email);
+      
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -105,26 +107,32 @@ export default function Auth() {
         },
       });
 
-      if (error) throw error;
-
-      // Send welcome email (verification email is sent automatically by Supabase signUp)
-      try {
-        await supabase.functions.invoke('send-welcome-email', {
-          body: { email, firstName, lastName }
-        });
-        
-        toast({
-          title: "Account created!",
-          description: "Check your email for the verification link to activate your account.",
-        });
-      } catch (emailError) {
-        console.error("Error sending welcome email:", emailError);
-        toast({
-          title: "Account created!",
-          description: "Check your email to verify your account.",
-        });
+      if (error) {
+        console.error('[AUTH] Signup error:', error);
+        throw error;
       }
+
+      console.log('[AUTH] Signup successful, user:', data.user?.id);
+
+      // Show success toast immediately - don't wait for welcome email
+      toast({
+        title: "Account created!",
+        description: "Check your email for the verification link to activate your account.",
+      });
+
+      // Send welcome email in background (fire-and-forget) - don't block navigation
+      supabase.functions.invoke('send-welcome-email', {
+        body: { email, firstName, lastName }
+      }).catch(emailError => {
+        console.warn('[AUTH] Welcome email failed (non-critical):', emailError);
+      });
+
+      // The useEffect will handle navigation when user state updates
+      // But add a fallback in case it doesn't trigger
+      console.log('[AUTH] Signup complete, navigation should happen via useEffect');
+      
     } catch (error: any) {
+      console.error('[AUTH] Signup failed:', error);
       toast({
         title: "Sign up failed",
         description: error.message,
@@ -132,6 +140,7 @@ export default function Auth() {
       });
     } finally {
       setLoading(false);
+      console.log('[AUTH] Loading state reset to false');
     }
   };
 
