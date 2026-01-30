@@ -109,12 +109,6 @@ export default function ActiveBuyersCard() {
         </div>
       )}
 
-      {/* Demo mode hint */}
-      {isDemo && dashboardBuyers.length > 0 && (
-        <p className="mt-4 text-xs text-text-muted text-center">
-          This is sample data to help you explore. Add your first real buyer to start using Clozze!
-        </p>
-      )}
     </div>
   );
 }

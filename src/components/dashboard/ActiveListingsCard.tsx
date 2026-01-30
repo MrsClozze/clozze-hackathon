@@ -122,12 +122,6 @@ export default function ActiveListingsCard() {
         </div>
       )}
 
-      {/* Demo mode hint */}
-      {isDemo && dashboardListings.length > 0 && (
-        <p className="mt-4 text-xs text-text-muted text-center">
-          This is sample data to help you explore. Add your first real listing to start using Clozze!
-        </p>
-      )}
     </div>
   );
 }
