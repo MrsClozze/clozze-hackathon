@@ -3,11 +3,13 @@ import Layout from "@/components/layout/Layout";
 import { useTasks } from "@/contexts/TasksContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
+import { useAccountState } from "@/contexts/AccountStateContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, MapPin, User, Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Clock, MapPin, User, Plus, Info } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
@@ -16,9 +18,10 @@ type StatusFilter = "all" | "pending" | "in-progress" | "completed";
 type CategoryFilter = "all" | "buyers" | "listings";
 
 export default function Tasks() {
-  const { tasks, openTaskModal } = useTasks();
+  const { tasks, loading, openTaskModal } = useTasks();
   const { buyers } = useBuyers();
   const { listings } = useListings();
+  const { isDemo } = useAccountState();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -86,12 +89,38 @@ export default function Tasks() {
     }
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="p-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-text-heading mb-2">Tasks & To Do</h1>
+            <p className="text-text-muted">Track and manage all your transaction tasks and deadlines.</p>
+          </div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="p-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-text-heading mb-2">Tasks & To Do</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-text-heading">Tasks & To Do</h1>
+              {isDemo && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-xs font-medium">
+                  <Info className="h-3 w-3" />
+                  Demo Mode
+                </span>
+              )}
+            </div>
             <p className="text-text-muted">Track and manage all your transaction tasks and deadlines.</p>
           </div>
           <Button onClick={() => setIsAddTaskModalOpen(true)} className="gap-2">
@@ -99,6 +128,15 @@ export default function Tasks() {
             Add Task
           </Button>
         </div>
+
+        {/* Demo mode hint */}
+        {isDemo && (
+          <div className="mb-6 p-4 rounded-lg border border-accent-gold/30 bg-accent-gold/5">
+            <p className="text-sm text-text-muted">
+              <strong className="text-accent-gold">Demo Mode:</strong> You're viewing sample tasks. Add your first real listing or buyer to switch to live mode!
+            </p>
+          </div>
+        )}
 
         {/* Category Tabs */}
         <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)} className="mb-6">

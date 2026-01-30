@@ -1,27 +1,15 @@
-import { Plus, Clock, AlertTriangle } from "lucide-react";
+import { Plus, Clock, AlertTriangle, Info } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/contexts/TasksContext";
+import { useAccountState } from "@/contexts/AccountStateContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import AddTaskModal from "./AddTaskModal";
-
-const urgentTasks = [
-  {
-    id: 1,
-    title: "Finalize contract for 456 Oak Avenue",
-    priority: "high",
-    icon: AlertTriangle,
-  },
-  {
-    id: 2,
-    title: "Confirm viewing for 123 Elm Street",
-    priority: "medium",
-    icon: Clock,
-  },
-];
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TasksSidebar() {
-  const { tasks, openTaskModal } = useTasks();
+  const { tasks, loading, openTaskModal } = useTasks();
+  const { isDemo } = useAccountState();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
 
   // Filter out completed tasks
@@ -44,11 +32,34 @@ export default function TasksSidebar() {
   // Show only top 6 most urgent tasks
   const todoTasks = sortedTasks.slice(0, 6);
 
+  if (loading) {
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-text-heading">To-Do List</h2>
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
-      {/* To-Do List */}
+      {/* To-Do List Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-text-heading">To-Do List</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-text-heading">To-Do List</h2>
+          {isDemo && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-[10px] font-medium">
+              <Info className="h-2.5 w-2.5" />
+              Demo
+            </span>
+          )}
+        </div>
         <Button
           size="sm"
           onClick={() => setIsAddTaskOpen(true)}
@@ -60,40 +71,55 @@ export default function TasksSidebar() {
         </Button>
       </div>
       
-      <div className="space-y-3">
-        {todoTasks.map((task) => (
-          <div
-            key={task.id}
-            onClick={() => openTaskModal(task)}
-            className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
+      {todoTasks.length === 0 ? (
+        <div className="text-center py-8 border border-dashed border-border rounded-lg">
+          <p className="text-text-muted text-sm mb-3">No tasks yet</p>
+          <button 
+            onClick={() => setIsAddTaskOpen(true)}
+            className="text-primary text-sm hover:underline"
           >
-            <div className="flex items-start justify-between mb-2">
-              <h3 className="font-medium text-text-heading text-sm leading-tight">
-                {task.title}
-              </h3>
-              <div className="flex items-center gap-1 ml-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    task.priority === "high" ? "bg-destructive" : "bg-warning"
-                  }`}
-                />
-                <span className="bg-accent-gold text-accent-gold-foreground px-1 py-0.5 rounded text-[10px] font-medium">
-                  EXAMPLE
-                </span>
+            Add your first task
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {todoTasks.map((task) => (
+            <div
+              key={task.id}
+              onClick={() => openTaskModal(task)}
+              className="p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-medium text-text-heading text-sm leading-tight">
+                  {task.title}
+                </h3>
+                <div className="flex items-center gap-1 ml-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      task.priority === "high" ? "bg-destructive" : task.priority === "medium" ? "bg-warning" : "bg-muted"
+                    }`}
+                  />
+                  {/* Only show SAMPLE badge for demo tasks */}
+                  {task.isDemo && (
+                    <span className="bg-accent-gold text-accent-gold-foreground px-1 py-0.5 rounded text-[10px] font-medium">
+                      SAMPLE
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1 text-xs text-text-muted">
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {task.date}
+              <div className="space-y-1 text-xs text-text-muted">
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {task.dueDate || task.date}
+                </div>
+                {task.address && <div>{task.address}</div>}
+                {task.assignee && <div>{task.assignee}</div>}
               </div>
-              {task.address && <div>{task.address}</div>}
-              {task.assignee && <div>{task.assignee}</div>}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <AddTaskModal open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen} />
       <TaskDetailsModal />

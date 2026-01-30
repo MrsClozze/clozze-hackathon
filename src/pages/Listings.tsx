@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, Info } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { useListings } from "@/contexts/ListingsContext";
+import { useAccountState } from "@/contexts/AccountStateContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
 import AddListingModal from "@/components/dashboard/AddListingModal";
 import ListingDetailsModal from "@/components/dashboard/ListingDetailsModal";
 
 export default function Listings() {
-  const { listings, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
+  const { listings, loading, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
+  const { isDemo } = useAccountState();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isActiveOpen, setIsActiveOpen] = useState(true);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
@@ -56,11 +59,14 @@ export default function Listings() {
             {listing.status.toUpperCase()}
           </Badge>
         </div>
-        <div className="absolute top-3 left-3">
-          <Badge className="bg-accent-gold text-accent-gold-foreground">
-            EXAMPLE
-          </Badge>
-        </div>
+        {/* Only show SAMPLE badge for demo listings */}
+        {listing.isDemo && (
+          <div className="absolute top-3 left-3">
+            <Badge className="bg-accent-gold text-accent-gold-foreground">
+              SAMPLE
+            </Badge>
+          </div>
+        )}
       </div>
       <CardContent className="p-4">
         <h3 className="font-semibold text-text-heading mb-1 group-hover:text-accent-gold transition-colors">
@@ -92,12 +98,40 @@ export default function Listings() {
     </Card>
   );
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-text-heading mb-2">Listings</h1>
+              <p className="text-text-muted">Manage all your property listings and transactions.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-80 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-text-heading mb-2">Listings</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-text-heading">Listings</h1>
+              {isDemo && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-xs font-medium">
+                  <Info className="h-3 w-3" />
+                  Demo Mode
+                </span>
+              )}
+            </div>
             <p className="text-text-muted">Manage all your property listings and transactions.</p>
           </div>
           <button 
@@ -106,9 +140,18 @@ export default function Listings() {
           >
             <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
             <Plus className="h-4 w-4 relative z-10" />
-            <span className="relative z-10">Add Listing</span>
+            <span className="relative z-10">{isDemo ? 'Add Your First Listing' : 'Add Listing'}</span>
           </button>
         </div>
+
+        {/* Demo mode hint */}
+        {isDemo && (
+          <div className="mb-6 p-4 rounded-lg border border-accent-gold/30 bg-accent-gold/5">
+            <p className="text-sm text-text-muted">
+              <strong className="text-accent-gold">Demo Mode:</strong> You're viewing sample data. Add your first real listing to switch to live mode!
+            </p>
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Active Listings Section */}

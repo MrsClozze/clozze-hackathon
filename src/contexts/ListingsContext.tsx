@@ -1,7 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./AuthContext";
+import { useAccountState } from "./AccountStateContext";
+import { DEMO_LISTING, isDemoId } from "@/data/demoData";
+import { useToast } from "@/hooks/use-toast";
 import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
 
 export interface ListingData {
   id: string;
@@ -33,172 +36,263 @@ export interface ListingData {
   totalCommission: number;
   agentCommission: number;
   brokerageCommission: number;
+  isDemo?: boolean;
 }
 
 interface ListingsContextType {
   listings: ListingData[];
-  updateListing: (updatedListing: ListingData) => void;
-  deleteListing: (id: string) => void;
-  addListing: (listing: ListingData) => void;
+  loading: boolean;
+  updateListing: (updatedListing: ListingData) => Promise<void>;
+  deleteListing: (id: string) => Promise<void>;
+  addListing: (listing: Omit<ListingData, 'id' | 'isDemo'>) => Promise<void>;
   selectedListing: ListingData | null;
   isListingDetailsModalOpen: boolean;
   openListingModal: (listing: ListingData) => void;
   closeListingModal: () => void;
+  refetchListings: () => Promise<void>;
 }
 
 const ListingsContext = createContext<ListingsContextType | undefined>(undefined);
 
-const initialListings: ListingData[] = [
-  {
-    id: "1",
-    address: "123 Elm Street",
-    city: "Beverly Hills, CA",
-    price: 2450000,
-    status: "Active",
-    daysOnMarket: 14,
-    commission: 73500,
-    image: property1,
-    sellerFirstName: "Robert",
-    sellerLastName: "Martinez",
-    sellerEmail: "robert.martinez@email.com",
-    sellerPhone: "(555) 111-2222",
-    zipcode: "90210",
-    county: "Los Angeles County",
-    bedrooms: 4,
-    bathrooms: 3.5,
-    sqFeet: 3200,
-    appraisalPrice: 2400000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-15",
-    listingEndDate: "2024-07-15",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 147000,
-    agentCommission: 73500,
-    brokerageCommission: 73500,
-  },
-  {
-    id: "2",
-    address: "456 Oak Avenue",
-    city: "Malibu, CA",
-    price: 5750000,
-    status: "Pending",
-    daysOnMarket: 7,
-    commission: 172500,
-    image: property2,
-    sellerFirstName: "Jennifer",
-    sellerLastName: "Thompson",
-    sellerEmail: "jennifer.thompson@email.com",
-    sellerPhone: "(555) 222-3333",
-    zipcode: "90265",
-    county: "Los Angeles County",
-    bedrooms: 5,
-    bathrooms: 4.5,
-    sqFeet: 4800,
-    appraisalPrice: 5800000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-20",
-    listingEndDate: "2024-07-20",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 345000,
-    agentCommission: 172500,
-    brokerageCommission: 172500,
-  },
-  {
-    id: "3",
-    address: "789 Pine Lane",
-    city: "Santa Monica, CA",
-    price: 1890000,
-    status: "Closed",
-    daysOnMarket: 21,
-    commission: 56700,
-    image: property3,
-    sellerFirstName: "David",
-    sellerLastName: "Anderson",
-    sellerEmail: "david.anderson@email.com",
-    sellerPhone: "(555) 333-4444",
-    zipcode: "90401",
-    county: "Los Angeles County",
-    bedrooms: 3,
-    bathrooms: 2.5,
-    sqFeet: 2400,
-    appraisalPrice: 1850000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-05",
-    listingEndDate: "2024-07-05",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 113400,
-    agentCommission: 56700,
-    brokerageCommission: 56700,
-  },
-  {
-    id: "4",
-    address: "321 Sunset Boulevard",
-    city: "Los Angeles, CA",
-    price: 3250000,
-    status: "Pending",
-    daysOnMarket: 12,
-    commission: 97500,
-    image: property1,
-    sellerFirstName: "Patricia",
-    sellerLastName: "Williams",
-    sellerEmail: "patricia.williams@email.com",
-    sellerPhone: "(555) 444-5555",
-    zipcode: "90028",
-    county: "Los Angeles County",
-    bedrooms: 4,
-    bathrooms: 3,
-    sqFeet: 3600,
-    appraisalPrice: 3200000,
-    multiUnit: "no",
-    listingStartDate: "2024-01-18",
-    listingEndDate: "2024-07-18",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 6.0,
-    totalCommission: 195000,
-    agentCommission: 97500,
-    brokerageCommission: 97500,
-  },
-];
-
 export function ListingsProvider({ children }: { children: ReactNode }) {
-  const [listings, setListings] = useState<ListingData[]>(initialListings);
+  const { user } = useAuth();
+  const { isDemo, activateAccount } = useAccountState();
+  const { toast } = useToast();
+  const [listings, setListings] = useState<ListingData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<ListingData | null>(null);
   const [isListingDetailsModalOpen, setIsListingDetailsModalOpen] = useState(false);
 
-  const updateListing = (updatedListing: ListingData) => {
-    setListings((prev) =>
-      prev.map((listing) => (listing.id === updatedListing.id ? updatedListing : listing))
-    );
-    if (selectedListing?.id === updatedListing.id) {
-      setSelectedListing(updatedListing);
+  const fetchListings = useCallback(async () => {
+    // In demo mode, show the demo listing
+    if (isDemo) {
+      setListings([{ ...DEMO_LISTING, isDemo: true }]);
+      setLoading(false);
+      return;
+    }
+
+    // In live mode, fetch real data from database
+    if (!user) {
+      setListings([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedListings: ListingData[] = (data || []).map((listing) => ({
+        id: listing.id,
+        address: listing.address,
+        city: listing.city,
+        price: listing.price,
+        status: listing.status,
+        daysOnMarket: listing.days_on_market || 0,
+        commission: listing.agent_commission || 0,
+        image: property1, // Default image for now
+        sellerFirstName: listing.seller_first_name || '',
+        sellerLastName: listing.seller_last_name || '',
+        sellerEmail: listing.seller_email || '',
+        sellerPhone: listing.seller_phone || '',
+        zipcode: listing.zipcode || '',
+        county: listing.county || '',
+        bedrooms: listing.bedrooms || 0,
+        bathrooms: listing.bathrooms || 0,
+        sqFeet: listing.sq_feet || 0,
+        appraisalPrice: 0,
+        multiUnit: 'no',
+        listingStartDate: listing.listing_start_date || '',
+        listingEndDate: listing.listing_end_date || '',
+        brokerageName: '',
+        brokerageAddress: '',
+        agentName: '',
+        agentEmail: '',
+        commissionPercentage: listing.commission_percentage || 0,
+        totalCommission: (listing.agent_commission || 0) * 2,
+        agentCommission: listing.agent_commission || 0,
+        brokerageCommission: listing.agent_commission || 0,
+        isDemo: false,
+      }));
+
+      setListings(mappedListings);
+    } catch (error) {
+      console.error('Error fetching listings:', error);
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, isDemo]);
+
+  useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
+
+  const addListing = async (listing: Omit<ListingData, 'id' | 'isDemo'>) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a listing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const newListing = {
+        user_id: user.id,
+        address: listing.address,
+        city: listing.city,
+        price: listing.price,
+        status: listing.status || 'Active',
+        days_on_market: listing.daysOnMarket || 0,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        sq_feet: listing.sqFeet,
+        zipcode: listing.zipcode,
+        county: listing.county,
+        seller_first_name: listing.sellerFirstName,
+        seller_last_name: listing.sellerLastName,
+        seller_email: listing.sellerEmail,
+        seller_phone: listing.sellerPhone,
+        listing_start_date: listing.listingStartDate || null,
+        listing_end_date: listing.listingEndDate || null,
+        commission_percentage: listing.commissionPercentage,
+        agent_commission: listing.agentCommission,
+      };
+
+      const { data, error } = await supabase
+        .from('listings')
+        .insert(newListing)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Activate account on first real listing
+      await activateAccount();
+
+      // Refetch to get the new listing
+      await fetchListings();
+
+      toast({
+        title: "Success",
+        description: "Listing created successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error adding listing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create listing. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const deleteListing = (id: string) => {
-    setListings((prev) => prev.filter((listing) => listing.id !== id));
-    if (selectedListing?.id === id) {
-      setSelectedListing(null);
-      setIsListingDetailsModalOpen(false);
+  const updateListing = async (updatedListing: ListingData) => {
+    // Demo listings are read-only in the sense that changes don't persist
+    if (isDemoId(updatedListing.id)) {
+      setListings((prev) =>
+        prev.map((l) => (l.id === updatedListing.id ? updatedListing : l))
+      );
+      if (selectedListing?.id === updatedListing.id) {
+        setSelectedListing(updatedListing);
+      }
+      toast({
+        title: "Demo Mode",
+        description: "Changes to demo data won't be saved. Add your first listing to go live!",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({
+          address: updatedListing.address,
+          city: updatedListing.city,
+          price: updatedListing.price,
+          status: updatedListing.status,
+          days_on_market: updatedListing.daysOnMarket,
+          bedrooms: updatedListing.bedrooms,
+          bathrooms: updatedListing.bathrooms,
+          sq_feet: updatedListing.sqFeet,
+          zipcode: updatedListing.zipcode,
+          county: updatedListing.county,
+          seller_first_name: updatedListing.sellerFirstName,
+          seller_last_name: updatedListing.sellerLastName,
+          seller_email: updatedListing.sellerEmail,
+          seller_phone: updatedListing.sellerPhone,
+          listing_start_date: updatedListing.listingStartDate || null,
+          listing_end_date: updatedListing.listingEndDate || null,
+          commission_percentage: updatedListing.commissionPercentage,
+          agent_commission: updatedListing.agentCommission,
+        })
+        .eq('id', updatedListing.id);
+
+      if (error) throw error;
+
+      setListings((prev) =>
+        prev.map((l) => (l.id === updatedListing.id ? { ...updatedListing, isDemo: false } : l))
+      );
+      if (selectedListing?.id === updatedListing.id) {
+        setSelectedListing({ ...updatedListing, isDemo: false });
+      }
+
+      toast({
+        title: "Success",
+        description: "Listing updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error updating listing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update listing. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const addListing = (listing: ListingData) => {
-    setListings((prev) => [...prev, listing]);
+  const deleteListing = async (id: string) => {
+    if (isDemoId(id)) {
+      toast({
+        title: "Demo Mode",
+        description: "Demo listings cannot be deleted. Add your first listing to go live!",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setListings((prev) => prev.filter((l) => l.id !== id));
+      if (selectedListing?.id === id) {
+        setSelectedListing(null);
+        setIsListingDetailsModalOpen(false);
+      }
+
+      toast({
+        title: "Success",
+        description: "Listing deleted successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error deleting listing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete listing. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openListingModal = (listing: ListingData) => {
@@ -214,6 +308,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     <ListingsContext.Provider
       value={{
         listings,
+        loading,
         updateListing,
         deleteListing,
         addListing,
@@ -221,6 +316,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         isListingDetailsModalOpen,
         openListingModal,
         closeListingModal,
+        refetchListings: fetchListings,
       }}
     >
       {children}

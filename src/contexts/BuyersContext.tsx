@@ -1,7 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./AuthContext";
+import { useAccountState } from "./AccountStateContext";
+import { DEMO_BUYER, isDemoId } from "@/data/demoData";
+import { useToast } from "@/hooks/use-toast";
 import clientSarah from "@/assets/client-sarah.jpg";
-import clientMichael from "@/assets/client-michael.jpg";
-import clientEmily from "@/assets/client-emily.jpg";
 
 export interface BuyerData {
   id: string;
@@ -23,111 +26,235 @@ export interface BuyerData {
   totalCommission: number;
   agentCommission: number;
   brokerageCommission: number;
+  isDemo?: boolean;
 }
 
 interface BuyersContextType {
   buyers: BuyerData[];
-  updateBuyer: (updatedBuyer: BuyerData) => void;
-  deleteBuyer: (id: string) => void;
-  addBuyer: (buyer: BuyerData) => void;
+  loading: boolean;
+  updateBuyer: (updatedBuyer: BuyerData) => Promise<void>;
+  deleteBuyer: (id: string) => Promise<void>;
+  addBuyer: (buyer: Omit<BuyerData, 'id' | 'name' | 'isDemo'>) => Promise<void>;
   selectedBuyer: BuyerData | null;
   isBuyerDetailsModalOpen: boolean;
   openBuyerModal: (buyer: BuyerData) => void;
   closeBuyerModal: () => void;
+  refetchBuyers: () => Promise<void>;
 }
 
 const BuyersContext = createContext<BuyersContextType | undefined>(undefined);
 
-const initialBuyers: BuyerData[] = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    firstName: "Sarah",
-    lastName: "Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "(555) 123-4567",
-    description: "Interested in 3-bedroom houses",
-    status: "Active",
-    image: clientSarah,
-    preApprovedAmount: 650000,
-    wantsNeeds: "Looking for a 3-bedroom house in a good school district, preferably with a large backyard and modern kitchen. Needs to be move-in ready.",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 3.0,
-    totalCommission: 19500,
-    agentCommission: 9750,
-    brokerageCommission: 9750,
-  },
-  {
-    id: "2",
-    name: "Michael Brown",
-    firstName: "Michael",
-    lastName: "Brown",
-    email: "michael.brown@email.com",
-    phone: "(555) 234-5678",
-    description: "Looking for a condo downtown",
-    status: "Active",
-    image: clientMichael,
-    preApprovedAmount: 450000,
-    wantsNeeds: "Seeking a modern condo in downtown area with parking, close to public transportation. Prefers high-floor units with city views.",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 3.0,
-    totalCommission: 13500,
-    agentCommission: 6750,
-    brokerageCommission: 6750,
-  },
-  {
-    id: "3",
-    name: "Emily Davis",
-    firstName: "Emily",
-    lastName: "Davis",
-    email: "emily.davis@email.com",
-    phone: "(555) 345-6789",
-    description: "Searching for family home with a yard",
-    status: "Active",
-    image: clientEmily,
-    preApprovedAmount: 825000,
-    wantsNeeds: "Family home with at least 4 bedrooms, 3 bathrooms, large yard for kids and pets. Must have good schools nearby and safe neighborhood.",
-    brokerageName: "Clozze Real Estate",
-    brokerageAddress: "123 Main Street, Los Angeles, CA 90001",
-    agentName: "John Smith",
-    agentEmail: "john.smith@clozze.com",
-    commissionPercentage: 3.0,
-    totalCommission: 24750,
-    agentCommission: 12375,
-    brokerageCommission: 12375,
-  },
-];
-
 export function BuyersProvider({ children }: { children: ReactNode }) {
-  const [buyers, setBuyers] = useState<BuyerData[]>(initialBuyers);
+  const { user } = useAuth();
+  const { isDemo, activateAccount } = useAccountState();
+  const { toast } = useToast();
+  const [buyers, setBuyers] = useState<BuyerData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState<BuyerData | null>(null);
   const [isBuyerDetailsModalOpen, setIsBuyerDetailsModalOpen] = useState(false);
 
-  const updateBuyer = (updatedBuyer: BuyerData) => {
-    setBuyers((prev) =>
-      prev.map((buyer) => (buyer.id === updatedBuyer.id ? updatedBuyer : buyer))
-    );
-    if (selectedBuyer?.id === updatedBuyer.id) {
-      setSelectedBuyer(updatedBuyer);
+  const fetchBuyers = useCallback(async () => {
+    // In demo mode, show the demo buyer
+    if (isDemo) {
+      setBuyers([{ ...DEMO_BUYER, isDemo: true }]);
+      setLoading(false);
+      return;
+    }
+
+    // In live mode, fetch real data from database
+    if (!user) {
+      setBuyers([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('buyers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedBuyers: BuyerData[] = (data || []).map((buyer) => ({
+        id: buyer.id,
+        name: `${buyer.first_name} ${buyer.last_name}`,
+        firstName: buyer.first_name,
+        lastName: buyer.last_name,
+        email: buyer.email,
+        phone: buyer.phone || '',
+        description: buyer.wants_needs ? buyer.wants_needs.slice(0, 50) + '...' : '',
+        status: buyer.status,
+        image: clientSarah, // Default image for now
+        preApprovedAmount: buyer.pre_approved_amount || 0,
+        wantsNeeds: buyer.wants_needs || '',
+        brokerageName: '',
+        brokerageAddress: '',
+        agentName: '',
+        agentEmail: '',
+        commissionPercentage: buyer.commission_percentage || 0,
+        totalCommission: (buyer.agent_commission || 0) * 2,
+        agentCommission: buyer.agent_commission || 0,
+        brokerageCommission: buyer.agent_commission || 0,
+        isDemo: false,
+      }));
+
+      setBuyers(mappedBuyers);
+    } catch (error) {
+      console.error('Error fetching buyers:', error);
+      setBuyers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, isDemo]);
+
+  useEffect(() => {
+    fetchBuyers();
+  }, [fetchBuyers]);
+
+  const addBuyer = async (buyer: Omit<BuyerData, 'id' | 'name' | 'isDemo'>) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a buyer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const newBuyer = {
+        user_id: user.id,
+        first_name: buyer.firstName,
+        last_name: buyer.lastName,
+        email: buyer.email,
+        phone: buyer.phone || null,
+        status: buyer.status || 'Active',
+        wants_needs: buyer.wantsNeeds,
+        pre_approved_amount: buyer.preApprovedAmount || null,
+        commission_percentage: buyer.commissionPercentage,
+        agent_commission: buyer.agentCommission,
+      };
+
+      const { data, error } = await supabase
+        .from('buyers')
+        .insert(newBuyer)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Activate account on first real buyer
+      await activateAccount();
+
+      // Refetch to get the new buyer
+      await fetchBuyers();
+
+      toast({
+        title: "Success",
+        description: "Buyer created successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error adding buyer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create buyer. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const deleteBuyer = (id: string) => {
-    setBuyers((prev) => prev.filter((buyer) => buyer.id !== id));
-    if (selectedBuyer?.id === id) {
-      setSelectedBuyer(null);
-      setIsBuyerDetailsModalOpen(false);
+  const updateBuyer = async (updatedBuyer: BuyerData) => {
+    // Demo buyers are read-only
+    if (isDemoId(updatedBuyer.id)) {
+      setBuyers((prev) =>
+        prev.map((b) => (b.id === updatedBuyer.id ? updatedBuyer : b))
+      );
+      if (selectedBuyer?.id === updatedBuyer.id) {
+        setSelectedBuyer(updatedBuyer);
+      }
+      toast({
+        title: "Demo Mode",
+        description: "Changes to demo data won't be saved. Add your first buyer to go live!",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('buyers')
+        .update({
+          first_name: updatedBuyer.firstName,
+          last_name: updatedBuyer.lastName,
+          email: updatedBuyer.email,
+          phone: updatedBuyer.phone || null,
+          status: updatedBuyer.status,
+          wants_needs: updatedBuyer.wantsNeeds,
+          pre_approved_amount: updatedBuyer.preApprovedAmount || null,
+          commission_percentage: updatedBuyer.commissionPercentage,
+          agent_commission: updatedBuyer.agentCommission,
+        })
+        .eq('id', updatedBuyer.id);
+
+      if (error) throw error;
+
+      setBuyers((prev) =>
+        prev.map((b) => (b.id === updatedBuyer.id ? { ...updatedBuyer, isDemo: false } : b))
+      );
+      if (selectedBuyer?.id === updatedBuyer.id) {
+        setSelectedBuyer({ ...updatedBuyer, isDemo: false });
+      }
+
+      toast({
+        title: "Success",
+        description: "Buyer updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error updating buyer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update buyer. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const addBuyer = (buyer: BuyerData) => {
-    setBuyers((prev) => [...prev, buyer]);
+  const deleteBuyer = async (id: string) => {
+    if (isDemoId(id)) {
+      toast({
+        title: "Demo Mode",
+        description: "Demo buyers cannot be deleted. Add your first buyer to go live!",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('buyers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setBuyers((prev) => prev.filter((b) => b.id !== id));
+      if (selectedBuyer?.id === id) {
+        setSelectedBuyer(null);
+        setIsBuyerDetailsModalOpen(false);
+      }
+
+      toast({
+        title: "Success",
+        description: "Buyer deleted successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error deleting buyer:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete buyer. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openBuyerModal = (buyer: BuyerData) => {
@@ -143,6 +270,7 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
     <BuyersContext.Provider
       value={{
         buyers,
+        loading,
         updateBuyer,
         deleteBuyer,
         addBuyer,
@@ -150,6 +278,7 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
         isBuyerDetailsModalOpen,
         openBuyerModal,
         closeBuyerModal,
+        refetchBuyers: fetchBuyers,
       }}
     >
       {children}
