@@ -4,24 +4,30 @@ import { useTasks } from "@/contexts/TasksContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
+import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, MapPin, User, Plus, Info } from "lucide-react";
+import { Clock, MapPin, User, Plus, Info, Users } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
 type StatusFilter = "all" | "pending" | "in-progress" | "completed";
 type CategoryFilter = "all" | "buyers" | "listings";
+type ViewTab = "my-tasks" | "team";
 
 export default function Tasks() {
   const { tasks, loading, openTaskModal } = useTasks();
   const { buyers } = useBuyers();
   const { listings } = useListings();
   const { isDemo } = useAccountState();
+  const { user } = useAuth();
+  const { hasTeamMemberAccess, loading: slotsLoading } = useTeamMemberSlots();
+  const [viewTab, setViewTab] = useState<ViewTab>("my-tasks");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
@@ -45,15 +51,25 @@ export default function Tasks() {
     
     const days = differenceInDays(parseISO(dueDate), new Date());
     
-    if (days < 0) return "bg-destructive/10 border-destructive text-destructive"; // Overdue
-    if (days <= 3) return "bg-red-500/10 border-red-500 text-red-700 dark:text-red-400"; // High risk (red)
-    if (days <= 7) return "bg-yellow-500/10 border-yellow-500 text-yellow-700 dark:text-yellow-400"; // Medium urgency (yellow)
-    return "bg-green-500/10 border-green-500 text-green-700 dark:text-green-400"; // Not at risk (green)
+    if (days < 0) return "bg-destructive/10 border-destructive text-destructive";
+    if (days <= 3) return "bg-destructive/10 border-destructive/50 text-destructive";
+    if (days <= 7) return "bg-warning/10 border-warning/50 text-warning";
+    return "bg-primary/10 border-primary/50 text-primary";
   };
+
+  // Filter tasks based on view tab (my tasks vs team assigned to me)
+  const baseTasks = useMemo(() => {
+    if (viewTab === "team" && user) {
+      // Show only tasks assigned to the current user (by assignee_user_id)
+      return tasks.filter(task => task.assigneeUserId === user.id);
+    }
+    // Default: show all tasks owned by the user
+    return tasks;
+  }, [tasks, viewTab, user]);
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
-    let filtered = tasks;
+    let filtered = baseTasks;
 
     // Filter by status
     if (statusFilter !== "all") {
@@ -66,7 +82,6 @@ export default function Tasks() {
     } else if (categoryFilter === "listings") {
       filtered = filtered.filter(task => task.listingId);
     }
-    // When categoryFilter is "all", include all tasks including those without buyer/listing assignments
 
     // Sort by due date (earliest first)
     return filtered.sort((a, b) => {
@@ -74,14 +89,20 @@ export default function Tasks() {
       if (!b.dueDate) return -1;
       return parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime();
     });
-  }, [tasks, statusFilter, categoryFilter]);
+  }, [baseTasks, statusFilter, categoryFilter]);
+
+  // Count tasks assigned to the current user
+  const assignedToMeCount = useMemo(() => {
+    if (!user) return 0;
+    return tasks.filter(task => task.assigneeUserId === user.id).length;
+  }, [tasks, user]);
 
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
       case "completed":
-        return <Badge variant="default" className="bg-green-500">Completed</Badge>;
+        return <Badge variant="default" className="bg-primary">Completed</Badge>;
       case "in-progress":
-        return <Badge variant="default" className="bg-blue-500">In Progress</Badge>;
+        return <Badge variant="default" className="bg-accent-gold">In Progress</Badge>;
       case "pending":
         return <Badge variant="secondary">Pending</Badge>;
       default:
@@ -89,7 +110,7 @@ export default function Tasks() {
     }
   };
 
-  if (loading) {
+  if (loading || slotsLoading) {
     return (
       <Layout>
         <div className="p-8">
@@ -136,6 +157,27 @@ export default function Tasks() {
               <strong className="text-accent-gold">Demo Mode:</strong> You're viewing sample tasks. Add your first real listing or buyer to switch to live mode!
             </p>
           </div>
+        )}
+
+        {/* View Tabs - My Tasks vs Team (only show if has team add-on) */}
+        {hasTeamMemberAccess && (
+          <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as ViewTab)} className="mb-6">
+            <TabsList>
+              <TabsTrigger value="my-tasks" className="gap-2">
+                <User className="h-4 w-4" />
+                My Tasks
+              </TabsTrigger>
+              <TabsTrigger value="team" className="gap-2">
+                <Users className="h-4 w-4" />
+                Assigned to Me
+                {assignedToMeCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {assignedToMeCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
 
         {/* Category Tabs */}
@@ -196,7 +238,10 @@ export default function Tasks() {
           {filteredTasks.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
-                No tasks found matching your filters.
+                {viewTab === "team" 
+                  ? "No tasks have been assigned to you yet."
+                  : "No tasks found matching your filters."
+                }
               </CardContent>
             </Card>
           ) : (
