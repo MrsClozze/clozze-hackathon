@@ -46,6 +46,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return sessionStorage.getItem(PASSWORD_RESET_FLAG) === 'true';
   };
 
+  // Identify user in UserGuiding with retry for SDK readiness
+  const identifyUserGuiding = (userId: string, email?: string, createdAt?: string) => {
+    const doIdentify = () => {
+      if ((window as any).userGuiding) {
+        (window as any).userGuiding.identify(userId, {
+          email: email,
+          created_at: createdAt ? new Date(createdAt).getTime() : undefined,
+        });
+        return true;
+      }
+      return false;
+    };
+
+    // Try immediately
+    if (doIdentify()) return;
+
+    // Retry a few times if SDK not ready yet
+    let attempts = 0;
+    const maxAttempts = 10;
+    const interval = setInterval(() => {
+      attempts++;
+      if (doIdentify() || attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 200);
+  };
+
   const checkSubscription = async (currentSession: Session | null) => {
     if (!currentSession) {
       setSubscription(null);
@@ -170,11 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentSession?.user ?? null);
 
         // Identify user in UserGuiding for onboarding guides
-        if (currentSession?.user && (window as any).userGuiding) {
-          (window as any).userGuiding.identify(currentSession.user.id, {
-            email: currentSession.user.email,
-            created_at: new Date(currentSession.user.created_at).getTime(),
-          });
+        if (currentSession?.user) {
+          identifyUserGuiding(
+            currentSession.user.id,
+            currentSession.user.email,
+            currentSession.user.created_at
+          );
         }
 
         if (currentSession) {
@@ -211,6 +239,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Fetch subscription BEFORE setting loading false
         if (currentSession?.user) {
+          // Identify with UserGuiding during initial load
+          identifyUserGuiding(
+            currentSession.user.id,
+            currentSession.user.email,
+            currentSession.user.created_at
+          );
+          
           try {
             await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
           } catch (e) {
