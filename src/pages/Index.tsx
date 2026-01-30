@@ -1,16 +1,18 @@
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccountState } from "@/contexts/AccountStateContext";
 import Layout from "@/components/layout/Layout";
-import WelcomeBanner from "@/components/dashboard/WelcomeBanner";
 import ActiveListingsCard from "@/components/dashboard/ActiveListingsCard";
 import ActiveBuyersCard from "@/components/dashboard/ActiveBuyersCard";
 import CalendarView from "@/components/dashboard/CalendarView";
 import TasksSidebar from "@/components/dashboard/TasksSidebar";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
+import { Info } from "lucide-react";
 
 const Index = () => {
   const { user, loading } = useAuth();
+  const { isDemo } = useAccountState();
 
   useEffect(() => {
     document.title = "Home | Clozze";
@@ -28,6 +30,21 @@ const Index = () => {
   return (
     <Layout>
       <div className="p-8">
+        {/* Demo Mode Banner */}
+        {isDemo && (
+          <div className="mb-8 p-4 rounded-lg border border-accent-gold/30 bg-accent-gold/5 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-accent-gold/20 flex items-center justify-center flex-shrink-0">
+              <Info className="h-4 w-4 text-accent-gold" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-text-heading mb-1">Welcome to Clozze!</h3>
+              <p className="text-sm text-text-muted">
+                You're in <strong className="text-accent-gold">Demo Mode</strong>. The sample data below shows you how Clozze works. 
+                Add your first real listing or buyer to switch to Live Mode and start managing your transactions!
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Main Dashboard Grid */}
         <div className="flex gap-8">

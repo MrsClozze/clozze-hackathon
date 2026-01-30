@@ -427,6 +427,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_state: string
           avatar_url: string | null
           broker_license_number: string | null
           company_name: string | null
@@ -446,6 +447,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          account_state?: string
           avatar_url?: string | null
           broker_license_number?: string | null
           company_name?: string | null
@@ -465,6 +467,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          account_state?: string
           avatar_url?: string | null
           broker_license_number?: string | null
           company_name?: string | null

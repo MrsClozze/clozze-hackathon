@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "./AuthContext";
+import { useAccountState } from "./AccountStateContext";
+import { DEMO_TASKS, isDemoId } from "@/data/demoData";
 
 export interface Task {
   id: string;
@@ -18,6 +21,7 @@ export interface Task {
   userId?: string;
   contactId?: string;
   assigneeUserId?: string;
+  isDemo?: boolean;
 }
 
 interface TasksContextType {
@@ -36,106 +40,32 @@ interface TasksContextType {
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
 
-// Initial demo tasks for when database is empty or user is not authenticated
-const initialTasks: Task[] = [
-  {
-    id: "demo-1",
-    title: "Schedule Property Viewing",
-    date: "Dec 15, 2024",
-    dueDate: "2024-12-15",
-    address: "123 Elm Street",
-    assignee: "Sarah Johnson",
-    hasAIAssist: true,
-    priority: "high",
-    notes: "",
-    status: "pending",
-    buyerId: "1",
-  },
-  {
-    id: "demo-2",
-    title: "Prepare Contract",
-    date: "Dec 18, 2024",
-    dueDate: "2024-12-18",
-    address: "456 Oak Avenue",
-    assignee: "Michael Brown",
-    hasAIAssist: false,
-    priority: "high",
-    notes: "",
-    status: "in-progress",
-    listingId: "1",
-  },
-  {
-    id: "demo-3",
-    title: "Schedule Property Inspector",
-    date: "Dec 20, 2024",
-    dueDate: "2024-12-20",
-    address: "456 Oak Avenue",
-    assignee: "ABC Inspections",
-    hasAIAssist: true,
-    priority: "medium",
-    notes: "",
-    status: "pending",
-    listingId: "1",
-  },
-  {
-    id: "demo-4",
-    title: "Review Documents",
-    date: "Dec 22, 2024",
-    dueDate: "2024-12-22",
-    address: "789 Pine Lane",
-    assignee: "Emily Davis",
-    hasAIAssist: false,
-    priority: "medium",
-    notes: "",
-    status: "pending",
-    buyerId: "2",
-  },
-  {
-    id: "demo-5",
-    title: "Get client pre-approved",
-    date: "Mar 15, 2024",
-    dueDate: "2024-03-15",
-    address: "",
-    assignee: "",
-    hasAIAssist: false,
-    priority: "high",
-    notes: "",
-    status: "in-progress",
-    buyerId: "1",
-  },
-  {
-    id: "demo-7",
-    title: "Review purchase agreement",
-    date: "Mar 10, 2024",
-    dueDate: "2024-03-10",
-    address: "",
-    assignee: "",
-    hasAIAssist: false,
-    priority: "low",
-    notes: "",
-    status: "completed",
-    buyerId: "1",
-  },
-];
-
 export function TasksProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { isDemo } = useAccountState();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchTasks = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // If no user, use demo tasks
-      if (!user) {
-        setTasks(initialTasks);
-        setLoading(false);
-        return;
-      }
+  const fetchTasks = useCallback(async () => {
+    // In demo mode, show demo tasks
+    if (isDemo) {
+      setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
+      setLoading(false);
+      return;
+    }
 
+    // In live mode, fetch real data from database
+    if (!user) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -143,14 +73,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // If database is empty, use initial demo tasks for demonstration
-      if (!data || data.length === 0) {
-        setTasks(initialTasks);
-        setLoading(false);
-        return;
-      }
-
-      const mappedTasks: Task[] = data.map((task: any) => ({
+      const mappedTasks: Task[] = (data || []).map((task: any) => ({
         id: task.id,
         title: task.title,
         date: task.date || '',
@@ -166,76 +89,82 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         userId: task.user_id,
         contactId: task.contact_id || undefined,
         assigneeUserId: task.assignee_user_id || undefined,
+        isDemo: false,
       }));
 
       setTasks(mappedTasks);
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
-      // On error, fall back to demo tasks
-      setTasks(initialTasks);
-      toast({
-        title: "Info",
-        description: "Using demo tasks. Sign in to save your tasks permanently.",
-      });
+      setTasks([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isDemo]);
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
-    try {
-      // Check if this is a demo task (starts with "demo-")
-      const isDemoTask = taskId.startsWith("demo-");
-      
-      if (!isDemoTask) {
-        const dbUpdates: any = {
-          title: updates.title,
-          date: updates.date,
-          address: updates.address,
-          assignee: updates.assignee,
-          has_ai_assist: updates.hasAIAssist,
-          priority: updates.priority,
-          notes: updates.notes,
-          status: updates.status,
-          due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
-          buyer_id: updates.buyerId || null,
-          listing_id: updates.listingId || null,
-          contact_id: updates.contactId || null,
-          assignee_user_id: updates.assigneeUserId || null,
-        };
-
-        // Remove undefined values
-        Object.keys(dbUpdates).forEach(key => 
-          dbUpdates[key] === undefined && delete dbUpdates[key]
-        );
-
-        const { error } = await supabase
-          .from('tasks')
-          .update(dbUpdates)
-          .eq('id', taskId);
-
-        if (error) throw error;
-      }
-
-      // Update local state (works for both demo and real tasks)
+    // Demo tasks are read-only
+    if (isDemoId(taskId)) {
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, ...updates } : task
         )
       );
-
-      // Update selected task if it's the one being edited
       if (selectedTask?.id === taskId) {
         setSelectedTask((prev) => (prev ? { ...prev, ...updates } : null));
+      }
+      toast({
+        title: "Demo Mode",
+        description: "Changes to demo tasks won't be saved. Add your first listing or buyer to go live!",
+      });
+      return;
+    }
+
+    try {
+      const dbUpdates: any = {
+        title: updates.title,
+        date: updates.date,
+        address: updates.address,
+        assignee: updates.assignee,
+        has_ai_assist: updates.hasAIAssist,
+        priority: updates.priority,
+        notes: updates.notes,
+        status: updates.status,
+        due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
+        buyer_id: updates.buyerId || null,
+        listing_id: updates.listingId || null,
+        contact_id: updates.contactId || null,
+        assignee_user_id: updates.assigneeUserId || null,
+      };
+
+      // Remove undefined values
+      Object.keys(dbUpdates).forEach(key => 
+        dbUpdates[key] === undefined && delete dbUpdates[key]
+      );
+
+      const { error } = await supabase
+        .from('tasks')
+        .update(dbUpdates)
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId ? { ...task, ...updates, isDemo: false } : task
+        )
+      );
+
+      if (selectedTask?.id === taskId) {
+        setSelectedTask((prev) => (prev ? { ...prev, ...updates, isDemo: false } : null));
       }
 
       toast({
         title: "Success",
-        description: isDemoTask ? "Demo task updated (changes won't persist)." : "Task updated successfully.",
+        description: "Task updated successfully.",
       });
     } catch (error: any) {
       console.error('Error updating task:', error);
@@ -248,18 +177,21 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTask = async (taskId: string) => {
-    try {
-      // Check if this is a demo task
-      const isDemoTask = taskId.startsWith("demo-");
-      
-      if (!isDemoTask) {
-        const { error } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', taskId);
+    if (isDemoId(taskId)) {
+      toast({
+        title: "Demo Mode",
+        description: "Demo tasks cannot be deleted. Add your first listing or buyer to go live!",
+      });
+      return;
+    }
 
-        if (error) throw error;
-      }
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
 
       setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
       
@@ -283,10 +215,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   };
 
   const addTask = async (task: Omit<Task, 'id'>) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a task.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    try {
       const newTask: any = {
         user_id: user.id,
         title: task.title,
@@ -328,6 +266,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         userId: data.user_id,
         contactId: data.contact_id || undefined,
         assigneeUserId: data.assignee_user_id || undefined,
+        isDemo: false,
       };
 
       setTasks((prevTasks) => [...prevTasks, mappedTask]);
