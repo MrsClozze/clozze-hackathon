@@ -15,10 +15,10 @@ import { TasksProvider } from '@/contexts/TasksContext';
  */
 export function RootLayout() {
   return (
-    <UserpilotProvider>
-      <AccountStateProvider>
-        <IntegrationsProvider>
-          <UserProvider>
+    <AccountStateProvider>
+      <IntegrationsProvider>
+        <UserProvider>
+          <UserpilotProvider>
             <ListingsProvider>
               <BuyersProvider>
                 <ContactsProvider>
@@ -28,9 +28,9 @@ export function RootLayout() {
                 </ContactsProvider>
               </BuyersProvider>
             </ListingsProvider>
-          </UserProvider>
-        </IntegrationsProvider>
-      </AccountStateProvider>
-    </UserpilotProvider>
+          </UserpilotProvider>
+        </UserProvider>
+      </IntegrationsProvider>
+    </AccountStateProvider>
   );
 }
