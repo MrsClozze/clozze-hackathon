@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Users, Contact, Upload, X, FileIcon } from "lucide-react";
+import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/contexts/TasksContext";
 import { useContacts } from "@/contexts/ContactsContext";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 interface AddTaskModalProps {
@@ -32,12 +34,14 @@ interface AttachedFile {
 export default function AddTaskModal({ 
   open, 
   onOpenChange,
-  buyerId,
-  listingId,
+  buyerId: initialBuyerId,
+  listingId: initialListingId,
   defaultAddress = ""
 }: AddTaskModalProps) {
   const { addTask } = useTasks();
   const { contacts, loading: contactsLoading } = useContacts();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
 
   const [title, setTitle] = useState("");
@@ -46,10 +50,20 @@ export default function AddTaskModal({
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [selectedBuyerId, setSelectedBuyerId] = useState(initialBuyerId || "");
+  const [selectedListingId, setSelectedListingId] = useState(initialListingId || "");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dueDateError, setDueDateError] = useState(false);
+
+  // Update state when initial props change (e.g., opening from a buyer/listing profile)
+  useEffect(() => {
+    if (open) {
+      setSelectedBuyerId(initialBuyerId || "");
+      setSelectedListingId(initialListingId || "");
+    }
+  }, [open, initialBuyerId, initialListingId]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +86,10 @@ export default function AddTaskModal({
       // Find the selected team member to get their name for the assignee field
       const selectedMember = teamMembers.find(m => m.userId === selectedAssigneeId);
 
+      // Get the address from selected listing if available
+      const selectedListing = listings.find(l => l.id === selectedListingId);
+      const taskAddress = selectedListing?.address || defaultAddress;
+
       await addTask({
         title: title.trim(),
         notes: notes.trim(),
@@ -79,13 +97,13 @@ export default function AddTaskModal({
         priority,
         status: "pending",
         date: format(dueDate, "MMM d, yyyy"),
-        address: defaultAddress,
+        address: taskAddress,
         assignee: selectedMember?.name || "",
         hasAIAssist: false,
         contactId: selectedContactId || undefined,
         assigneeUserId: selectedAssigneeId || undefined,
-        buyerId: buyerId,
-        listingId: listingId,
+        buyerId: selectedBuyerId && selectedBuyerId !== "none" ? selectedBuyerId : undefined,
+        listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
       });
 
       // TODO: Handle file attachments - for now just log them
@@ -110,6 +128,8 @@ export default function AddTaskModal({
     setPriority("medium");
     setSelectedContactId("");
     setSelectedAssigneeId("");
+    setSelectedBuyerId(initialBuyerId || "");
+    setSelectedListingId(initialListingId || "");
     setAttachedFiles([]);
     setDueDateError(false);
   };
@@ -241,6 +261,100 @@ export default function AddTaskModal({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Assign to Buyer - Only show if not pre-filled */}
+          {!initialBuyerId && (
+            <div className="space-y-2">
+              <Label className="text-text-heading flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Assign to Buyer
+              </Label>
+              <Select 
+                value={selectedBuyerId} 
+                onValueChange={(value) => {
+                  setSelectedBuyerId(value);
+                  // Clear listing if buyer is selected (task can only be linked to one)
+                  if (value && value !== "none") {
+                    setSelectedListingId("");
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background-elevated">
+                  <SelectValue 
+                    placeholder={
+                      buyers.length === 0 
+                        ? "No buyers available" 
+                        : "Select a buyer..."
+                    } 
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[200px]">
+                  {buyers.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">
+                      <User className="h-4 w-4 inline mr-2" />
+                      Add a buyer to assign tasks
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="none">None</SelectItem>
+                      {buyers.map((buyer) => (
+                        <SelectItem key={buyer.id} value={buyer.id}>
+                          {buyer.firstName} {buyer.lastName}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Assign to Listing - Only show if not pre-filled */}
+          {!initialListingId && (
+            <div className="space-y-2">
+              <Label className="text-text-heading flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                Assign to Listing
+              </Label>
+              <Select 
+                value={selectedListingId} 
+                onValueChange={(value) => {
+                  setSelectedListingId(value);
+                  // Clear buyer if listing is selected (task can only be linked to one)
+                  if (value && value !== "none") {
+                    setSelectedBuyerId("");
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background-elevated">
+                  <SelectValue 
+                    placeholder={
+                      listings.length === 0 
+                        ? "No listings available" 
+                        : "Select a listing..."
+                    } 
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[200px]">
+                  {listings.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">
+                      <Home className="h-4 w-4 inline mr-2" />
+                      Add a listing to assign tasks
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="none">None</SelectItem>
+                      {listings.map((listing) => (
+                        <SelectItem key={listing.id} value={listing.id}>
+                          {listing.address}, {listing.city}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Assign to Team Member - Always a clickable dropdown */}
           <div className="space-y-2">
