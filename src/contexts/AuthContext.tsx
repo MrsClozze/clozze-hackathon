@@ -169,6 +169,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
+        // Identify user in UserGuiding for onboarding guides
+        if (currentSession?.user && (window as any).userGuiding) {
+          (window as any).userGuiding.identify(currentSession.user.id, {
+            email: currentSession.user.email,
+            created_at: new Date(currentSession.user.created_at).getTime(),
+          });
+        }
+
         if (currentSession) {
           // Handles deleted users (clears session) but won't block on transient errors.
           validateSession(currentSession).catch((e) => {
