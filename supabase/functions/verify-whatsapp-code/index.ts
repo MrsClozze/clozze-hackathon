@@ -13,6 +13,14 @@ const isValidVerificationCode = (code: unknown): code is string => {
   return codeRegex.test(code);
 };
 
+// Hash verification code using SHA-256 (same as send function)
+const hashVerificationCode = async (code: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(code);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,8 +73,9 @@ serve(async (req) => {
       throw new Error('Verification code has expired. Please request a new code.');
     }
 
-    // Verify the code
-    if (integration.verification_code !== code) {
+    // Hash the provided code and compare with stored hash
+    const hashedCode = await hashVerificationCode(code);
+    if (integration.verification_code !== hashedCode) {
       throw new Error('Invalid verification code');
     }
 
