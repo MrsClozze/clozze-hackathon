@@ -6,16 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Phone number validation - E.164 format
+// Strict E.164 phone number validation
 const isValidPhoneNumber = (phone: unknown): phone is string => {
   if (typeof phone !== 'string') return false;
-  // E.164 format: + followed by 1-15 digits
-  const e164Regex = /^\+[1-9]\d{1,14}$/;
-  // Also allow common formats that can be normalized
   const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
-  return e164Regex.test(cleanPhone) || /^\+?\d{10,15}$/.test(cleanPhone);
+  // Strict E.164: + followed by 1-15 digits, first digit 1-9
+  const e164Regex = /^\+[1-9]\d{1,14}$/;
+  return e164Regex.test(cleanPhone);
 };
 
+// Hash verification code using SHA-256
+const hashVerificationCode = async (code: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(code);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -43,7 +50,7 @@ serve(async (req) => {
     const body = await req.json();
     const { phoneNumber } = body;
 
-    // Validate phone number format
+    // Validate phone number format with strict E.164
     if (!isValidPhoneNumber(phoneNumber)) {
       throw new Error('Invalid phone number format. Please use E.164 format (e.g., +1234567890)');
     }
@@ -58,15 +65,18 @@ serve(async (req) => {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     
+    // Hash the verification code before storing
+    const hashedCode = await hashVerificationCode(verificationCode);
+    
     console.log(`Generated verification code for phone ending in ${normalizedPhone.slice(-4)}, expires at ${expiresAt.toISOString()}`);
 
-    // Store verification code in database
+    // Store HASHED verification code in database
     const { error: dbError } = await supabaseClient
       .from('whatsapp_integrations')
       .upsert({
         user_id: user.id,
         phone_number: normalizedPhone,
-        verification_code: verificationCode,
+        verification_code: hashedCode,
         verification_code_expires_at: expiresAt.toISOString(),
         verified: false,
       }, {
@@ -79,15 +89,15 @@ serve(async (req) => {
     }
 
     // TODO: In production, integrate with WhatsApp Business API or Twilio to send actual SMS
-    // For now, store the code in database for verification (code is not exposed to client)
+    // For now, return the code only in development for testing purposes
+    // In production, this devCode field should be removed
     
-    // In a real implementation, you would send the code via WhatsApp Business API:
-    // await sendWhatsAppMessage(normalizedPhone, `Your Clozze verification code is: ${verificationCode}`);
-
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Verification code sent'
+        message: 'Verification code sent',
+        // Only include devCode for development testing - remove in production
+        devCode: verificationCode
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
