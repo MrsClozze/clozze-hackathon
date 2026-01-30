@@ -209,7 +209,7 @@ export default function AddTaskModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task description"
               required
-              className="bg-background-elevated"
+              className="bg-background-elevated border-primary/25"
             />
           </div>
 
@@ -223,7 +223,7 @@ export default function AddTaskModal({
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal bg-background-elevated",
+                    "w-full justify-start text-left font-normal bg-background-elevated border-primary/25",
                     !dueDate && "text-muted-foreground",
                     dueDateError && "border-destructive"
                   )}
@@ -251,7 +251,7 @@ export default function AddTaskModal({
           <div className="space-y-2">
             <Label className="text-text-heading">Priority Level</Label>
             <Select value={priority} onValueChange={(value: "high" | "medium" | "low") => setPriority(value)}>
-              <SelectTrigger className="bg-background-elevated">
+              <SelectTrigger className="bg-background-elevated border-primary/25">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
@@ -279,8 +279,8 @@ export default function AddTaskModal({
                   }
                 }}
               >
-                <SelectTrigger className="bg-background-elevated">
-                  <SelectValue 
+              <SelectTrigger className="bg-background-elevated border-primary/25">
+                <SelectValue
                     placeholder={
                       buyers.length === 0 
                         ? "No buyers available" 
@@ -326,8 +326,8 @@ export default function AddTaskModal({
                   }
                 }}
               >
-                <SelectTrigger className="bg-background-elevated">
-                  <SelectValue 
+              <SelectTrigger className="bg-background-elevated border-primary/25">
+                <SelectValue
                     placeholder={
                       listings.length === 0 
                         ? "No listings available" 
@@ -367,8 +367,8 @@ export default function AddTaskModal({
               onValueChange={setSelectedAssigneeId}
               disabled={teamMembersLoading}
             >
-              <SelectTrigger className="bg-background-elevated">
-                <SelectValue 
+              <SelectTrigger className="bg-background-elevated border-primary/25">
+                <SelectValue
                   placeholder={
                     teamMembersLoading 
                       ? "Loading team members..." 
@@ -412,8 +412,8 @@ export default function AddTaskModal({
               onValueChange={setSelectedContactId}
               disabled={contactsLoading}
             >
-              <SelectTrigger className="bg-background-elevated">
-                <SelectValue 
+              <SelectTrigger className="bg-background-elevated border-primary/25">
+                <SelectValue
                   placeholder={
                     contactsLoading 
                       ? "Loading contacts..." 
@@ -458,7 +458,7 @@ export default function AddTaskModal({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add additional details..."
-              className="min-h-[80px] bg-background-elevated"
+              className="min-h-[80px] bg-background-elevated border-primary/25"
             />
           </div>
 
@@ -476,8 +476,8 @@ export default function AddTaskModal({
               className={cn(
                 "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
                 isDragOver 
-                  ? "border-primary bg-primary/5" 
-                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+                  ? "border-primary bg-primary/10" 
+                  : "border-primary/25 hover:border-primary/50 hover:bg-primary/5"
               )}
             >
               <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
