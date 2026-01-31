@@ -92,12 +92,13 @@ serve(async (req) => {
     // For now, return the code only in development for testing purposes
     // In production, this devCode field should be removed
     
+    // Log that verification was initiated (without exposing the code)
+    console.log(`Verification code generated for phone ending in ${normalizedPhone.slice(-4)}`);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Verification code sent',
-        // Only include devCode for development testing - remove in production
-        devCode: verificationCode
+        message: 'Verification code sent'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
