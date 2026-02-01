@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { trackPurchase } from "@/lib/analytics";
 
 export default function Team() {
   const { subscription, user, refreshSubscription, loading: authLoading } = useAuth();
@@ -43,10 +44,24 @@ export default function Team() {
     planType === 'team' || 
     planType === 'enterprise';
 
+  // Track if we've already fired the purchase event to prevent duplicates
+  const purchaseTrackedRef = useRef(false);
+
   // Refresh subscription + slots + user profile when returning from checkout
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('session_id') || urlParams.get('checkout_success')) {
+    const checkoutSuccess = urlParams.get('checkout_success');
+    const slotsParam = urlParams.get('slots');
+    
+    if (urlParams.get('session_id') || checkoutSuccess) {
+      // Track GA4 purchase event for team member slots (only once)
+      if (checkoutSuccess === 'true' && slotsParam && !purchaseTrackedRef.current) {
+        const slotsCount = parseInt(slotsParam, 10) || 1;
+        const purchaseValue = slotsCount * 9.99; // $9.99 per team member slot
+        trackPurchase(purchaseValue);
+        purchaseTrackedRef.current = true;
+      }
+
       // Clear URL params first
       window.history.replaceState({}, '', window.location.pathname);
 

@@ -46,6 +46,13 @@ serve(async (req) => {
       throw new Error("Invalid or missing Price ID");
     }
 
+    // Map price IDs to plan types for analytics tracking
+    const priceToPlnMap: Record<string, string> = {
+      'price_1SD8YkRkZlhjPqo6lctEkYcA': 'pro',
+      'price_1SD8YzRkZlhjPqo6IMzZB3Fc': 'team',
+    };
+    const planType = priceToPlnMap[priceId] || 'pro';
+
     const authHeader = req.headers.get("Authorization")!;
     const token = authHeader.replace("Bearer ", "");
     const { data } = await supabaseClient.auth.getUser(token);
@@ -99,7 +106,7 @@ serve(async (req) => {
       ],
       mode: "subscription",
       allow_promotion_codes: true,
-      success_url: `${getRequestOrigin(req)}/auth?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${getRequestOrigin(req)}/auth?session_id={CHECKOUT_SESSION_ID}&plan=${planType}&purchase_success=true`,
       cancel_url: `${getRequestOrigin(req)}/pricing`,
     });
 
