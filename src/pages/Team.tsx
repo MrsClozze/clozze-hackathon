@@ -4,6 +4,7 @@ import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
 import LockedTeamMembers from "@/components/team/LockedTeamMembers";
 import UnlockedTeamMembers from "@/components/team/UnlockedTeamMembers";
+import TeamMemberView from "@/components/team/TeamMemberView";
 import { Users, User } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +12,7 @@ import { useUser } from "@/contexts/UserContext";
 import { usePersonalData } from "@/hooks/usePersonalData";
 import { useTeamData } from "@/hooks/useTeamData";
 import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
+import { useTeamRole } from "@/hooks/useTeamRole";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -27,17 +29,19 @@ export default function Team() {
   const { stats: personalStats, loading: personalLoading } = usePersonalData();
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
+  const { isTeamOwner, isTeamMember, teamOwnerId, loading: roleLoading } = useTeamRole();
   
   // Combined loading state: don't block the whole page on subscription resolving.
   // If subscription fails to load for any reason, we'll render the locked state instead of spinning forever.
-  const teamMembersLoading = slotsLoading || authLoading;
+  const teamMembersLoading = slotsLoading || authLoading || roleLoading;
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
 
-  // Check if user has Pro/Team/Enterprise plan (can add team members)
-  const hasProPlan = subscription?.plan_type === 'pro' || 
-    subscription?.plan_type === 'team' || 
-    (subscription?.plan_type as string) === 'enterprise';
+  // Check if user has Pro/Team/Enterprise plan OR is a team member (can view team)
+  const planType = subscription?.plan_type as string | undefined;
+  const hasProPlan = planType === 'pro' || 
+    planType === 'team' || 
+    planType === 'enterprise';
 
   // Refresh subscription + slots + user profile when returning from checkout
   useEffect(() => {
@@ -158,9 +162,14 @@ export default function Team() {
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
               <h2 className="text-2xl font-bold text-text-heading">Team Members</h2>
-              {!hasProPlan && !teamMembersLoading && (
+              {!hasProPlan && !isTeamMember && !teamMembersLoading && (
                 <span className="px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-medium">
                   Upgrade Required
+                </span>
+              )}
+              {isTeamMember && !isTeamOwner && (
+                <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                  Team Member
                 </span>
               )}
             </div>
@@ -174,11 +183,18 @@ export default function Team() {
                   </div>
                 </div>
               </div>
-            ) : hasProPlan ? (
+            ) : isTeamMember && !isTeamOwner ? (
+              // Team members see read-only view
+              <div className="space-y-6 animate-slide-up">
+                <TeamMemberView teamOwnerId={teamOwnerId} />
+              </div>
+            ) : hasProPlan || isTeamOwner ? (
+              // Team owners see full management UI
               <div className="space-y-6 animate-slide-up">
                 <UnlockedTeamMembers />
               </div>
             ) : (
+              // Non-subscribed users see locked view
               <div className="space-y-6 animate-slide-up">
                 <LockedTeamKPIs />
                 <LockedTeamMembers />
