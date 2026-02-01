@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Loader2, UserCircle, Shield, Users, CreditCard, Upload, X } from "lucide-react";
+import { Loader2, UserCircle, Shield, Users, CreditCard, Upload, X, UserCog } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import ImageCropModal from "@/components/onboarding/ImageCropModal";
+import TeamMemberManagement from "@/components/team/TeamMemberManagement";
 
 export default function Settings() {
   const { user: authUser, subscription, refreshSubscription } = useAuth();
@@ -35,6 +36,7 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [teamInfo, setTeamInfo] = useState<any>(null);
+  const [isTeamOwner, setIsTeamOwner] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [currentEmailPassword, setCurrentEmailPassword] = useState("");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -98,6 +100,14 @@ export default function Settings() {
     if (!authUser) return;
 
     try {
+      // Check if user is a team owner
+      const { data: ownedTeams } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('created_by', authUser.id);
+      
+      setIsTeamOwner(!!ownedTeams && ownedTeams.length > 0);
+
       const { data: teamMember, error } = await supabase
         .from('team_members')
         .select('team_id, role, teams(name)')
@@ -750,14 +760,42 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Team Management Section */}
+        {/* Team Members Section - Only for team owners */}
+        {isTeamOwner && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCog className="h-5 w-5" />
+                Your Team Members
+              </CardTitle>
+              <CardDescription>
+                Manage team members you've added. Edit their details or remove them from your team.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TeamMemberManagement compact showPendingInvitations />
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/team')}
+                  className="w-full"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Go to Team Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Team Membership Section - For members who are part of a team */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Team Management
+              Team Membership
             </CardTitle>
-            <CardDescription>Manage your team membership</CardDescription>
+            <CardDescription>Your team membership status</CardDescription>
           </CardHeader>
           <CardContent>
             {teamInfo ? (
@@ -765,22 +803,26 @@ export default function Settings() {
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm font-medium">Current Team</p>
                   <p className="text-lg font-semibold mt-1">{teamInfo.teams?.name || 'Team'}</p>
-                  <p className="text-sm text-text-muted mt-1">Role: {teamInfo.role}</p>
+                  <p className="text-sm text-text-muted mt-1">Role: <span className="capitalize">{teamInfo.role}</span></p>
                 </div>
-                <Separator />
-                <div className="space-y-2">
-                  <p className="text-sm text-text-muted">
-                    Disconnecting from this team will make your account independent. You can join another team later.
-                  </p>
-                  <Button 
-                    variant="destructive" 
-                    onClick={handleDisconnectFromTeam}
-                    disabled={loading}
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Disconnect from Team
-                  </Button>
-                </div>
+                {teamInfo.role !== 'owner' && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <p className="text-sm text-text-muted">
+                        Disconnecting from this team will make your account independent. You can join another team later.
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        onClick={handleDisconnectFromTeam}
+                        disabled={loading}
+                      >
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Disconnect from Team
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="p-4 bg-muted rounded-lg text-center">
