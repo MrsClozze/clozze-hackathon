@@ -14,7 +14,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 interface SubscriptionInfo {
   subscribed: boolean;
-  plan_type: 'free' | 'pro' | 'team';
+  plan_type: 'free' | 'pro' | 'team' | 'team_member';
   status: 'trial' | 'active' | 'canceled' | 'past_due';
   subscription_end?: string | null;
   trial_end?: string | null;
@@ -111,26 +111,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setSubscription(subData);
       
-      // Update database subscription record
-      await withTimeout(
-        (async () => {
-          const { error: upsertError } = await supabase
-            .from('subscriptions')
-            .upsert(
-              {
-                user_id: currentSession.user.id,
-                plan_type: subData.plan_type,
-                status: subData.status,
-                current_period_end: subData.subscription_end,
-              },
-              { onConflict: 'user_id' }
-            );
+      // Only update database subscription record if NOT a team_member
+      // Team members have their subscription set via invitation flow and should not be overwritten
+      if (subData.plan_type !== 'team_member') {
+        await withTimeout(
+          (async () => {
+            const { error: upsertError } = await supabase
+              .from('subscriptions')
+              .upsert(
+                {
+                  user_id: currentSession.user.id,
+                  plan_type: subData.plan_type,
+                  status: subData.status,
+                  current_period_end: subData.subscription_end,
+                },
+                { onConflict: 'user_id' }
+              );
 
-          if (upsertError) throw upsertError;
-        })(),
-        8000,
-        'subscriptions upsert'
-      );
+            if (upsertError) throw upsertError;
+          })(),
+          8000,
+          'subscriptions upsert'
+        );
+      }
     } catch (error) {
       console.error('Error checking subscription:', error);
     }
