@@ -228,13 +228,8 @@ export default function UnlockedTeamMembers() {
   };
 
   const handleAddMember = () => {
-    // If no slots purchased yet, or all slots are used, show upgrade modal
-    if (slots.totalSlots === 0 || slots.availableSlots <= 0) {
-      setShowUpgradeModal(true);
-      return;
-    }
-    setFormData({ firstName: '', lastName: '', email: '' });
-    setShowAddModal(true);
+    // Always show the full upgrade modal with quantity selector + Stripe checkout
+    setShowUpgradeModal(true);
   };
 
   const handleEditMember = (member: TeamMember) => {
