@@ -78,6 +78,28 @@ serve(async (req) => {
       });
     }
 
+    // Check if user is a team member (invited via team invitation flow)
+    // These users have their subscription set locally without a Stripe subscription
+    const { data: localSub } = await supabaseClient
+      .from('subscriptions')
+      .select('plan_type, status')
+      .eq('user_id', user.id)
+      .single();
+
+    if (localSub?.plan_type === 'team_member' && localSub?.status === 'active') {
+      logStep("Team member detected - granting team member access", { userId: user.id });
+      return new Response(JSON.stringify({
+        subscribed: true,
+        product_id: 'team_member',
+        plan_type: 'team_member',
+        status: 'active',
+        subscription_end: null
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 10 });
     
