@@ -19,14 +19,20 @@ import clozzeLogo from "@/assets/clozze-logo.png";
 interface TeamMemberUpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUpgradeModalProps) {
-  const { subscription } = useAuth();
+export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: TeamMemberUpgradeModalProps) {
+  const { subscription, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  
+  // Member info fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
 
   const pricePerMember = 9.99;
   const totalPrice = (quantity * pricePerMember).toFixed(2);
@@ -39,11 +45,123 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUp
     setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
   };
 
+  const resetForm = () => {
+    setQuantity(1);
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  const sendInvitation = async () => {
+    if (!user) return;
+    
+    try {
+      // Get or create the user's team
+      let teamId: string;
+      
+      const { data: existingTeam } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('created_by', user.id)
+        .single();
+
+      if (existingTeam) {
+        teamId = existingTeam.id;
+      } else {
+        const { data: newTeam, error: teamError } = await supabase
+          .from('teams')
+          .insert({
+            name: 'My Team',
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (teamError) throw teamError;
+        teamId = newTeam.id;
+      }
+
+      // Create invitation
+      const { data: invitation, error: inviteError } = await supabase
+        .from('team_invitations')
+        .insert({
+          team_id: teamId,
+          email: email,
+          first_name: firstName,
+          last_name: lastName,
+          invited_by: user.id,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select('token')
+        .single();
+
+      if (inviteError) throw inviteError;
+
+      // Get inviter's profile
+      const { data: inviterProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+
+      const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+        ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+        : user.email?.split('@')[0] || 'A team owner';
+
+      // Send invitation email
+      await supabase.functions.invoke('send-team-invitation-email', {
+        body: {
+          inviteeEmail: email,
+          inviteeFirstName: firstName,
+          inviteeLastName: lastName,
+          inviterName,
+          invitationToken: invitation.token,
+        },
+      });
+
+      toast({
+        title: "Invitation Sent",
+        description: `An invitation has been sent to ${email}.`,
+      });
+    } catch (error: any) {
+      console.error('Error sending invitation:', error);
+      toast({
+        title: "Note",
+        description: "Slots added successfully. You can send the invitation from the Team page.",
+      });
+    }
+  };
+
   const handleCheckout = async () => {
     if (!hasPro) {
       toast({
         title: "Pro Account Required",
         description: "Please upgrade to Pro first to add team members.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate member info
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all team member fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic email validation
+    if (!email.includes('@') || !email.includes('.')) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
       return;
@@ -68,19 +186,28 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUp
 
       // Handle internal users who get slots granted directly
       if (data?.internalUser && data?.success) {
+        // Send the invitation immediately for internal users
+        await sendInvitation();
+        
         toast({
           title: "Team Member Slots Added",
           description: `You now have ${data.totalSlots} team member slot${data.totalSlots !== 1 ? 's' : ''} available.`,
         });
-        onClose();
-        // Reload to refresh slot data
+        handleClose();
+        onSuccess?.();
         window.location.reload();
         return;
       }
 
       if (data?.url) {
+        // Store pending invitation in sessionStorage to send after checkout
+        sessionStorage.setItem('pendingTeamInvite', JSON.stringify({
+          firstName,
+          lastName,
+          email,
+        }));
         window.open(data.url, '_blank');
-        onClose();
+        handleClose();
       }
     } catch (error) {
       console.error('Checkout error:', error);
@@ -95,12 +222,12 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUp
   };
 
   const handleUpgradeToPro = () => {
-    onClose();
+    handleClose();
     navigate('/pricing');
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -154,8 +281,43 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose }: TeamMemberUp
                   </div>
                 </div>
                 <p className="text-text-muted text-sm">
-                  Perfect for bringing on an assistant or colleague to help manage your deals and tasks. Each team member can be assigned tasks and access shared resources.
+                  Perfect for bringing on an assistant or colleague to help manage your deals and tasks.
                 </p>
+              </div>
+
+              {/* Team member details */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Team Member Details</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-xs text-text-muted">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lastName" className="text-xs text-text-muted">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs text-text-muted">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="john@example.com"
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
