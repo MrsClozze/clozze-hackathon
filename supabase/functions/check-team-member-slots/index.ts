@@ -37,6 +37,39 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Handle @clozze.io internal users - check database directly without Stripe
+    if (user.email.endsWith('@clozze.io') && user.email_confirmed_at) {
+      logStep("Internal @clozze.io user detected - checking database for slots");
+      
+      // Get slots from database
+      const { data: slotsData } = await supabaseClient
+        .from('team_member_slots')
+        .select('total_slots')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      const totalSlots = slotsData?.total_slots || 0;
+      
+      // Get count of actual team members
+      const { count: usedSlots } = await supabaseClient
+        .from('team_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', user.id);
+      
+      const availableSlots = totalSlots - (usedSlots || 0);
+      
+      logStep("Internal user slot info", { totalSlots, usedSlots: usedSlots || 0, availableSlots });
+      
+      return new Response(JSON.stringify({
+        totalSlots,
+        usedSlots: usedSlots || 0,
+        availableSlots,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
