@@ -33,7 +33,7 @@ const plans = [
     period: "/mo",
     description: "Automate your workflow and connect your favorite tools. Ideal for agents ready to work smarter.",
     features: [
-      "Multi-app syncing",
+      { text: "Multi-app syncing", badge: "NEW" },
       "User tracking and sales monitoring",
       "Multi-application syncing",
       "Custom tasks",
@@ -42,25 +42,25 @@ const plans = [
     ],
     priceId: "price_1SD8YkRkZlhjPqo6lctEkYcA",
     planType: 'pro',
-    badge: "NEW",
+    badge: null,
     popular: true
   },
   {
     name: "Team",
-    price: "$49",
-    period: "/mo",
-    description: "Built for teams and brokerages. Collaborate, manage users, and track every deal together.",
+    price: "$9.99",
+    period: "/mo per user",
+    description: "Add multiple team members to one shared workspace so agents, assistants, transaction managers, and brokers can collaborate, manage users, and track every deal together",
     features: [
-      "Team dashboards: Track your teams deal flows",
-      "Admin tools",
-      "Bulk onboarding",
+      { text: "Shared team dashboards", badge: "NEW" },
+      "Per-seat pricing",
+      "Task management",
       "Collaboration on shared deals",
       "Advanced analytics & reporting",
       "Sales monitoring"
     ],
     priceId: "price_1SD8YzRkZlhjPqo6IMzZB3Fc",
     planType: 'team',
-    badge: "NEW"
+    badge: null
   }
 ];
 
@@ -170,12 +170,24 @@ function PlanSelection() {
               </Button>
 
               <ul className="space-y-3">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm text-text-muted">{feature}</span>
-                  </li>
-                ))}
+                {plan.features.map((feature, index) => {
+                  const featureText = typeof feature === 'string' ? feature : feature.text;
+                  const featureBadge = typeof feature === 'string' ? null : feature.badge;
+                  
+                  return (
+                    <li key={index} className="flex items-start gap-2">
+                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-text-muted">
+                        {featureText}
+                        {featureBadge && (
+                          <span className="ml-2 bg-muted text-text-muted text-xs px-1.5 py-0.5 rounded">
+                            {featureBadge}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           );
