@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2, UserCircle, Shield, Users, CreditCard, Upload, X } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import ImageCropModal from "@/components/onboarding/ImageCropModal";
 
 export default function Settings() {
   const { user: authUser, subscription, refreshSubscription } = useAuth();
@@ -37,6 +38,10 @@ export default function Settings() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [currentEmailPassword, setCurrentEmailPassword] = useState("");
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  
+  // Image cropping state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [rawImageSrc, setRawImageSrc] = useState<string>("");
 
   useEffect(() => {
     if (!authUser) {
@@ -114,7 +119,7 @@ export default function Settings() {
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!authUser || !e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
@@ -125,8 +130,19 @@ export default function Settings() {
       return;
     }
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    // Open crop modal instead of uploading directly
+    const previewUrl = URL.createObjectURL(file);
+    setRawImageSrc(previewUrl);
+    setCropModalOpen(true);
+    
+    // Reset the input so the same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!authUser) return;
+
+    const fileName = `${Date.now()}.jpg`;
     const filePath = `${authUser.id}/${fileName}`;
 
     setUploading(true);
@@ -143,10 +159,10 @@ export default function Settings() {
         }
       }
 
-      // Upload new avatar
+      // Upload cropped avatar
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, croppedBlob, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -468,7 +484,7 @@ export default function Settings() {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={handleAvatarUpload}
+                    onChange={handleAvatarSelect}
                   />
                 </div>
               </div>
@@ -774,6 +790,14 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Image Crop Modal */}
+      <ImageCropModal
+        open={cropModalOpen}
+        onClose={() => setCropModalOpen(false)}
+        imageSrc={rawImageSrc}
+        onCropComplete={handleCropComplete}
+      />
     </Layout>
   );
 }
