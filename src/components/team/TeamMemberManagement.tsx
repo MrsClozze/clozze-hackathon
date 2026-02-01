@@ -220,26 +220,113 @@ export default function TeamMemberManagement({
   const submitEditMember = async () => {
     if (!selectedMember) return;
 
+    const originalEmail = selectedMember.profile?.email;
+    const emailChanged = formData.email !== originalEmail && formData.email.trim() !== '';
+
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-        })
-        .eq('id', selectedMember.user_id);
+      // If email changed, we need to:
+      // 1. Remove the old member from team (they keep their account but lose team access)
+      // 2. Convert old member's subscription to trial
+      // 3. Create a new invitation for the new email
+      // 4. Send the invitation email
+      
+      if (emailChanged) {
+        // Step 1: Get the team ID
+        const { data: teams } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('created_by', user!.id)
+          .limit(1);
+        
+        if (!teams || teams.length === 0) {
+          throw new Error('No team found');
+        }
+        const teamId = teams[0].id;
 
-      if (error) throw error;
+        // Step 2: Remove old member from team (but don't delete their user account)
+        await supabase
+          .from('team_members')
+          .delete()
+          .eq('id', selectedMember.id);
 
-      toast({
-        title: "Member Updated",
-        description: "Team member information has been updated.",
-      });
+        // Step 3: Convert old member's subscription to trial (they keep their account)
+        await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: 'free',
+            status: 'trial',
+            trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          })
+          .eq('user_id', selectedMember.user_id);
+
+        // Step 4: Create new invitation for the new email
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        const { data: invitation, error: inviteError } = await supabase
+          .from('team_invitations')
+          .insert({
+            team_id: teamId,
+            email: formData.email,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            invited_by: user!.id,
+            expires_at: expiresAt.toISOString(),
+          })
+          .select('token')
+          .single();
+
+        if (inviteError) throw inviteError;
+
+        // Step 5: Send invitation email to new email
+        const { data: inviterProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user!.id)
+          .single();
+
+        const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+          ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+          : user!.email?.split('@')[0] || 'A team owner';
+
+        await supabase.functions.invoke('send-team-invitation-email', {
+          body: {
+            inviteeEmail: formData.email,
+            inviteeFirstName: formData.firstName,
+            inviteeLastName: formData.lastName,
+            inviterName,
+            invitationToken: invitation.token,
+          },
+        });
+
+        toast({
+          title: "Member Replaced",
+          description: `The previous member has been removed and an invitation has been sent to ${formData.email}. The previous member's account has been converted to a trial.`,
+        });
+      } else {
+        // Just update the profile info (name only, email stays the same)
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          })
+          .eq('id', selectedMember.user_id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Member Updated",
+          description: "Team member information has been updated.",
+        });
+      }
 
       setShowEditModal(false);
       fetchTeamMembers();
+      if (showPendingInvitations) {
+        fetchPendingInvitations();
+      }
     } catch (error: any) {
       console.error('Error updating member:', error);
       toast({
@@ -257,16 +344,33 @@ export default function TeamMemberManagement({
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
+      // Step 1: Remove from team_members (removes team access)
+      const { error: removeError } = await supabase
         .from('team_members')
         .delete()
         .eq('id', selectedMember.id);
 
-      if (error) throw error;
+      if (removeError) throw removeError;
+
+      // Step 2: Convert the removed member's subscription to trial
+      // This allows them to continue with their own account if they want
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .update({
+          plan_type: 'free',
+          status: 'trial',
+          trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        })
+        .eq('user_id', selectedMember.user_id);
+
+      if (subError) {
+        console.error('Error updating subscription:', subError);
+        // Don't throw - the member was removed from team successfully
+      }
 
       toast({
         title: "Member Removed",
-        description: "Team member has been removed. Their slot is now available.",
+        description: `${selectedMember.profile?.first_name || 'Team member'} has been removed from your team. They can still access their account as a trial user and upgrade if they wish. Your slot is now available for a new member.`,
       });
 
       setShowRemoveDialog(false);
@@ -528,8 +632,8 @@ export default function TeamMemberManagement({
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Update the team member's profile information. This will change their account details.
-            </DialogDescription>
+              Update the team member's name or reassign this seat to a different person. 
+              <strong className="block mt-1 text-foreground">Note:</strong> Changing the email will remove the current member (they'll become a trial user) and send an invitation to the new email address.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -578,12 +682,20 @@ export default function TeamMemberManagement({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove{' '}
-              <strong>
-                {selectedMember?.profile?.first_name} {selectedMember?.profile?.last_name}
-              </strong>{' '}
-              from your team? Their slot will become available for a new member.
+            <AlertDialogDescription className="space-y-2">
+              <span>
+                Are you sure you want to remove{' '}
+                <strong>
+                  {selectedMember?.profile?.first_name} {selectedMember?.profile?.last_name}
+                </strong>{' '}
+                from your team?
+              </span>
+              <span className="block text-sm">
+                • Their team access will be revoked immediately<br/>
+                • They will be converted to a trial account and can upgrade on their own if they wish<br/>
+                • Your paid slot will become available for a new member<br/>
+                • Their user account will NOT be deleted
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
