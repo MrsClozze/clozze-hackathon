@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
+import { supabase } from "@/integrations/supabase/client";
 import LockedTeamMembers from "@/components/team/LockedTeamMembers";
 import UnlockedTeamMembers from "@/components/team/UnlockedTeamMembers";
 import TeamMemberView from "@/components/team/TeamMemberView";
@@ -47,6 +48,82 @@ export default function Team() {
   // Track if we've already fired the purchase event to prevent duplicates
   const purchaseTrackedRef = useRef(false);
 
+  // Process pending invitation after checkout
+  const processPendingInvitation = async () => {
+    const pendingInviteStr = sessionStorage.getItem('pendingTeamInvite');
+    if (!pendingInviteStr || !user) return;
+    
+    try {
+      const { firstName, lastName, email } = JSON.parse(pendingInviteStr);
+      sessionStorage.removeItem('pendingTeamInvite');
+      
+      // Get or create user's team
+      let teamId: string;
+      const { data: existingTeam } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('created_by', user.id)
+        .single();
+
+      if (existingTeam) {
+        teamId = existingTeam.id;
+      } else {
+        const { data: newTeam, error: teamError } = await supabase
+          .from('teams')
+          .insert({ name: 'My Team', created_by: user.id })
+          .select()
+          .single();
+        if (teamError) throw teamError;
+        teamId = newTeam.id;
+      }
+
+      // Create invitation
+      const { data: invitation, error: inviteError } = await supabase
+        .from('team_invitations')
+        .insert({
+          team_id: teamId,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          invited_by: user.id,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select('token')
+        .single();
+
+      if (inviteError) throw inviteError;
+
+      // Get inviter's profile
+      const { data: inviterProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .single();
+
+      const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+        ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+        : user.email?.split('@')[0] || 'A team owner';
+
+      // Send email
+      await supabase.functions.invoke('send-team-invitation-email', {
+        body: {
+          inviteeEmail: email,
+          inviteeFirstName: firstName,
+          inviteeLastName: lastName,
+          inviterName,
+          invitationToken: invitation.token,
+        },
+      });
+
+      toast({
+        title: "Invitation Sent",
+        description: `An invitation has been sent to ${email}.`,
+      });
+    } catch (error) {
+      console.error('Error processing pending invitation:', error);
+    }
+  };
+
   // Refresh subscription + slots + user profile when returning from checkout
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -72,6 +149,10 @@ export default function Team() {
           refetchSlots(),
           refreshUser(),
         ]);
+        
+        // Process any pending invitation after slots are refreshed
+        await processPendingInvitation();
+        
         toast({
           title: "Account Updated",
           description: "Your subscription information has been refreshed.",
@@ -83,7 +164,7 @@ export default function Team() {
       const timer = setTimeout(refreshAll, 2000);
       return () => clearTimeout(timer);
     }
-  }, [refreshSubscription, refetchSlots, refreshUser, toast]);
+  }, [refreshSubscription, refetchSlots, refreshUser, toast, user]);
 
   // Check if user has access to Team KPIs (Pro, Team, or Enterprise plan with active status)
   const hasTeamAccess = subscription?.plan_type === 'pro' || 
