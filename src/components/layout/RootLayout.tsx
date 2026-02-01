@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AccountStateProvider } from '@/contexts/AccountStateContext';
 import { IntegrationsProvider } from '@/contexts/IntegrationsContext';
@@ -14,18 +14,47 @@ import { TasksProvider } from '@/contexts/TasksContext';
  */
 export function RootLayout() {
   const location = useLocation();
+  const hasLaunchedChecklist = useRef(false);
 
-  // Track page views with UserGuiding after route changes
+  // Track page views and launch checklist on dashboard with extended retry
   useEffect(() => {
-    // Small delay to ensure DOM is ready
-    const timeoutId = setTimeout(() => {
-      if (typeof window !== 'undefined' && (window as any).userGuiding) {
-        (window as any).userGuiding.track('page_view', {
-          path: location.pathname,
-        });
+    const trackAndLaunch = () => {
+      const ug = (window as any).userGuiding;
+      if (ug && typeof ug.track === 'function') {
+        console.log('[UserGuiding] Tracking page_view:', location.pathname);
+        ug.track('page_view', { path: location.pathname });
+        
+        // Launch checklist on dashboard (home page) for first visit
+        if (location.pathname === '/' && !hasLaunchedChecklist.current) {
+          if (typeof ug.launchChecklist === 'function') {
+            console.log('[UserGuiding] Launching checklist on dashboard');
+            // Don't specify checklist ID to use the default one configured in UserGuiding
+            ug.launchChecklist();
+            hasLaunchedChecklist.current = true;
+          }
+        }
+        return true;
       }
-    }, 500);
+      return false;
+    };
 
+    // Initial delay for DOM readiness
+    let attempts = 0;
+    const maxAttempts = 20; // 20 attempts = up to 10 seconds
+    
+    const tryTrack = () => {
+      if (trackAndLaunch()) return;
+      
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(tryTrack, 500);
+      } else {
+        console.warn('[UserGuiding] Failed to track page_view after', maxAttempts, 'attempts');
+      }
+    };
+
+    // Start after small delay
+    const timeoutId = setTimeout(tryTrack, 500);
     return () => clearTimeout(timeoutId);
   }, [location.pathname]);
 
