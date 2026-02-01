@@ -46,11 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return sessionStorage.getItem(PASSWORD_RESET_FLAG) === 'true';
   };
 
-  // Identify user in UserGuiding with retry for SDK readiness
+  // Identify user in UserGuiding with extended retry for SDK readiness
   const identifyUserGuiding = (userId: string, email?: string, createdAt?: string) => {
     const doIdentify = () => {
-      if ((window as any).userGuiding) {
-        (window as any).userGuiding.identify(userId, {
+      const ug = (window as any).userGuiding;
+      if (ug && typeof ug.identify === 'function') {
+        console.log('[UserGuiding] Identifying user:', userId);
+        ug.identify(userId, {
           email: email,
           created_at: createdAt ? new Date(createdAt).getTime() : undefined,
         });
@@ -62,15 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Try immediately
     if (doIdentify()) return;
 
-    // Retry a few times if SDK not ready yet
+    // Extended retry - UserGuiding can take a while to initialize
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 30; // 30 attempts = up to 15 seconds
     const interval = setInterval(() => {
       attempts++;
-      if (doIdentify() || attempts >= maxAttempts) {
+      if (doIdentify()) {
+        console.log('[UserGuiding] Identified after', attempts, 'attempts');
+        clearInterval(interval);
+      } else if (attempts >= maxAttempts) {
+        console.warn('[UserGuiding] Failed to identify after', maxAttempts, 'attempts');
         clearInterval(interval);
       }
-    }, 200);
+    }, 500); // 500ms between retries
   };
 
   const checkSubscription = async (currentSession: Session | null) => {
