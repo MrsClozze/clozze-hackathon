@@ -24,7 +24,8 @@ export default function Header() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
 
-  const isTrialAccount = subscription?.status === 'trial';
+  // User is on trial only if status is 'trial' AND they're not a team_member (team members are fully subscribed)
+  const isTrialAccount = subscription?.status === 'trial' && subscription?.plan_type !== 'team_member';
   
   // Show loading or actual name (never show empty)
   const displayName = userLoading 
