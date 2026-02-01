@@ -280,6 +280,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast({
         title: "Signed out successfully",
       });
+      // Redirect to auth page after sign out
+      window.location.href = '/auth';
     } catch (error) {
       toast({
         title: "Error signing out",
