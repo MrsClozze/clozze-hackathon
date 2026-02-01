@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
+import { trackPurchase } from "@/lib/analytics";
 import clozzeLogo from "@/assets/clozze-logo.png";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -77,7 +78,19 @@ export default function Auth() {
         console.log('[AUTH] User detected, checking redirect...', user.id);
         
         const sessionId = searchParams.get('session_id');
+        const purchaseSuccess = searchParams.get('purchase_success');
+        const planType = searchParams.get('plan');
+        
         if (sessionId) {
+          // Track GA4 purchase event if this is a successful checkout
+          if (purchaseSuccess === 'true' && planType) {
+            const priceMap: Record<string, number> = {
+              'pro': 9.99,
+              'team': 9.99
+            };
+            trackPurchase(priceMap[planType] || 9.99);
+          }
+          
           refreshSubscription().then(() => {
             toast({
               title: "Subscription activated!",

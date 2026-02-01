@@ -4,6 +4,7 @@ import { useAuth } from "./AuthContext";
 import { useAccountState } from "./AccountStateContext";
 import { DEMO_LISTING, isDemoId } from "@/data/demoData";
 import { useToast } from "@/hooks/use-toast";
+import { trackQualifyLead, trackCloseConvertLead } from "@/lib/analytics";
 import property1 from "@/assets/property-1.jpg";
 
 export interface ListingData {
@@ -210,6 +211,11 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Get the current listing to track status changes
+    const currentListing = listings.find(l => l.id === updatedListing.id);
+    const oldStatus = currentListing?.status;
+    const newStatus = updatedListing.status;
+
     try {
       const { error } = await supabase
         .from('listings')
@@ -236,6 +242,15 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         .eq('id', updatedListing.id);
 
       if (error) throw error;
+
+      // Track GA4 events for status changes
+      if (oldStatus !== newStatus) {
+        if (newStatus === 'Active' && oldStatus !== 'Active') {
+          trackQualifyLead();
+        } else if (newStatus === 'Closed' && oldStatus !== 'Closed') {
+          trackCloseConvertLead();
+        }
+      }
 
       setListings((prev) =>
         prev.map((l) => (l.id === updatedListing.id ? { ...updatedListing, isDemo: false } : l))

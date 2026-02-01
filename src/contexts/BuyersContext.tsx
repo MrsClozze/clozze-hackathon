@@ -4,6 +4,7 @@ import { useAuth } from "./AuthContext";
 import { useAccountState } from "./AccountStateContext";
 import { DEMO_BUYER, isDemoId } from "@/data/demoData";
 import { useToast } from "@/hooks/use-toast";
+import { trackQualifyLead, trackCloseConvertLead } from "@/lib/analytics";
 import clientSarah from "@/assets/client-sarah.jpg";
 
 export interface BuyerData {
@@ -181,6 +182,11 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Get the current buyer to track status changes
+    const currentBuyer = buyers.find(b => b.id === updatedBuyer.id);
+    const oldStatus = currentBuyer?.status;
+    const newStatus = updatedBuyer.status;
+
     try {
       const { error } = await supabase
         .from('buyers')
@@ -198,6 +204,15 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
         .eq('id', updatedBuyer.id);
 
       if (error) throw error;
+
+      // Track GA4 events for status changes
+      if (oldStatus !== newStatus) {
+        if (newStatus === 'Active' && oldStatus !== 'Active') {
+          trackQualifyLead();
+        } else if (newStatus === 'Closed' && oldStatus !== 'Closed') {
+          trackCloseConvertLead();
+        }
+      }
 
       setBuyers((prev) =>
         prev.map((b) => (b.id === updatedBuyer.id ? { ...updatedBuyer, isDemo: false } : b))

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { trackPurchase } from "@/lib/analytics";
 import SubscriptionManagement from "@/components/subscription/SubscriptionManagement";
 
 const plans = [
@@ -66,9 +67,36 @@ const plans = [
 
 function PlanSelection() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, subscription } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Track purchase event when returning from successful checkout
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const planType = searchParams.get('plan');
+    
+    if (success === 'true' && planType) {
+      // Map plan type to price for GA4 tracking
+      const priceMap: Record<string, number> = {
+        'pro': 9.99,
+        'team': 9.99
+      };
+      const purchaseValue = priceMap[planType] || 9.99;
+      trackPurchase(purchaseValue);
+      
+      // Clean up URL params
+      searchParams.delete('success');
+      searchParams.delete('plan');
+      setSearchParams(searchParams, { replace: true });
+      
+      toast({
+        title: "Purchase Complete!",
+        description: "Welcome to your new plan.",
+      });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   const handleSignUp = async (priceId: string | null, planType: string) => {
     if (!user) {
