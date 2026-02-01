@@ -80,7 +80,13 @@ serve(async (req) => {
 
     // Check if user is a team member (invited via team invitation flow)
     // These users have their subscription set locally without a Stripe subscription
-    const { data: localSub } = await supabaseClient
+    // Use service role client to bypass RLS for this check
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    
+    const { data: localSub } = await serviceClient
       .from('subscriptions')
       .select('plan_type, status')
       .eq('user_id', user.id)
