@@ -5,12 +5,18 @@ import { useAuth } from "./AuthContext";
 import { useAccountState } from "./AccountStateContext";
 import { DEMO_TASKS, isDemoId } from "@/data/demoData";
 
+export interface TaskAssignee {
+  userId: string;
+  name?: string;
+  assignedAt?: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   date: string;
   address: string;
-  assignee: string;
+  assignee: string; // Legacy single assignee name (for display)
   hasAIAssist: boolean;
   priority: "high" | "medium" | "low";
   notes: string;
@@ -20,7 +26,9 @@ export interface Task {
   listingId?: string;
   userId?: string;
   contactId?: string;
-  assigneeUserId?: string;
+  assigneeUserId?: string; // Legacy single assignee (kept for backward compatibility)
+  assigneeUserIds?: string[]; // New: multiple assignees
+  assignees?: TaskAssignee[]; // New: assignee details with names
   isDemo?: boolean;
 }
 
@@ -29,6 +37,8 @@ interface TasksContextType {
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
+  addTaskAssignees: (taskId: string, userIds: string[]) => Promise<void>;
+  removeTaskAssignee: (taskId: string, userId: string) => Promise<void>;
   selectedTask: Task | null;
   setSelectedTask: (task: Task | null) => void;
   isTaskDetailsModalOpen: boolean;
@@ -66,14 +76,35 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch tasks
+      const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
         .order('due_date', { ascending: true });
 
-      if (error) throw error;
+      if (tasksError) throw tasksError;
 
-      const mappedTasks: Task[] = (data || []).map((task: any) => ({
+      // Fetch all task assignees for these tasks
+      const taskIds = (tasksData || []).map((t: any) => t.id);
+      let assigneesMap: Record<string, string[]> = {};
+      
+      if (taskIds.length > 0) {
+        const { data: assigneesData } = await supabase
+          .from('task_assignees')
+          .select('task_id, user_id')
+          .in('task_id', taskIds);
+        
+        // Group assignees by task_id
+        (assigneesData || []).forEach((a: any) => {
+          if (!assigneesMap[a.task_id]) {
+            assigneesMap[a.task_id] = [];
+          }
+          assigneesMap[a.task_id].push(a.user_id);
+        });
+      }
+
+      const mappedTasks: Task[] = (tasksData || []).map((task: any) => ({
         id: task.id,
         title: task.title,
         date: task.date || '',
@@ -89,6 +120,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         userId: task.user_id,
         contactId: task.contact_id || undefined,
         assigneeUserId: task.assignee_user_id || undefined,
+        assigneeUserIds: assigneesMap[task.id] || [],
         isDemo: false,
       }));
 
@@ -250,6 +282,20 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
+      // Insert multiple assignees into task_assignees table
+      const assigneeIds = task.assigneeUserIds || (task.assigneeUserId ? [task.assigneeUserId] : []);
+      if (assigneeIds.length > 0) {
+        const assigneesInsert = assigneeIds.map(userId => ({
+          task_id: data.id,
+          user_id: userId,
+          assigned_by: user.id,
+        }));
+
+        await supabase
+          .from('task_assignees')
+          .insert(assigneesInsert);
+      }
+
       const mappedTask: Task = {
         id: data.id,
         title: data.title,
@@ -266,6 +312,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         userId: data.user_id,
         contactId: data.contact_id || undefined,
         assigneeUserId: data.assignee_user_id || undefined,
+        assigneeUserIds: assigneeIds,
         isDemo: false,
       };
 
@@ -285,6 +332,77 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addTaskAssignees = async (taskId: string, userIds: string[]) => {
+    if (!user || isDemoId(taskId)) return;
+
+    try {
+      // Insert new assignees (ignore conflicts for already-assigned users)
+      const assignees = userIds.map(userId => ({
+        task_id: taskId,
+        user_id: userId,
+        assigned_by: user.id,
+      }));
+
+      const { error } = await supabase
+        .from('task_assignees')
+        .upsert(assignees, { onConflict: 'task_id,user_id' });
+
+      if (error) throw error;
+
+      // Update local state
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId
+            ? {
+                ...task,
+                assigneeUserIds: [...new Set([...(task.assigneeUserIds || []), ...userIds])],
+              }
+            : task
+        )
+      );
+    } catch (error: any) {
+      console.error('Error adding assignees:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add assignees.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeTaskAssignee = async (taskId: string, userId: string) => {
+    if (!user || isDemoId(taskId)) return;
+
+    try {
+      const { error } = await supabase
+        .from('task_assignees')
+        .delete()
+        .eq('task_id', taskId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Update local state
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task.id === taskId
+            ? {
+                ...task,
+                assigneeUserIds: (task.assigneeUserIds || []).filter(id => id !== userId),
+              }
+            : task
+        )
+      );
+    } catch (error: any) {
+      console.error('Error removing assignee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove assignee.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const openTaskModal = (task: Task) => {
     setSelectedTask(task);
     setIsTaskDetailsModalOpen(true);
@@ -297,6 +415,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         updateTask,
         deleteTask,
         addTask,
+        addTaskAssignees,
+        removeTaskAssignee,
         selectedTask,
         setSelectedTask,
         isTaskDetailsModalOpen,

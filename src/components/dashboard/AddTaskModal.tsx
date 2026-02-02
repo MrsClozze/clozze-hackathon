@@ -49,7 +49,7 @@ export default function AddTaskModal({
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]); // Changed to array
   const [selectedBuyerId, setSelectedBuyerId] = useState(initialBuyerId || "");
   const [selectedListingId, setSelectedListingId] = useState(initialListingId || "");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -83,8 +83,11 @@ export default function AddTaskModal({
     setIsSubmitting(true);
 
     try {
-      // Find the selected team member to get their name for the assignee field
-      const selectedMember = teamMembers.find(m => m.userId === selectedAssigneeId);
+      // Get names of selected assignees for the legacy assignee field
+      const assigneeNames = selectedAssigneeIds
+        .map(id => teamMembers.find(m => m.userId === id)?.name)
+        .filter(Boolean)
+        .join(", ");
 
       // Get the address from selected listing if available
       const selectedListing = listings.find(l => l.id === selectedListingId);
@@ -98,10 +101,11 @@ export default function AddTaskModal({
         status: "pending",
         date: format(dueDate, "MMM d, yyyy"),
         address: taskAddress,
-        assignee: selectedMember?.name || "",
+        assignee: assigneeNames, // Legacy field with comma-separated names
         hasAIAssist: false,
         contactId: selectedContactId || undefined,
-        assigneeUserId: selectedAssigneeId || undefined,
+        assigneeUserId: selectedAssigneeIds[0] || undefined, // Keep first for backward compat
+        assigneeUserIds: selectedAssigneeIds, // New: array of all assignees
         buyerId: selectedBuyerId && selectedBuyerId !== "none" ? selectedBuyerId : undefined,
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
       });
@@ -127,11 +131,21 @@ export default function AddTaskModal({
     setDueDate(undefined);
     setPriority("medium");
     setSelectedContactId("");
-    setSelectedAssigneeId("");
+    setSelectedAssigneeIds([]);
     setSelectedBuyerId(initialBuyerId || "");
     setSelectedListingId(initialListingId || "");
     setAttachedFiles([]);
     setDueDateError(false);
+  };
+
+  const handleAddAssignee = (userId: string) => {
+    if (userId && userId !== "none" && !selectedAssigneeIds.includes(userId)) {
+      setSelectedAssigneeIds(prev => [...prev, userId]);
+    }
+  };
+
+  const handleRemoveAssignee = (userId: string) => {
+    setSelectedAssigneeIds(prev => prev.filter(id => id !== userId));
   };
 
   const handleCancel = () => {
@@ -356,15 +370,45 @@ export default function AddTaskModal({
             </div>
           )}
 
-          {/* Assign to Team Member - Always a clickable dropdown */}
+          {/* Assign to Team Members - Multi-select with chips */}
           <div className="space-y-2">
             <Label className="text-text-heading flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Assign to Team Member
+              Assign to Team Members
             </Label>
+            
+            {/* Selected assignees as removable chips */}
+            {selectedAssigneeIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {selectedAssigneeIds.map(userId => {
+                  const member = teamMembers.find(m => m.userId === userId);
+                  if (!member) return null;
+                  return (
+                    <div
+                      key={userId}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                    >
+                      <span>{member.name}</span>
+                      {member.role === "owner" && (
+                        <span className="text-xs opacity-70">(Owner)</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAssignee(userId)}
+                        className="ml-0.5 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* Dropdown to add more assignees */}
             <Select 
-              value={selectedAssigneeId} 
-              onValueChange={setSelectedAssigneeId}
+              value="" 
+              onValueChange={handleAddAssignee}
               disabled={teamMembersLoading}
             >
               <SelectTrigger className="bg-background-elevated border-primary/25">
@@ -374,7 +418,9 @@ export default function AddTaskModal({
                       ? "Loading team members..." 
                       : teamMembers.length === 0 
                         ? "Add a team member to assign tasks" 
-                        : "Select team member..."
+                        : selectedAssigneeIds.length > 0
+                          ? "Add another team member..."
+                          : "Select team members..."
                   } 
                 />
               </SelectTrigger>
@@ -386,15 +432,22 @@ export default function AddTaskModal({
                   </div>
                 ) : (
                   <>
-                    <SelectItem value="none">None</SelectItem>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.userId} value={member.userId}>
-                        {member.name}
-                        {member.role === "owner" && (
-                          <span className="ml-2 text-xs text-muted-foreground">(Owner)</span>
-                        )}
-                      </SelectItem>
-                    ))}
+                    {/* Only show team members not already selected */}
+                    {teamMembers
+                      .filter(member => !selectedAssigneeIds.includes(member.userId))
+                      .map((member) => (
+                        <SelectItem key={member.userId} value={member.userId}>
+                          {member.name}
+                          {member.role === "owner" && (
+                            <span className="ml-2 text-xs text-muted-foreground">(Owner)</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    {teamMembers.filter(m => !selectedAssigneeIds.includes(m.userId)).length === 0 && (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        All team members assigned
+                      </div>
+                    )}
                   </>
                 )}
               </SelectContent>
