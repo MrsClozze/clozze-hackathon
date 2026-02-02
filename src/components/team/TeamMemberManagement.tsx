@@ -302,34 +302,7 @@ export default function TeamMemberManagement({
           throw new Error('Invitation could not be created. Please try again.');
         }
 
-        // Step 3: Remove old member from team (but don't delete their user account)
-        const { error: removeError } = await supabase
-          .from('team_members')
-          .delete()
-          .eq('id', selectedMember.id);
-
-        if (removeError) throw removeError;
-
-        // Step 4: Attempt to convert old member's subscription based on their account age
-        // NOTE: This update may be blocked by RLS (members manage their own subscription record).
-        // The critical piece is removal + invitation creation.
-        try {
-          const subscriptionStatus = await getSubscriptionStatusForRemovedMember(selectedMember.user_id);
-          const { error: subError } = await supabase
-            .from('subscriptions')
-            .update({
-              plan_type: 'free',
-              status: subscriptionStatus.status,
-              trial_end: subscriptionStatus.trial_end,
-            })
-            .eq('user_id', selectedMember.user_id);
-
-          if (subError) {
-            console.warn('[TeamMemberManagement] Subscription update blocked:', subError);
-          }
-        } catch (e) {
-          console.warn('[TeamMemberManagement] Subscription update skipped due to error:', e);
-        }
+        // DO NOT remove the old member here. They stay until the new invite is accepted.
 
         // Step 5: Send invitation email to new email
         const { data: inviterProfile } = await supabase
@@ -370,12 +343,12 @@ export default function TeamMemberManagement({
         emitTeamDataRefresh();
 
         toast({
-          title: emailError ? 'Member Updated (Invite Pending)' : '✓ Member Updated Successfully',
+          title: emailError ? 'Invitation Created' : '✓ Invitation Sent',
           description: (
             <div className="space-y-1.5 mt-1">
               <p className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                <span>Team member was removed and replaced</span>
+                <span>Current member stays active until the new person accepts</span>
               </p>
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary shrink-0" />
