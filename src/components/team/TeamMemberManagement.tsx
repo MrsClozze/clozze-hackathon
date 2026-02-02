@@ -322,7 +322,9 @@ export default function TeamMemberManagement({
           ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
           : user!.email?.split('@')[0] || 'A team owner';
 
-        await supabase.functions.invoke('send-team-invitation-email', {
+        console.log('Sending invitation email to:', formData.email);
+        
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
           body: {
             inviteeEmail: formData.email,
             inviteeFirstName: formData.firstName,
@@ -331,6 +333,19 @@ export default function TeamMemberManagement({
             invitationToken: invitation.token,
           },
         });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          throw new Error('Failed to send invitation email: ' + emailError.message);
+        }
+        
+        console.log('Invitation email sent successfully:', emailData);
+
+        // Force immediate refresh of team members and invitations BEFORE showing toast
+        await Promise.all([
+          fetchTeamMembers(),
+          showPendingInvitations ? fetchPendingInvitations() : Promise.resolve(),
+        ]);
 
         toast({
           title: "✓ Member Updated Successfully",
@@ -347,6 +362,9 @@ export default function TeamMemberManagement({
             </div>
           ),
         });
+
+        setShowEditModal(false);
+        return; // Exit early since we already handled everything
       } else {
         // Just update the profile info (name only, email stays the same)
         const { error } = await supabase
@@ -359,16 +377,15 @@ export default function TeamMemberManagement({
 
         if (error) throw error;
 
+        // Force immediate refresh
+        await fetchTeamMembers();
+
         toast({
           title: "Member Updated",
           description: "Team member information has been updated.",
         });
-      }
 
-      setShowEditModal(false);
-      fetchTeamMembers();
-      if (showPendingInvitations) {
-        fetchPendingInvitations();
+        setShowEditModal(false);
       }
     } catch (error: any) {
       console.error('Error updating member:', error);
@@ -545,7 +562,9 @@ export default function TeamMemberManagement({
 
         if (inviteError) throw inviteError;
 
-        await supabase.functions.invoke('send-team-invitation-email', {
+        console.log('Sending invitation email to:', formData.email);
+
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
           body: {
             inviteeEmail: formData.email,
             inviteeFirstName: formData.firstName || '',
@@ -554,6 +573,16 @@ export default function TeamMemberManagement({
             invitationToken: inviteData.token,
           },
         });
+
+        if (emailError) {
+          console.error('Error sending invitation email:', emailError);
+          throw new Error('Failed to send invitation email: ' + emailError.message);
+        }
+
+        console.log('Invitation email sent successfully:', emailData);
+
+        // Force immediate refresh
+        await fetchPendingInvitations();
 
         toast({
           title: "✓ Invitation Updated Successfully",
@@ -571,6 +600,9 @@ export default function TeamMemberManagement({
           ),
         });
       } else {
+        // Force immediate refresh
+        await fetchPendingInvitations();
+
         toast({
           title: "Invitation Updated",
           description: "The invitation details have been updated. You may want to resend the invite.",
@@ -579,7 +611,6 @@ export default function TeamMemberManagement({
 
       setShowEditInviteModal(false);
       setSelectedInvitation(null);
-      fetchPendingInvitations();
     } catch (error: any) {
       console.error('Error updating invitation:', error);
       toast({
