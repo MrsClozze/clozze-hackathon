@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { emitTeamDataRefresh, useTeamDataRefresh } from "@/hooks/useTeamDataRefresh";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,14 @@ export default function UnlockedTeamMembers() {
     email: '',
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Keep this view in sync when another part of the app updates team data (e.g., Settings).
+  useTeamDataRefresh(() => {
+    if (!user) return;
+    fetchSlots();
+    fetchTeamMembers();
+    fetchPendingInvitations();
+  });
 
   useEffect(() => {
     if (user) {
@@ -355,27 +364,130 @@ export default function UnlockedTeamMembers() {
   const submitEditMember = async () => {
     if (!selectedMember) return;
 
+    const originalEmail = selectedMember.profile?.email;
+    const emailChanged = formData.email !== originalEmail && formData.email.trim() !== '';
+
     setSubmitting(true);
     try {
-      // Update profile
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-        })
-        .eq('id', selectedMember.user_id);
+      // IMPORTANT: Owners cannot update another user's profile (RLS).
+      // If the email is changed, we treat this as a reassignment:
+      // - remove old member from the team
+      // - create a new invitation for the new email
+      // - send invite email
+      if (emailChanged) {
+        // 1) Remove old member from team
+        const { error: removeError } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('id', selectedMember.id);
 
-      if (error) throw error;
+        if (removeError) throw removeError;
 
+        // 2) Convert old member subscription to free (age-based)
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', selectedMember.user_id)
+          .single();
+        if (profileError) throw profileError;
+
+        const createdAt = profile?.created_at ? new Date(profile.created_at) : null;
+        const daysSinceCreation = createdAt
+          ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        const status = daysSinceCreation > 30 ? 'canceled' : 'trial';
+        const trialEnd =
+          status === 'trial' && createdAt
+            ? new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: 'free',
+            status,
+            trial_end: trialEnd,
+          })
+          .eq('user_id', selectedMember.user_id);
+
+        if (subError) {
+          // Non-fatal: removal is the critical part
+          console.warn('[UnlockedTeamMembers] Failed updating removed member subscription:', subError);
+        }
+
+        // 3) Create invitation for new email
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const { data: invitation, error: inviteError } = await supabase
+          .from('team_invitations')
+          .insert({
+            team_id: selectedMember.team_id,
+            email: formData.email,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            invited_by: user!.id,
+            expires_at: expiresAt.toISOString(),
+          })
+          .select('token')
+          .single();
+
+        if (inviteError) throw inviteError;
+
+        // 4) Send invitation email
+        const { data: inviterProfile, error: inviterProfileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user!.id)
+          .single();
+
+        if (inviterProfileError) throw inviterProfileError;
+
+        const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+          ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+          : user!.email?.split('@')[0] || 'A team owner';
+
+        const { error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
+          body: {
+            inviteeEmail: formData.email,
+            inviteeFirstName: formData.firstName,
+            inviteeLastName: formData.lastName,
+            inviterName,
+            invitationToken: invitation.token,
+          },
+        });
+
+        if (emailError) throw emailError;
+
+        // 5) Refresh everything + notify other screens
+        await Promise.all([fetchTeamMembers(), fetchPendingInvitations(), fetchSlots()]);
+        emitTeamDataRefresh();
+
+        toast({
+          title: "✓ Member Updated Successfully",
+          description: (
+            <div className="space-y-1.5 mt-1">
+              <p className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                <span>Team member was removed and replaced</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary shrink-0" />
+                <span>New invitation email sent to {formData.email}</span>
+              </p>
+            </div>
+          ),
+        });
+
+        setShowEditModal(false);
+        return;
+      }
+
+      // Name-only edits on active members are not supported due to profile permissions.
       toast({
-        title: "Member Updated",
-        description: "Team member information has been updated.",
+        title: "Action Required",
+        description: "To change an active member, update the email to invite a new person. Active members manage their own profile details.",
+        variant: "destructive",
       });
-
-      setShowEditModal(false);
-      fetchTeamMembers();
     } catch (error: any) {
       console.error('Error updating member:', error);
       toast({
