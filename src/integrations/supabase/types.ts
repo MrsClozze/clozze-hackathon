@@ -613,6 +613,7 @@ export type Database = {
           listing_id: string | null
           notes: string | null
           priority: string
+          show_on_calendar: boolean
           status: string
           title: string
           updated_at: string
@@ -632,6 +633,7 @@ export type Database = {
           listing_id?: string | null
           notes?: string | null
           priority?: string
+          show_on_calendar?: boolean
           status?: string
           title: string
           updated_at?: string
@@ -651,6 +653,7 @@ export type Database = {
           listing_id?: string | null
           notes?: string | null
           priority?: string
+          show_on_calendar?: boolean
           status?: string
           title?: string
           updated_at?: string
