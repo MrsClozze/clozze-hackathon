@@ -13,6 +13,7 @@ import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
+import { useDocumentParser } from "@/hooks/useDocumentParser";
 
 interface AddBuyerModalProps {
   open: boolean;
@@ -55,6 +56,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const { toast } = useToast();
   const { addBuyer } = useBuyers();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { parseBuyerDocument, isParsing } = useDocumentParser();
 
   const handleClose = () => {
     setView("upload");
@@ -117,36 +119,26 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     }
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     console.log("Uploading file for AI parsing:", file.name);
     setUploadedFileName(file.name);
     setView("processing");
 
-    // TODO: Integrate with backend AI parsing service
-    // For now, simulate AI parsing with mock data extraction
-    setTimeout(() => {
-      // Mock extracted data - in production this would come from AI parsing
-      const mockExtractedData: FormData = {
-        buyerFirstName: "John",
-        buyerLastName: "Smith",
-        buyerEmail: "john.smith@email.com",
-        buyerPhone: "(555) 123-4567",
-        preApprovedAmount: "450000",
-        wantsNeeds: "3-bedroom house with yard, near good schools, updated kitchen preferred",
-        brokerageName: "Premier Realty",
-        brokerageAddress: "123 Main St",
-        agentEmail: "",
-        commissionPercentage: "3.0",
-      };
-
-      setFormData(mockExtractedData);
+    const result = await parseBuyerDocument(file);
+    
+    if (result.success && result.data) {
+      setFormData(result.data);
       setView("manual");
       
       toast({
         title: "Document Parsed Successfully",
         description: "Please review and confirm the extracted details below.",
       });
-    }, 2500);
+    } else {
+      // On error, go back to upload view
+      setView("upload");
+      setUploadedFileName("");
+    }
   };
 
   const handleDocuSignUpload = async () => {
