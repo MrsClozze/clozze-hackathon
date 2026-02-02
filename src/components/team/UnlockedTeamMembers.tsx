@@ -375,48 +375,7 @@ export default function UnlockedTeamMembers() {
       // - create a new invitation for the new email
       // - send invite email
       if (emailChanged) {
-        // 1) Remove old member from team
-        const { error: removeError } = await supabase
-          .from('team_members')
-          .delete()
-          .eq('id', selectedMember.id);
-
-        if (removeError) throw removeError;
-
-        // 2) Convert old member subscription to free (age-based)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('created_at')
-          .eq('id', selectedMember.user_id)
-          .single();
-        if (profileError) throw profileError;
-
-        const createdAt = profile?.created_at ? new Date(profile.created_at) : null;
-        const daysSinceCreation = createdAt
-          ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
-
-        const status = daysSinceCreation > 30 ? 'canceled' : 'trial';
-        const trialEnd =
-          status === 'trial' && createdAt
-            ? new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
-            : null;
-
-        const { error: subError } = await supabase
-          .from('subscriptions')
-          .update({
-            plan_type: 'free',
-            status,
-            trial_end: trialEnd,
-          })
-          .eq('user_id', selectedMember.user_id);
-
-        if (subError) {
-          // Non-fatal: removal is the critical part
-          console.warn('[UnlockedTeamMembers] Failed updating removed member subscription:', subError);
-        }
-
-        // 3) Create invitation for new email
+        // Create the invitation FIRST so we can't end up with a removed member and no invite due to an error.
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const { data: invitation, error: inviteError } = await supabase
           .from('team_invitations')
@@ -429,16 +388,27 @@ export default function UnlockedTeamMembers() {
             expires_at: expiresAt.toISOString(),
           })
           .select('token')
-          .single();
+          .maybeSingle();
 
         if (inviteError) throw inviteError;
+        if (!invitation?.token) {
+          throw new Error('Invitation could not be created. Please try again.');
+        }
 
-        // 4) Send invitation email
+        // Now remove the old member from the team.
+        const { error: removeError } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('id', selectedMember.id);
+
+        if (removeError) throw removeError;
+
+        // Send invitation email (non-blocking for the data update; if it fails, invite still exists and can be resent)
         const { data: inviterProfile, error: inviterProfileError } = await supabase
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', user!.id)
-          .single();
+          .maybeSingle();
 
         if (inviterProfileError) throw inviterProfileError;
 
@@ -456,14 +426,12 @@ export default function UnlockedTeamMembers() {
           },
         });
 
-        if (emailError) throw emailError;
-
-        // 5) Refresh everything + notify other screens
+        // Refresh everything + notify other screens
         await Promise.all([fetchTeamMembers(), fetchPendingInvitations(), fetchSlots()]);
         emitTeamDataRefresh();
 
         toast({
-          title: "✓ Member Updated Successfully",
+          title: emailError ? 'Member Updated (Invite Pending)' : '✓ Member Updated Successfully',
           description: (
             <div className="space-y-1.5 mt-1">
               <p className="flex items-center gap-2">
@@ -472,7 +440,11 @@ export default function UnlockedTeamMembers() {
               </p>
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary shrink-0" />
-                <span>New invitation email sent to {formData.email}</span>
+                <span>
+                  {emailError
+                    ? `Invitation was created for ${formData.email}. Click “Resend” if they don’t receive it.`
+                    : `New invitation email sent to ${formData.email}`}
+                </span>
               </p>
             </div>
           ),
