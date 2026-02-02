@@ -142,7 +142,17 @@ export default function TaskDetailsModal() {
     }
   };
 
-  if (!selectedTask) return null;
+  // Helper to format 24-hour time to 12-hour format
+  const formatTimeTo12Hour = (time24: string | undefined): string => {
+    if (!time24) return "No time set";
+    
+    const [hours, minutes] = time24.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return time24;
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
 
   const currentTask = isEditing && editedTask ? editedTask : selectedTask;
   
@@ -248,12 +258,13 @@ export default function TaskDetailsModal() {
                     type="time"
                     value={editedTime}
                     onChange={(e) => setEditedTime(e.target.value)}
-                    className="mt-1"
+                    className="mt-1 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                   />
                 ) : (
                   <div className="flex items-center gap-2 text-sm mt-1">
                     <Clock className="h-4 w-4 text-accent-gold" />
-                    {currentTask.dueTime || "No time set"}
+                    {formatTimeTo12Hour(currentTask.dueTime)}
                   </div>
                 )}
               </div>
