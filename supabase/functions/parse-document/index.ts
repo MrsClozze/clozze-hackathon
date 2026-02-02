@@ -77,7 +77,8 @@ serve(async (req) => {
          
          IMPORTANT: 
          - Extract ONLY the seller/property owner information, NOT buyer information
-         - If a field is not found in the document, return null for that field
+         - DO NOT GUESS. If a field is not explicitly present in the document text, return null for that field.
+         - If you are unsure between multiple values, return null.
          - Return numeric values as strings (e.g., "450000" not 450000)
          - For dates, use YYYY-MM-DD format
          - For phone numbers, include the formatting as found in the document`
@@ -87,7 +88,8 @@ serve(async (req) => {
          
          IMPORTANT:
          - Extract ONLY the buyer/client information, NOT seller or property information
-         - If a field is not found in the document, return null for that field
+         - DO NOT GUESS. If a field is not explicitly present in the document text, return null for that field.
+         - If you are unsure between multiple values, return null.
          - Return numeric values as strings (e.g., "450000" not 450000)
          - For phone numbers, include the formatting as found in the document`;
 
@@ -95,45 +97,77 @@ serve(async (req) => {
       ? {
           type: "object",
           properties: {
-            sellerFirstName: { type: "string", description: "Seller's first name" },
-            sellerLastName: { type: "string", description: "Seller's last name" },
-            sellerEmail: { type: "string", description: "Seller's email address" },
-            sellerPhone: { type: "string", description: "Seller's phone number" },
-            address: { type: "string", description: "Property street address" },
-            city: { type: "string", description: "Property city" },
-            zipcode: { type: "string", description: "Property ZIP code" },
-            county: { type: "string", description: "Property county" },
-            bedrooms: { type: "string", description: "Number of bedrooms" },
-            bathrooms: { type: "string", description: "Number of bathrooms" },
-            sqFeet: { type: "string", description: "Square footage" },
-            listingPrice: { type: "string", description: "Listing price without currency symbols" },
-            appraisalPrice: { type: "string", description: "Appraisal price without currency symbols" },
-            multiUnit: { type: "string", description: "yes or no" },
-            listingStartDate: { type: "string", description: "Listing start date in YYYY-MM-DD format" },
-            listingEndDate: { type: "string", description: "Listing end date in YYYY-MM-DD format" },
-            brokerageName: { type: "string", description: "Brokerage company name" },
-            brokerageAddress: { type: "string", description: "Brokerage address" },
-            agentEmail: { type: "string", description: "Agent email address" },
-            commissionPercentage: { type: "string", description: "Commission percentage as a number" },
+            sellerFirstName: { type: ["string", "null"], description: "Seller's first name" },
+            sellerLastName: { type: ["string", "null"], description: "Seller's last name" },
+            sellerEmail: { type: ["string", "null"], description: "Seller's email address" },
+            sellerPhone: { type: ["string", "null"], description: "Seller's phone number" },
+            address: { type: ["string", "null"], description: "Property street address" },
+            city: { type: ["string", "null"], description: "Property city" },
+            zipcode: { type: ["string", "null"], description: "Property ZIP code" },
+            county: { type: ["string", "null"], description: "Property county" },
+            bedrooms: { type: ["string", "null"], description: "Number of bedrooms" },
+            bathrooms: { type: ["string", "null"], description: "Number of bathrooms" },
+            sqFeet: { type: ["string", "null"], description: "Square footage" },
+            listingPrice: { type: ["string", "null"], description: "Listing price without currency symbols" },
+            appraisalPrice: { type: ["string", "null"], description: "Appraisal price without currency symbols" },
+            multiUnit: { type: ["string", "null"], description: "yes or no" },
+            listingStartDate: { type: ["string", "null"], description: "Listing start date in YYYY-MM-DD format" },
+            listingEndDate: { type: ["string", "null"], description: "Listing end date in YYYY-MM-DD format" },
+            brokerageName: { type: ["string", "null"], description: "Brokerage company name" },
+            brokerageAddress: { type: ["string", "null"], description: "Brokerage address" },
+            agentEmail: { type: ["string", "null"], description: "Agent email address" },
+            commissionPercentage: { type: ["string", "null"], description: "Commission percentage as a number" },
           },
-          required: ["sellerFirstName", "sellerLastName", "address", "city", "listingPrice"],
+          required: [
+            "sellerFirstName",
+            "sellerLastName",
+            "sellerEmail",
+            "sellerPhone",
+            "address",
+            "city",
+            "zipcode",
+            "county",
+            "bedrooms",
+            "bathrooms",
+            "sqFeet",
+            "listingPrice",
+            "appraisalPrice",
+            "multiUnit",
+            "listingStartDate",
+            "listingEndDate",
+            "brokerageName",
+            "brokerageAddress",
+            "agentEmail",
+            "commissionPercentage",
+          ],
           additionalProperties: false,
         }
       : {
           type: "object",
           properties: {
-            buyerFirstName: { type: "string", description: "Buyer's first name" },
-            buyerLastName: { type: "string", description: "Buyer's last name" },
-            buyerEmail: { type: "string", description: "Buyer's email address" },
-            buyerPhone: { type: "string", description: "Buyer's phone number" },
-            preApprovedAmount: { type: "string", description: "Pre-approved loan amount without currency symbols" },
-            wantsNeeds: { type: "string", description: "Buyer's requirements, wants, and needs for a property" },
-            brokerageName: { type: "string", description: "Brokerage company name" },
-            brokerageAddress: { type: "string", description: "Brokerage address" },
-            agentEmail: { type: "string", description: "Agent email address" },
-            commissionPercentage: { type: "string", description: "Commission percentage as a number" },
+            buyerFirstName: { type: ["string", "null"], description: "Buyer's first name" },
+            buyerLastName: { type: ["string", "null"], description: "Buyer's last name" },
+            buyerEmail: { type: ["string", "null"], description: "Buyer's email address" },
+            buyerPhone: { type: ["string", "null"], description: "Buyer's phone number" },
+            preApprovedAmount: { type: ["string", "null"], description: "Pre-approved loan amount without currency symbols" },
+            wantsNeeds: { type: ["string", "null"], description: "Buyer's requirements, wants, and needs for a property" },
+            brokerageName: { type: ["string", "null"], description: "Brokerage company name" },
+            brokerageAddress: { type: ["string", "null"], description: "Brokerage address" },
+            agentEmail: { type: ["string", "null"], description: "Agent email address" },
+            commissionPercentage: { type: ["string", "null"], description: "Commission percentage as a number" },
           },
-          required: ["buyerFirstName", "buyerLastName", "buyerEmail"],
+          required: [
+            "buyerFirstName",
+            "buyerLastName",
+            "buyerEmail",
+            "buyerPhone",
+            "preApprovedAmount",
+            "wantsNeeds",
+            "brokerageName",
+            "brokerageAddress",
+            "agentEmail",
+            "commissionPercentage",
+          ],
           additionalProperties: false,
         };
 

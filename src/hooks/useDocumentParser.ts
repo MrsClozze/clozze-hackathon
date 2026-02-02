@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { extractDocumentText } from "@/lib/documentTextExtractors";
 
 interface ListingFormData {
   sellerFirstName: string;
@@ -50,40 +51,20 @@ export function useDocumentParser() {
   const [isParsing, setIsParsing] = useState(false);
   const { toast } = useToast();
 
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    // For now, we'll read the file as text for simple text files
-    // For PDFs and DOCs, we'll need to extract text differently
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    
-    if (fileExtension === 'txt') {
-      return await file.text();
-    }
-    
-    // For PDF and DOC files, we read as text and hope it contains readable content
-    // In production, you might want to use a PDF parsing library or service
-    try {
-      const text = await file.text();
-      // If the text looks like binary garbage, return a message
-      if (text.includes('\x00') || text.includes('�')) {
-        // Try to extract any readable text patterns
-        const readableText = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-        if (readableText.length < 50) {
-          throw new Error("Unable to extract text from this file format. Please copy and paste the document text or use a text file.");
-        }
-        return readableText;
-      }
-      return text;
-    } catch (error) {
-      console.error("Error reading file:", error);
-      throw new Error("Unable to read file. Please try a different format or paste the text directly.");
-    }
+  const prepareAiInput = (text: string) => {
+    // Keep requests fast + within model limits by trimming very long docs.
+    const max = 15_000;
+    if (text.length <= max) return text;
+    const head = text.slice(0, 9_000);
+    const tail = text.slice(-6_000);
+    return `${head}\n\n--- [content truncated] ---\n\n${tail}`;
   };
 
   const parseListingDocument = async (file: File): Promise<ParseResult<ListingFormData>> => {
     setIsParsing(true);
     
     try {
-      const documentText = await extractTextFromFile(file);
+      const documentText = prepareAiInput(await extractDocumentText(file));
       
       if (!documentText || documentText.length < 20) {
         throw new Error("Could not extract enough text from the document. Please ensure the file contains readable text.");
@@ -147,7 +128,7 @@ export function useDocumentParser() {
     setIsParsing(true);
     
     try {
-      const documentText = await extractTextFromFile(file);
+      const documentText = prepareAiInput(await extractDocumentText(file));
       
       if (!documentText || documentText.length < 20) {
         throw new Error("Could not extract enough text from the document. Please ensure the file contains readable text.");
