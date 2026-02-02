@@ -57,14 +57,21 @@ const ListingsContext = createContext<ListingsContextType | undefined>(undefined
 
 export function ListingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isDemo, activateAccount } = useAccountState();
+  const { isDemo, isLoading: accountStateLoading } = useAccountState();
   const { toast } = useToast();
   const [listings, setListings] = useState<ListingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedListing, setSelectedListing] = useState<ListingData | null>(null);
   const [isListingDetailsModalOpen, setIsListingDetailsModalOpen] = useState(false);
+  // Get activateAccount separately to avoid dependency issues
+  const { activateAccount } = useAccountState();
 
   const fetchListings = useCallback(async () => {
+    // Wait for account state to be determined before fetching
+    if (accountStateLoading) {
+      return;
+    }
+
     // In demo mode, show the demo listing
     if (isDemo) {
       setListings([{ ...DEMO_LISTING, isDemo: true }]);
@@ -128,7 +135,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, isDemo]);
+  }, [user, isDemo, accountStateLoading]);
 
   useEffect(() => {
     fetchListings();

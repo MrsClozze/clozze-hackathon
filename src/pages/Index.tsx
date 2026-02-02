@@ -8,19 +8,23 @@ import ActiveBuyersCard from "@/components/dashboard/ActiveBuyersCard";
 import CalendarView from "@/components/dashboard/CalendarView";
 import TasksSidebar from "@/components/dashboard/TasksSidebar";
 import AICommunicationHub from "@/components/dashboard/AICommunicationHub";
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 const Index = () => {
-  const { user, loading } = useAuth();
-  const { isDemo } = useAccountState();
+  const { user, loading: authLoading } = useAuth();
+  const { isDemo, isLoading: accountStateLoading } = useAccountState();
 
   useEffect(() => {
     document.title = "Home | Clozze";
   }, []);
 
-  // Show nothing while checking auth state
-  if (loading) {
-    return null;
+  // Show loading state while checking auth or account state
+  if (authLoading || accountStateLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   // Redirect unauthenticated users to sign-in
