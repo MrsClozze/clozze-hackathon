@@ -154,6 +154,8 @@ export default function TaskDetailsModal() {
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
+  if (!selectedTask) return null;
+
   const currentTask = isEditing && editedTask ? editedTask : selectedTask;
   
   // Get display names for current assignees (non-edit view)
