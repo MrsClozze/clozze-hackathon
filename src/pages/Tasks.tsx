@@ -60,8 +60,10 @@ export default function Tasks() {
   // Filter tasks based on view tab (my tasks vs team assigned to me)
   const baseTasks = useMemo(() => {
     if (viewTab === "team" && user) {
-      // Show only tasks assigned to the current user (by assignee_user_id)
-      return tasks.filter(task => task.assigneeUserId === user.id);
+      // Show tasks where current user is in the assignees list (multi-assignee) or legacy single assignee
+      return tasks.filter(task => 
+        task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id
+      );
     }
     // Default: show all tasks owned by the user
     return tasks;
@@ -91,10 +93,12 @@ export default function Tasks() {
     });
   }, [baseTasks, statusFilter, categoryFilter]);
 
-  // Count tasks assigned to the current user
+  // Count tasks assigned to the current user (including multi-assignee)
   const assignedToMeCount = useMemo(() => {
     if (!user) return 0;
-    return tasks.filter(task => task.assigneeUserId === user.id).length;
+    return tasks.filter(task => 
+      task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id
+    ).length;
   }, [tasks, user]);
 
   const getStatusBadge = (status: string | undefined) => {

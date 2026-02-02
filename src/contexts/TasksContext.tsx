@@ -64,16 +64,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   const fetchTasks = useCallback(async () => {
-    // In demo mode, show demo tasks
-    if (isDemo) {
-      setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
-      setLoading(false);
-      return;
-    }
-
-    // In live mode, fetch real data from database
+    // If no user, show demo tasks
     if (!user) {
-      setTasks([]);
+      setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
       setLoading(false);
       return;
     }
@@ -81,7 +74,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Fetch tasks
+      // Always fetch real tasks from database first
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
@@ -131,10 +124,25 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         isDemo: false,
       }));
 
-      setTasks(mappedTasks);
+      // If user has real tasks, show only real tasks
+      // If no real tasks and in demo mode, show demo tasks
+      if (mappedTasks.length > 0) {
+        setTasks(mappedTasks);
+      } else if (isDemo) {
+        // No real tasks, still in demo mode - show demo tasks
+        setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
+      } else {
+        // No real tasks, but in live mode - show empty
+        setTasks([]);
+      }
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
-      setTasks([]);
+      // On error, fall back to demo tasks if in demo mode
+      if (isDemo) {
+        setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
+      } else {
+        setTasks([]);
+      }
     } finally {
       setLoading(false);
     }
