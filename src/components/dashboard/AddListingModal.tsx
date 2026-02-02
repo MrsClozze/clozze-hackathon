@@ -12,7 +12,7 @@ import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
-
+import { useDocumentParser } from "@/hooks/useDocumentParser";
 interface AddListingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -74,7 +74,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const { toast } = useToast();
   const { addListing } = useListings();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
-
+  const { parseListingDocument, isParsing } = useDocumentParser();
   const handleClose = () => {
     setView("upload");
     setFormData(emptyFormData);
@@ -147,46 +147,26 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     }
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     console.log("Uploading file for AI parsing:", file.name);
     setUploadedFileName(file.name);
     setView("processing");
 
-    // TODO: Integrate with backend AI parsing service
-    // For now, simulate AI parsing with mock data extraction
-    setTimeout(() => {
-      // Mock extracted data - in production this would come from AI parsing
-      const mockExtractedData: FormData = {
-        sellerFirstName: "Jane",
-        sellerLastName: "Doe",
-        sellerEmail: "jane.doe@email.com",
-        sellerPhone: "(555) 987-6543",
-        address: "456 Oak Avenue",
-        city: "Beverly Hills",
-        zipcode: "90210",
-        county: "Los Angeles",
-        bedrooms: "4",
-        bathrooms: "3.5",
-        sqFeet: "3200",
-        listingPrice: "2450000",
-        appraisalPrice: "2400000",
-        multiUnit: "no",
-        listingStartDate: new Date().toISOString().split('T')[0],
-        listingEndDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        brokerageName: "Luxury Properties Inc",
-        brokerageAddress: "789 Sunset Blvd",
-        agentEmail: "",
-        commissionPercentage: "6.0",
-      };
-
-      setFormData(mockExtractedData);
+    const result = await parseListingDocument(file);
+    
+    if (result.success && result.data) {
+      setFormData(result.data);
       setView("manual");
       
       toast({
         title: "Document Parsed Successfully",
         description: "Please review and confirm the extracted details below.",
       });
-    }, 2500);
+    } else {
+      // On error, go back to upload view
+      setView("upload");
+      setUploadedFileName("");
+    }
   };
 
   const handleDocuSignUpload = async () => {
