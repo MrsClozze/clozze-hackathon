@@ -5,7 +5,7 @@ import { useAccountState } from "./AccountStateContext";
 import { DEMO_BUYER, isDemoId } from "@/data/demoData";
 import { useToast } from "@/hooks/use-toast";
 import { trackQualifyLead, trackCloseConvertLead } from "@/lib/analytics";
-import clozzeLogo from "@/assets/clozze-logo.png";
+import buyerPlaceholder from "@/assets/buyer-placeholder.svg";
 
 export interface BuyerData {
   id: string;
@@ -87,7 +87,7 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
         phone: buyer.phone || '',
         description: buyer.wants_needs ? buyer.wants_needs.slice(0, 50) + '...' : '',
         status: buyer.status,
-        image: clozzeLogo, // Default placeholder until user uploads their own
+        image: buyerPlaceholder, // Default placeholder until user uploads their own
         preApprovedAmount: buyer.pre_approved_amount || 0,
         wantsNeeds: buyer.wants_needs || '',
         brokerageName: '',
