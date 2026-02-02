@@ -22,6 +22,7 @@ export interface Task {
   notes: string;
   status?: "pending" | "in-progress" | "completed";
   dueDate?: string;
+  dueTime?: string; // Optional time in HH:mm format
   buyerId?: string;
   listingId?: string;
   userId?: string;

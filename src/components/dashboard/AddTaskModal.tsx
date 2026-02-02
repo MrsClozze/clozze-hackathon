@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus } from "lucide-react";
+import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/contexts/TasksContext";
@@ -58,6 +58,7 @@ export default function AddTaskModal({
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [dueTime, setDueTime] = useState<string>(""); // Optional time in HH:mm format
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]); // Changed to array
@@ -110,6 +111,7 @@ export default function AddTaskModal({
         title: title.trim(),
         notes: notes.trim(),
         dueDate: format(dueDate, "yyyy-MM-dd"),
+        dueTime: dueTime || undefined, // Optional time
         priority,
         status: "pending",
         date: format(dueDate, "MMM d, yyyy"),
@@ -144,6 +146,7 @@ export default function AddTaskModal({
     setTitle("");
     setNotes("");
     setDueDate(undefined);
+    setDueTime("");
     setPriority("medium");
     setSelectedContactId("");
     setSelectedAssigneeIds([]);
@@ -244,38 +247,56 @@ export default function AddTaskModal({
             />
           </div>
 
-          {/* Due Date - Now Required */}
+          {/* Due Date & Time */}
           <div className="space-y-2">
             <Label className="text-text-heading">
               Due Date <span className="text-destructive">*</span>
             </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal bg-background-elevated border-primary/25",
-                    !dueDate && "text-muted-foreground",
-                    dueDateError && "border-destructive"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={handleDueDateSelect}
-                  initialFocus
-                  className="pointer-events-auto"
+            <div className="flex gap-2">
+              {/* Date Picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "flex-1 justify-start text-left font-normal bg-background-elevated border-primary/25",
+                      !dueDate && "text-muted-foreground",
+                      dueDateError && "border-destructive"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={handleDueDateSelect}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              {/* Time Picker */}
+              <div className="relative w-[140px]">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                  className="pl-9 bg-background-elevated border-primary/25"
+                  placeholder="Time"
                 />
-              </PopoverContent>
-            </Popover>
+              </div>
+            </div>
             {dueDateError && (
               <p className="text-sm text-destructive">Due date is required</p>
             )}
+            <p className="text-xs text-muted-foreground">
+              Time is optional. Leave blank for all-day tasks.
+            </p>
           </div>
 
           {/* Priority */}
