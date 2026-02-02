@@ -608,6 +608,7 @@ export type Database = {
           created_at: string
           date: string | null
           due_date: string | null
+          due_time: string | null
           has_ai_assist: boolean
           id: string
           listing_id: string | null
@@ -629,6 +630,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           due_date?: string | null
+          due_time?: string | null
           has_ai_assist?: boolean
           id?: string
           listing_id?: string | null
@@ -650,6 +652,7 @@ export type Database = {
           created_at?: string
           date?: string | null
           due_date?: string | null
+          due_time?: string | null
           has_ai_assist?: boolean
           id?: string
           listing_id?: string | null
