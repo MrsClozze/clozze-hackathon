@@ -16,18 +16,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContactSelect } from "@/components/ui/contact-select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact } from "lucide-react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks, Task } from "@/contexts/TasksContext";
+import { useContacts } from "@/contexts/ContactsContext";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 
 export default function TaskDetailsModal() {
   const {
@@ -38,12 +39,32 @@ export default function TaskDetailsModal() {
     deleteTask,
   } = useTasks();
 
+  const { contacts, loading: contactsLoading } = useContacts();
+  const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [showPartnerChoice, setShowPartnerChoice] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isComingSoonModalOpen, setIsComingSoonModalOpen] = useState(false);
+  
+  // Team member assignment state
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
+
+  // Initialize state when entering edit mode
+  useEffect(() => {
+    if (isEditing && selectedTask) {
+      // Populate assignees from task
+      const assignees = selectedTask.assigneeUserIds || 
+        (selectedTask.assigneeUserId ? [selectedTask.assigneeUserId] : []);
+      setSelectedAssigneeIds(assignees);
+      
+      // Populate contact
+      setSelectedContactId(selectedTask.contactId || "");
+    }
+  }, [isEditing, selectedTask]);
 
   const handleEditToggle = () => {
     if (!isEditing) {
@@ -52,15 +73,39 @@ export default function TaskDetailsModal() {
     setIsEditing(!isEditing);
   };
 
+  const handleAddAssignee = (userId: string) => {
+    if (userId && userId !== "none" && !selectedAssigneeIds.includes(userId)) {
+      setSelectedAssigneeIds(prev => [...prev, userId]);
+    }
+  };
+
+  const handleRemoveAssignee = (userId: string) => {
+    setSelectedAssigneeIds(prev => prev.filter(id => id !== userId));
+  };
+
   const handleSaveTask = async () => {
     if (editedTask && selectedTask) {
-      await updateTask(selectedTask.id, editedTask);
+      // Get names of selected assignees for the legacy assignee field
+      const assigneeNames = selectedAssigneeIds
+        .map(id => teamMembers.find(m => m.userId === id)?.name)
+        .filter(Boolean)
+        .join(", ");
+
+      await updateTask(selectedTask.id, {
+        ...editedTask,
+        assignee: assigneeNames || undefined,
+        assigneeUserId: selectedAssigneeIds[0] || undefined,
+        assigneeUserIds: selectedAssigneeIds,
+        contactId: selectedContactId && selectedContactId !== "none" ? selectedContactId : undefined,
+      });
     }
     setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
     setEditedTask(selectedTask);
+    setSelectedAssigneeIds([]);
+    setSelectedContactId("");
     setIsEditing(false);
   };
 
@@ -75,17 +120,27 @@ export default function TaskDetailsModal() {
     if (!open) {
       setIsEditing(false);
       setShowPartnerChoice(false);
+      setSelectedAssigneeIds([]);
+      setSelectedContactId("");
     }
   };
 
   if (!selectedTask) return null;
 
   const currentTask = isEditing && editedTask ? editedTask : selectedTask;
+  
+  // Get display names for current assignees (non-edit view)
+  const currentAssigneeNames = (currentTask.assigneeUserIds || [])
+    .map(id => teamMembers.find(m => m.userId === id)?.name)
+    .filter(Boolean);
+  
+  // Get current contact name (non-edit view)
+  const currentContact = contacts.find(c => c.id === currentTask.contactId);
 
   return (
     <>
       <Dialog open={isTaskDetailsModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center justify-between pr-8">
               <div className="flex-1">
@@ -216,23 +271,165 @@ export default function TaskDetailsModal() {
               )}
             </div>
 
-            {/* Assigned To / Contact */}
+            {/* Assign to Team Members */}
             <div>
-              <Label className="text-sm font-medium text-text-muted mb-1">Assigned To</Label>
+              <Label className="text-sm font-medium text-text-muted mb-1 flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Assign to Team Members
+              </Label>
               {isEditing ? (
-                <ContactSelect
-                  value={editedTask?.assignee || ""}
-                  onValueChange={(value) =>
-                    setEditedTask(editedTask ? { ...editedTask, assignee: value } : null)
-                  }
-                  placeholder="Select contact..."
-                  className="mt-1"
-                />
+                <div className="space-y-2 mt-1">
+                  {/* Selected assignees as removable chips */}
+                  {selectedAssigneeIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedAssigneeIds.map(userId => {
+                        const member = teamMembers.find(m => m.userId === userId);
+                        if (!member) return null;
+                        return (
+                          <div
+                            key={userId}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                          >
+                            <span>{member.name}</span>
+                            {member.role === "owner" && (
+                              <span className="text-xs opacity-70">(Owner)</span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAssignee(userId)}
+                              className="ml-0.5 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {/* Dropdown to add more assignees */}
+                  <Select 
+                    value="" 
+                    onValueChange={handleAddAssignee}
+                    disabled={teamMembersLoading}
+                  >
+                    <SelectTrigger className="bg-background-elevated border-primary/25">
+                      <SelectValue
+                        placeholder={
+                          teamMembersLoading 
+                            ? "Loading team members..." 
+                            : teamMembers.length === 0 
+                              ? "No team members available" 
+                              : selectedAssigneeIds.length > 0
+                                ? "Add another team member..."
+                                : "Select team members..."
+                        } 
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {teamMembers.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground text-center">
+                          <Users className="h-4 w-4 inline mr-2" />
+                          No team members available
+                        </div>
+                      ) : (
+                        <>
+                          {/* Only show team members not already selected */}
+                          {teamMembers
+                            .filter(member => !selectedAssigneeIds.includes(member.userId))
+                            .map((member) => (
+                              <SelectItem key={member.userId} value={member.userId}>
+                                {member.name}
+                                {member.role === "owner" && (
+                                  <span className="ml-2 text-xs text-muted-foreground">(Owner)</span>
+                                )}
+                              </SelectItem>
+                            ))}
+                          {teamMembers.filter(m => !selectedAssigneeIds.includes(m.userId)).length === 0 && (
+                            <div className="p-3 text-sm text-muted-foreground text-center">
+                              All team members assigned
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               ) : (
-                <div className="text-sm mt-1">{currentTask.assignee || "Unassigned"}</div>
+                <div className="text-sm mt-1">
+                  {currentAssigneeNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {currentAssigneeNames.map((name, idx) => (
+                        <span 
+                          key={idx}
+                          className="inline-flex items-center px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    currentTask.assignee || "Unassigned"
+                  )}
+                </div>
               )}
             </div>
 
+            {/* Contact */}
+            <div>
+              <Label className="text-sm font-medium text-text-muted mb-1 flex items-center gap-2">
+                <Contact className="h-4 w-4" />
+                Contact
+              </Label>
+              {isEditing ? (
+                <Select 
+                  value={selectedContactId} 
+                  onValueChange={setSelectedContactId}
+                  disabled={contactsLoading}
+                >
+                  <SelectTrigger className="mt-1 bg-background-elevated border-primary/25">
+                    <SelectValue
+                      placeholder={
+                        contactsLoading 
+                          ? "Loading contacts..." 
+                          : contacts.length === 0 
+                            ? "No contacts available" 
+                            : "Select a contact..."
+                      } 
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-[200px]">
+                    {contacts.length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        <Contact className="h-4 w-4 inline mr-2" />
+                        Add contacts to assign them to tasks
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="none">None</SelectItem>
+                        {contacts.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.id}>
+                            {contact.first_name} {contact.last_name}
+                            {contact.company && (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                ({contact.company})
+                              </span>
+                            )}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm mt-1">
+                  {currentContact 
+                    ? `${currentContact.first_name} ${currentContact.last_name}${currentContact.company ? ` (${currentContact.company})` : ''}`
+                    : "No contact assigned"
+                  }
+                </div>
+              )}
+            </div>
 
             {/* Status */}
             {currentTask.status && (
@@ -309,7 +506,7 @@ export default function TaskDetailsModal() {
             {!isEditing && (
               <div className="pt-4 border-t border-border space-y-2">
                 <Label className="text-sm font-medium text-text-muted mb-2">Use Clozze AI Assist</Label>
-                {currentTask.assignee && (
+                {(currentTask.assignee || currentAssigneeNames.length > 0) && (
                   <Button
                     variant="outline"
                     className="w-full gap-2 text-accent-gold border-accent-gold hover:bg-accent-gold hover:text-accent-gold-foreground"
@@ -378,11 +575,11 @@ export default function TaskDetailsModal() {
                 )}
 
                 {/* Show message when no assignee and no template */}
-                {!currentTask.assignee && 
+                {!currentTask.assignee && currentAssigneeNames.length === 0 &&
                  !(currentTask.title.toLowerCase().includes("prepare contract") || 
                    currentTask.title.toLowerCase().includes("prepare contact")) && (
                   <p className="text-sm text-text-muted italic">
-                    Assign a contact to enable AI Assist messaging
+                    Assign a team member or contact to enable AI Assist messaging
                   </p>
                 )}
               </div>
