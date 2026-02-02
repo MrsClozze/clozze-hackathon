@@ -16,7 +16,7 @@ import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
-type StatusFilter = "all" | "pending" | "in-progress" | "completed";
+type StatusFilter = "all" | "active" | "completed";
 type CategoryFilter = "all" | "buyers" | "listings";
 type ViewTab = "my-tasks" | "team";
 
@@ -57,25 +57,27 @@ export default function Tasks() {
     return "bg-primary/10 border-primary/50 text-primary";
   };
 
-  // Filter tasks based on view tab (my tasks vs team assigned to me)
+  // Filter tasks based on view tab (my tasks vs teammate's tasks)
   const baseTasks = useMemo(() => {
     if (viewTab === "team" && user) {
-      // Show tasks where current user is in the assignees list (multi-assignee) or legacy single assignee
+      // Show tasks from teammates (tasks where current user is NOT the owner but IS assigned)
       return tasks.filter(task => 
-        task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id
+        task.userId !== user.id && (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
       );
     }
-    // Default: show all tasks owned by the user
-    return tasks;
+    // Default: show tasks owned by the user
+    return tasks.filter(task => task.userId === user?.id);
   }, [tasks, viewTab, user]);
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
     let filtered = baseTasks;
 
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(task => task.status === statusFilter);
+    // Filter by status - "active" shows all non-completed tasks
+    if (statusFilter === "active") {
+      filtered = filtered.filter(task => task.status !== "completed");
+    } else if (statusFilter === "completed") {
+      filtered = filtered.filter(task => task.status === "completed");
     }
 
     // Filter by category
@@ -93,11 +95,11 @@ export default function Tasks() {
     });
   }, [baseTasks, statusFilter, categoryFilter]);
 
-  // Count tasks assigned to the current user (including multi-assignee)
-  const assignedToMeCount = useMemo(() => {
+  // Count tasks from teammates assigned to the current user
+  const teammateTasksCount = useMemo(() => {
     if (!user) return 0;
     return tasks.filter(task => 
-      task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id
+      task.userId !== user.id && (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
     ).length;
   }, [tasks, user]);
 
@@ -163,7 +165,7 @@ export default function Tasks() {
           </div>
         )}
 
-        {/* View Tabs - My Tasks vs Team (only show if has team add-on) */}
+        {/* View Tabs - My Tasks vs Teammate's Tasks (only show if has team add-on) */}
         {hasTeamMemberAccess && (
           <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as ViewTab)} className="mb-6">
             <TabsList>
@@ -173,10 +175,10 @@ export default function Tasks() {
               </TabsTrigger>
               <TabsTrigger value="team" className="gap-2">
                 <Users className="h-4 w-4" />
-                Assigned to Me
-                {assignedToMeCount > 0 && (
+                Teammate's Tasks
+                {teammateTasksCount > 0 && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {assignedToMeCount}
+                    {teammateTasksCount}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -206,24 +208,14 @@ export default function Tasks() {
             All
           </button>
           <button
-            onClick={() => setStatusFilter("pending")}
+            onClick={() => setStatusFilter("active")}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              statusFilter === "pending"
+              statusFilter === "active"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
             Active
-          </button>
-          <button
-            onClick={() => setStatusFilter("in-progress")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              statusFilter === "in-progress"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            Pending
           </button>
           <button
             onClick={() => setStatusFilter("completed")}
@@ -233,7 +225,7 @@ export default function Tasks() {
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            Closed
+            Completed
           </button>
         </div>
 
@@ -243,7 +235,7 @@ export default function Tasks() {
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
                 {viewTab === "team" 
-                  ? "No tasks have been assigned to you yet."
+                  ? "No tasks from teammates assigned to you yet."
                   : "No tasks found matching your filters."
                 }
               </CardContent>
