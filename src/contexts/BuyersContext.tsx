@@ -78,28 +78,37 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      const mappedBuyers: BuyerData[] = (data || []).map((buyer) => ({
-        id: buyer.id,
-        name: `${buyer.first_name} ${buyer.last_name}`,
-        firstName: buyer.first_name,
-        lastName: buyer.last_name,
-        email: buyer.email,
-        phone: buyer.phone || '',
-        description: buyer.wants_needs ? buyer.wants_needs.slice(0, 50) + '...' : '',
-        status: buyer.status,
-        image: buyerPlaceholder, // Default placeholder until user uploads their own
-        preApprovedAmount: buyer.pre_approved_amount || 0,
-        wantsNeeds: buyer.wants_needs || '',
-        brokerageName: '',
-        brokerageAddress: '',
-        agentName: '',
-        agentEmail: '',
-        commissionPercentage: buyer.commission_percentage || 0,
-        totalCommission: (buyer.agent_commission || 0) * 2,
-        agentCommission: buyer.agent_commission || 0,
-        brokerageCommission: buyer.agent_commission || 0,
-        isDemo: false,
-      }));
+      const mappedBuyers: BuyerData[] = (data || []).map((buyer) => {
+        // Calculate commission values from stored data
+        const preApprovedAmount = buyer.pre_approved_amount || 0;
+        const commissionPercentage = buyer.commission_percentage || 0;
+        const totalCommission = (preApprovedAmount * commissionPercentage) / 100;
+        const agentCommission = totalCommission * 0.5;
+        const brokerageCommission = totalCommission * 0.5;
+
+        return {
+          id: buyer.id,
+          name: `${buyer.first_name} ${buyer.last_name}`,
+          firstName: buyer.first_name,
+          lastName: buyer.last_name,
+          email: buyer.email,
+          phone: buyer.phone || '',
+          description: buyer.wants_needs ? buyer.wants_needs.slice(0, 50) + '...' : '',
+          status: buyer.status,
+          image: buyerPlaceholder, // Default placeholder until user uploads their own
+          preApprovedAmount,
+          wantsNeeds: buyer.wants_needs || '',
+          brokerageName: '',
+          brokerageAddress: '',
+          agentName: '',
+          agentEmail: '',
+          commissionPercentage,
+          totalCommission,
+          agentCommission,
+          brokerageCommission,
+          isDemo: false,
+        };
+      });
 
       setBuyers(mappedBuyers);
     } catch (error) {

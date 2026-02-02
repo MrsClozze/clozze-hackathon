@@ -64,7 +64,25 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
 
   const updateField = (field: keyof BuyerData, value: any) => {
     if (editedBuyer) {
-      setEditedBuyer({ ...editedBuyer, [field]: value });
+      let updatedBuyer = { ...editedBuyer, [field]: value };
+      
+      // Recalculate commissions when relevant fields change
+      if (field === 'preApprovedAmount' || field === 'commissionPercentage') {
+        const preApproved = field === 'preApprovedAmount' ? value : updatedBuyer.preApprovedAmount;
+        const commPct = field === 'commissionPercentage' ? value : updatedBuyer.commissionPercentage;
+        const totalCommission = (preApproved * commPct) / 100;
+        const agentCommission = totalCommission * 0.5;
+        const brokerageCommission = totalCommission * 0.5;
+        
+        updatedBuyer = {
+          ...updatedBuyer,
+          totalCommission,
+          agentCommission,
+          brokerageCommission,
+        };
+      }
+      
+      setEditedBuyer(updatedBuyer);
     }
   };
 
