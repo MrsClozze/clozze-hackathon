@@ -375,7 +375,8 @@ export default function UnlockedTeamMembers() {
       // - create a new invitation for the new email
       // - send invite email
       if (emailChanged) {
-        // Create the invitation FIRST so we can't end up with a removed member and no invite due to an error.
+        // NEW BEHAVIOR: Keep the old member active until the new one accepts.
+        // Create the invitation for the new email. The old member remains on the team.
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const { data: invitation, error: inviteError } = await supabase
           .from('team_invitations')
@@ -395,15 +396,9 @@ export default function UnlockedTeamMembers() {
           throw new Error('Invitation could not be created. Please try again.');
         }
 
-        // Now remove the old member from the team.
-        const { error: removeError } = await supabase
-          .from('team_members')
-          .delete()
-          .eq('id', selectedMember.id);
+        // DO NOT remove the old member here. They stay until the new invite is accepted.
 
-        if (removeError) throw removeError;
-
-        // Send invitation email (non-blocking for the data update; if it fails, invite still exists and can be resent)
+        // Send invitation email to the new email
         const { data: inviterProfile, error: inviterProfileError } = await supabase
           .from('profiles')
           .select('first_name, last_name')
@@ -431,19 +426,19 @@ export default function UnlockedTeamMembers() {
         emitTeamDataRefresh();
 
         toast({
-          title: emailError ? 'Member Updated (Invite Pending)' : '✓ Member Updated Successfully',
+          title: emailError ? 'Invitation Created' : '✓ Invitation Sent',
           description: (
             <div className="space-y-1.5 mt-1">
               <p className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                <span>Team member was removed and replaced</span>
+                <span>Current member stays active until the new person accepts</span>
               </p>
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary shrink-0" />
                 <span>
                   {emailError
-                    ? `Invitation was created for ${formData.email}. Click “Resend” if they don’t receive it.`
-                    : `New invitation email sent to ${formData.email}`}
+                    ? `Invitation created for ${formData.email}. Click "Resend" if they don't receive it.`
+                    : `Invitation email sent to ${formData.email}`}
                 </span>
               </p>
             </div>
