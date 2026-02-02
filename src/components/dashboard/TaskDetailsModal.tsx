@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact } from "lucide-react";
+import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ export default function TaskDetailsModal() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [editedTime, setEditedTime] = useState<string>("");
   const [showPartnerChoice, setShowPartnerChoice] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isComingSoonModalOpen, setIsComingSoonModalOpen] = useState(false);
@@ -63,6 +64,17 @@ export default function TaskDetailsModal() {
       
       // Populate contact
       setSelectedContactId(selectedTask.contactId || "");
+      
+      // Initialize time from task
+      setEditedTime(selectedTask.dueTime || "");
+      
+      // Initialize selected date from task date string
+      if (selectedTask.date) {
+        const parsedDate = new Date(selectedTask.date);
+        if (!isNaN(parsedDate.getTime())) {
+          setSelectedDate(parsedDate);
+        }
+      }
     }
   }, [isEditing, selectedTask]);
 
@@ -93,6 +105,7 @@ export default function TaskDetailsModal() {
 
       await updateTask(selectedTask.id, {
         ...editedTask,
+        dueTime: editedTime || undefined,
         assignee: assigneeNames || undefined,
         assigneeUserId: selectedAssigneeIds[0] || undefined,
         assigneeUserIds: selectedAssigneeIds,
@@ -106,6 +119,8 @@ export default function TaskDetailsModal() {
     setEditedTask(selectedTask);
     setSelectedAssigneeIds([]);
     setSelectedContactId("");
+    setEditedTime("");
+    setSelectedDate(undefined);
     setIsEditing(false);
   };
 
@@ -122,6 +137,8 @@ export default function TaskDetailsModal() {
       setShowPartnerChoice(false);
       setSelectedAssigneeIds([]);
       setSelectedContactId("");
+      setEditedTime("");
+      setSelectedDate(undefined);
     }
   };
 
@@ -196,11 +213,11 @@ export default function TaskDetailsModal() {
                           !editedTask?.date && "text-muted-foreground"
                         )}
                       >
-                        <Clock className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4" />
                         {editedTask?.date || "Pick a date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 bg-popover border border-border" align="start">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -211,48 +228,66 @@ export default function TaskDetailsModal() {
                           }
                         }}
                         initialFocus
-                        className="pointer-events-auto"
+                        className="pointer-events-auto bg-popover"
                       />
                     </PopoverContent>
                   </Popover>
                 ) : (
                   <div className="flex items-center gap-2 text-sm mt-1">
-                    <Clock className="h-4 w-4 text-accent-gold" />
-                    {currentTask.date}
+                    <CalendarIcon className="h-4 w-4 text-accent-gold" />
+                    {currentTask.date || "No date set"}
                   </div>
                 )}
               </div>
 
-              {/* Priority */}
+              {/* Time */}
               <div>
-                <Label className="text-sm font-medium text-text-muted mb-1">Priority</Label>
+                <Label className="text-sm font-medium text-text-muted mb-1">Time</Label>
                 {isEditing ? (
-                  <Select
-                    value={editedTask?.priority}
-                    onValueChange={(value: "high" | "medium" | "low") =>
-                      setEditedTask(editedTask ? { ...editedTask, priority: value } : null)
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    type="time"
+                    value={editedTime}
+                    onChange={(e) => setEditedTime(e.target.value)}
+                    className="mt-1"
+                  />
                 ) : (
-                  <div className="flex items-center gap-2 mt-1">
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        currentTask.priority === "high" ? "bg-destructive" : "bg-warning"
-                      }`}
-                    />
-                    <span className="text-sm capitalize">{currentTask.priority}</span>
+                  <div className="flex items-center gap-2 text-sm mt-1">
+                    <Clock className="h-4 w-4 text-accent-gold" />
+                    {currentTask.dueTime || "No time set"}
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <Label className="text-sm font-medium text-text-muted mb-1">Priority</Label>
+              {isEditing ? (
+                <Select
+                  value={editedTask?.priority}
+                  onValueChange={(value: "high" | "medium" | "low") =>
+                    setEditedTask(editedTask ? { ...editedTask, priority: value } : null)
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex items-center gap-2 mt-1">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      currentTask.priority === "high" ? "bg-destructive" : "bg-warning"
+                    }`}
+                  />
+                  <span className="text-sm capitalize">{currentTask.priority}</span>
+                </div>
+              )}
             </div>
 
             {/* Address */}
