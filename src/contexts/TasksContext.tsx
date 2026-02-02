@@ -74,32 +74,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // Always fetch real tasks from database first
+      // Fetch tasks + assignees in one query (reduces latency vs a second roundtrip)
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*')
+        .select(`
+          *,
+          task_assignees (
+            user_id
+          )
+        `)
         .order('due_date', { ascending: true });
 
       if (tasksError) throw tasksError;
-
-      // Fetch all task assignees for these tasks
-      const taskIds = (tasksData || []).map((t: any) => t.id);
-      let assigneesMap: Record<string, string[]> = {};
-      
-      if (taskIds.length > 0) {
-        const { data: assigneesData } = await supabase
-          .from('task_assignees')
-          .select('task_id, user_id')
-          .in('task_id', taskIds);
-        
-        // Group assignees by task_id
-        (assigneesData || []).forEach((a: any) => {
-          if (!assigneesMap[a.task_id]) {
-            assigneesMap[a.task_id] = [];
-          }
-          assigneesMap[a.task_id].push(a.user_id);
-        });
-      }
 
       const mappedTasks: Task[] = (tasksData || []).map((task: any) => ({
         id: task.id,
@@ -118,7 +104,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         userId: task.user_id,
         contactId: task.contact_id || undefined,
         assigneeUserId: task.assignee_user_id || undefined,
-        assigneeUserIds: assigneesMap[task.id] || [],
+        assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
         showOnCalendar: task.show_on_calendar || false,
         syncToExternalCalendar: task.sync_to_external_calendar || false,
         isDemo: false,

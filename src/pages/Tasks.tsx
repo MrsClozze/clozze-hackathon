@@ -17,8 +17,12 @@ import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
 type StatusFilter = "all" | "active" | "completed";
-type CategoryFilter = "all" | "buyers" | "listings";
 type ViewTab = "my-tasks" | "team";
+
+type TypeFilterState = {
+  buyers: boolean;
+  listings: boolean;
+};
 
 export default function Tasks() {
   const { tasks, loading, openTaskModal } = useTasks();
@@ -29,8 +33,21 @@ export default function Tasks() {
   const { hasTeamMemberAccess, loading: slotsLoading } = useTeamMemberSlots();
   const [viewTab, setViewTab] = useState<ViewTab>("my-tasks");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  // Default = show both (implicit "All")
+  const [typeFilter, setTypeFilter] = useState<TypeFilterState>({ buyers: true, listings: true });
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+
+  const isAssignedToMe = (task: any) => {
+    if (!user) return false;
+    return task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id;
+  };
+
+  const isAssignedToSomeoneElse = (task: any) => {
+    if (!user) return false;
+    const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
+    if (assigneeIds.some((id) => id && id !== user.id)) return true;
+    return Boolean(task.assigneeUserId && task.assigneeUserId !== user.id);
+  };
 
   // Helper to get buyer/listing name for a task
   const getTaskSourceName = (task: any) => {
@@ -62,19 +79,17 @@ export default function Tasks() {
     if (!user) return [];
     
     if (viewTab === "team") {
-      // Teammate's Tasks: tasks created by someone else where I am assigned
-      return tasks.filter(task => 
-        task.userId !== user.id && 
-        (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
-      );
+      // Teammate's Tasks: tasks assigned to ANYONE else (team visibility)
+      return tasks.filter(isAssignedToSomeoneElse);
     }
     
-    // My Tasks: tasks I own OR tasks where I am assigned (regardless of owner)
-    return tasks.filter(task => 
-      task.userId === user.id || 
-      task.assigneeUserIds?.includes(user.id) || 
-      task.assigneeUserId === user.id
-    );
+    // My Tasks: tasks assigned to me; if no explicit assignees exist, fallback to tasks I own
+    return tasks.filter((task) => {
+      const hasAnyAssignees =
+        (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
+        Boolean(task.assigneeUserId);
+      return isAssignedToMe(task) || (!hasAnyAssignees && task.userId === user.id);
+    });
   }, [tasks, viewTab, user]);
 
   // Filter and sort tasks
@@ -89,9 +104,14 @@ export default function Tasks() {
     }
 
     // Filter by category
-    if (categoryFilter === "buyers") {
+    const showBuyers = typeFilter.buyers;
+    const showListings = typeFilter.listings;
+
+    // If both are selected, don't filter by type.
+    // If only one is selected, filter accordingly.
+    if (showBuyers && !showListings) {
       filtered = filtered.filter(task => task.buyerId);
-    } else if (categoryFilter === "listings") {
+    } else if (showListings && !showBuyers) {
       filtered = filtered.filter(task => task.listingId);
     }
 
@@ -101,14 +121,12 @@ export default function Tasks() {
       if (!b.dueDate) return -1;
       return parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime();
     });
-  }, [baseTasks, statusFilter, categoryFilter]);
+  }, [baseTasks, statusFilter, typeFilter]);
 
   // Count tasks from teammates assigned to the current user
   const teammateTasksCount = useMemo(() => {
     if (!user) return 0;
-    return tasks.filter(task => 
-      task.userId !== user.id && (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
-    ).length;
+    return tasks.filter(isAssignedToSomeoneElse).length;
   }, [tasks, user]);
 
   const getStatusBadge = (status: string | undefined) => {
@@ -194,27 +212,33 @@ export default function Tasks() {
           </Tabs>
         )}
 
-        {/* Category Filter - Buyers/Listings only (All is handled by status filter) */}
-        <div className="flex gap-2 mb-4">
-          <span className="text-sm text-muted-foreground self-center mr-2">Filter by:</span>
+        {/* Secondary filter: Task context (implicit “All” when both are selected) */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-sm text-muted-foreground mr-2">Filter by type</span>
           <Button
-            variant={categoryFilter === "all" ? "default" : "outline"}
+            variant={typeFilter.buyers ? "default" : "outline"}
             size="sm"
-            onClick={() => setCategoryFilter("all")}
-          >
-            All
-          </Button>
-          <Button
-            variant={categoryFilter === "buyers" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCategoryFilter("buyers")}
+            onClick={() =>
+              setTypeFilter((prev) => {
+                const next = { ...prev, buyers: !prev.buyers };
+                // Prevent invalid state (none selected)
+                if (!next.buyers && !next.listings) return prev;
+                return next;
+              })
+            }
           >
             Buyers
           </Button>
           <Button
-            variant={categoryFilter === "listings" ? "default" : "outline"}
+            variant={typeFilter.listings ? "default" : "outline"}
             size="sm"
-            onClick={() => setCategoryFilter("listings")}
+            onClick={() =>
+              setTypeFilter((prev) => {
+                const next = { ...prev, listings: !prev.listings };
+                if (!next.buyers && !next.listings) return prev;
+                return next;
+              })
+            }
           >
             Listings
           </Button>
