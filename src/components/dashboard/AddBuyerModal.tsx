@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useBuyers } from "@/contexts/BuyersContext";
 import docusignLogo from "@/assets/docusign-logo-new.png";
@@ -18,18 +19,52 @@ interface AddBuyerModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ModalView = "upload" | "manual";
+type ModalView = "upload" | "processing" | "manual";
+
+interface FormData {
+  buyerFirstName: string;
+  buyerLastName: string;
+  buyerEmail: string;
+  buyerPhone: string;
+  preApprovedAmount: string;
+  wantsNeeds: string;
+  brokerageName: string;
+  brokerageAddress: string;
+  agentEmail: string;
+  commissionPercentage: string;
+}
+
+const emptyFormData: FormData = {
+  buyerFirstName: "",
+  buyerLastName: "",
+  buyerEmail: "",
+  buyerPhone: "",
+  preApprovedAmount: "",
+  wantsNeeds: "",
+  brokerageName: "",
+  brokerageAddress: "",
+  agentEmail: "",
+  commissionPercentage: "",
+};
 
 export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps) {
   const [view, setView] = useState<ModalView>("upload");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<FormData>(emptyFormData);
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const { toast } = useToast();
   const { addBuyer } = useBuyers();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
 
   const handleClose = () => {
     setView("upload");
+    setFormData(emptyFormData);
+    setUploadedFileName("");
     onOpenChange(false);
+  };
+
+  const updateFormField = (field: keyof FormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -84,20 +119,34 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
 
   const handleFileUpload = (file: File) => {
     console.log("Uploading file for AI parsing:", file.name);
-    
-    toast({
-      title: "Document Uploaded",
-      description: "AI is parsing the document...",
-    });
+    setUploadedFileName(file.name);
+    setView("processing");
 
     // TODO: Integrate with backend AI parsing service
+    // For now, simulate AI parsing with mock data extraction
     setTimeout(() => {
+      // Mock extracted data - in production this would come from AI parsing
+      const mockExtractedData: FormData = {
+        buyerFirstName: "John",
+        buyerLastName: "Smith",
+        buyerEmail: "john.smith@email.com",
+        buyerPhone: "(555) 123-4567",
+        preApprovedAmount: "450000",
+        wantsNeeds: "3-bedroom house with yard, near good schools, updated kitchen preferred",
+        brokerageName: "Premier Realty",
+        brokerageAddress: "123 Main St",
+        agentEmail: "",
+        commissionPercentage: "3.0",
+      };
+
+      setFormData(mockExtractedData);
+      setView("manual");
+      
       toast({
-        title: "Parsing Complete",
-        description: "Buyer details extracted successfully.",
+        title: "Document Parsed Successfully",
+        description: "Please review and confirm the extracted details below.",
       });
-      handleClose();
-    }, 2000);
+    }, 2500);
   };
 
   const handleDocuSignUpload = async () => {
@@ -169,31 +218,87 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
           </div>
         )}
 
+        {view === "processing" && (
+          <div className="py-16 text-center">
+            <Loader2 className="h-16 w-16 mx-auto mb-6 text-accent-gold animate-spin" />
+            <h3 className="text-xl font-semibold mb-2">Processing Document</h3>
+            <p className="text-muted-foreground mb-2">
+              AI is extracting buyer information from your document...
+            </p>
+            <p className="text-sm text-muted-foreground">{uploadedFileName}</p>
+            <div className="w-64 h-2 bg-secondary rounded-full mx-auto mt-4 overflow-hidden">
+              <div className="h-full bg-accent-gold rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: "60%" }}></div>
+            </div>
+          </div>
+        )}
+
         {view === "manual" && (
           <form onSubmit={handleManualSubmit} className="space-y-6 py-4">
+            {/* Show banner if form was prefilled from document */}
+            {uploadedFileName && (
+              <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                <p className="text-sm font-medium text-success mb-1">✓ Document parsed: {uploadedFileName}</p>
+                <p className="text-xs text-muted-foreground">Please review and confirm the extracted details below.</p>
+              </div>
+            )}
+
             {/* Buyer Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-text-heading">Buyer Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="buyerFirstName">First Name *</Label>
-                  <Input id="buyerFirstName" name="buyerFirstName" required />
+                  <Input 
+                    id="buyerFirstName" 
+                    name="buyerFirstName" 
+                    value={formData.buyerFirstName}
+                    onChange={(e) => updateFormField("buyerFirstName", e.target.value)}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="buyerLastName">Last Name *</Label>
-                  <Input id="buyerLastName" name="buyerLastName" required />
+                  <Input 
+                    id="buyerLastName" 
+                    name="buyerLastName" 
+                    value={formData.buyerLastName}
+                    onChange={(e) => updateFormField("buyerLastName", e.target.value)}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="buyerEmail">Email Address *</Label>
-                  <Input id="buyerEmail" name="buyerEmail" type="email" required />
+                  <Input 
+                    id="buyerEmail" 
+                    name="buyerEmail" 
+                    type="email" 
+                    value={formData.buyerEmail}
+                    onChange={(e) => updateFormField("buyerEmail", e.target.value)}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="buyerPhone">Cell Phone</Label>
-                  <Input id="buyerPhone" name="buyerPhone" type="tel" />
+                  <Input 
+                    id="buyerPhone" 
+                    name="buyerPhone" 
+                    type="tel" 
+                    value={formData.buyerPhone}
+                    onChange={(e) => updateFormField("buyerPhone", e.target.value)}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="preApprovedAmount">Pre-approved Loan Amount</Label>
-                  <Input id="preApprovedAmount" name="preApprovedAmount" type="number" step="0.01" min="0" placeholder="Optional" />
+                  <Input 
+                    id="preApprovedAmount" 
+                    name="preApprovedAmount" 
+                    type="number" 
+                    step="0.01" 
+                    min="0" 
+                    placeholder="Optional" 
+                    value={formData.preApprovedAmount}
+                    onChange={(e) => updateFormField("preApprovedAmount", e.target.value)}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="wantsNeeds">Primary Wants/Needs *</Label>
@@ -202,6 +307,8 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                     name="wantsNeeds"
                     rows={4}
                     placeholder="Describe the buyer's requirements..."
+                    value={formData.wantsNeeds}
+                    onChange={(e) => updateFormField("wantsNeeds", e.target.value)}
                     required
                   />
                 </div>
@@ -214,11 +321,21 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="brokerageName">Brokerage Name</Label>
-                  <Input id="brokerageName" name="brokerageName" />
+                  <Input 
+                    id="brokerageName" 
+                    name="brokerageName" 
+                    value={formData.brokerageName}
+                    onChange={(e) => updateFormField("brokerageName", e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="brokerageAddress">Brokerage Address</Label>
-                  <Input id="brokerageAddress" name="brokerageAddress" />
+                  <Input 
+                    id="brokerageAddress" 
+                    name="brokerageAddress" 
+                    value={formData.brokerageAddress}
+                    onChange={(e) => updateFormField("brokerageAddress", e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="agentName">Assign To</Label>
@@ -226,11 +343,28 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                 </div>
                 <div>
                   <Label htmlFor="agentEmail">Agent Email</Label>
-                  <Input id="agentEmail" name="agentEmail" type="email" placeholder="Default: User's Email" />
+                  <Input 
+                    id="agentEmail" 
+                    name="agentEmail" 
+                    type="email" 
+                    placeholder="Default: User's Email" 
+                    value={formData.agentEmail}
+                    onChange={(e) => updateFormField("agentEmail", e.target.value)}
+                  />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="commissionPercentage">Commission Percentage (%)</Label>
-                  <Input id="commissionPercentage" name="commissionPercentage" type="number" step="0.01" min="0" max="100" placeholder="e.g., 3.0" />
+                  <Input 
+                    id="commissionPercentage" 
+                    name="commissionPercentage" 
+                    type="number" 
+                    step="0.01" 
+                    min="0" 
+                    max="100" 
+                    placeholder="e.g., 3.0" 
+                    value={formData.commissionPercentage}
+                    onChange={(e) => updateFormField("commissionPercentage", e.target.value)}
+                  />
                 </div>
               </div>
               <div className="text-sm text-muted-foreground p-4 bg-card-elevated rounded-lg">
@@ -244,7 +378,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1" disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => { setView("upload"); setUploadedFileName(""); }} className="flex-1" disabled={isSubmitting}>
                 Back
               </Button>
               <Button type="submit" className="flex-1" disabled={isSubmitting}>
