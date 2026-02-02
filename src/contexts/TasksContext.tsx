@@ -29,6 +29,7 @@ export interface Task {
   assigneeUserId?: string; // Legacy single assignee (kept for backward compatibility)
   assigneeUserIds?: string[]; // New: multiple assignees
   assignees?: TaskAssignee[]; // New: assignee details with names
+  showOnCalendar?: boolean; // Whether task appears on calendar view
   isDemo?: boolean;
 }
 
@@ -121,6 +122,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         contactId: task.contact_id || undefined,
         assigneeUserId: task.assignee_user_id || undefined,
         assigneeUserIds: assigneesMap[task.id] || [],
+        showOnCalendar: task.show_on_calendar || false,
         isDemo: false,
       }));
 
@@ -170,6 +172,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         listing_id: updates.listingId || null,
         contact_id: updates.contactId || null,
         assignee_user_id: updates.assigneeUserId || null,
+        show_on_calendar: updates.showOnCalendar,
       };
 
       // Remove undefined values
@@ -283,6 +286,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         listing_id: task.listingId || null,
         contact_id: task.contactId || null,
         assignee_user_id: task.assigneeUserId || null,
+        show_on_calendar: task.showOnCalendar ?? false,
       };
 
       console.log('[TasksContext] Creating task:', newTask);
@@ -323,6 +327,31 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // If showOnCalendar is true, create a calendar event
+      if (task.showOnCalendar && task.dueDate) {
+        const calendarEvent = {
+          user_id: user.id,
+          title: task.title.trim(),
+          event_date: task.dueDate,
+          event_time: null, // Tasks don't have a specific time
+          description: task.notes || null,
+          address: task.address || null,
+          event_type: 'task',
+          source: 'manual',
+        };
+
+        const { error: calendarError } = await supabase
+          .from('calendar_events')
+          .insert(calendarEvent);
+
+        if (calendarError) {
+          console.error('[TasksContext] Calendar event insert error:', calendarError);
+          // Don't throw - task was created, just calendar event failed
+        } else {
+          console.log('[TasksContext] Calendar event created for task');
+        }
+      }
+
       const mappedTask: Task = {
         id: data.id,
         title: data.title,
@@ -340,6 +369,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         contactId: data.contact_id || undefined,
         assigneeUserId: data.assignee_user_id || undefined,
         assigneeUserIds: assigneeIds,
+        showOnCalendar: data.show_on_calendar || false,
         isDemo: false,
       };
 
@@ -347,7 +377,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       toast({
         title: "Success",
-        description: "Task created successfully.",
+        description: task.showOnCalendar 
+          ? "Task created and added to calendar." 
+          : "Task created successfully.",
       });
     } catch (error: any) {
       console.error('[TasksContext] Error adding task:', error);

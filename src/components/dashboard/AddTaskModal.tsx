@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/contexts/TasksContext";
@@ -15,6 +16,7 @@ import { useContacts } from "@/contexts/ContactsContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -43,6 +45,10 @@ export default function AddTaskModal({
   const { buyers } = useBuyers();
   const { listings } = useListings();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
+  const { connections: calendarConnections } = useCalendarConnections();
+
+  // Check if Google Calendar is connected
+  const hasGoogleCalendar = calendarConnections.some(c => c.provider === "google" && c.syncEnabled);
 
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -56,6 +62,7 @@ export default function AddTaskModal({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dueDateError, setDueDateError] = useState(false);
+  const [showOnCalendar, setShowOnCalendar] = useState(false);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
@@ -108,6 +115,7 @@ export default function AddTaskModal({
         assigneeUserIds: selectedAssigneeIds, // New: array of all assignees
         buyerId: selectedBuyerId && selectedBuyerId !== "none" ? selectedBuyerId : undefined,
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
+        showOnCalendar,
       });
 
       // TODO: Handle file attachments - for now just log them
@@ -136,6 +144,7 @@ export default function AddTaskModal({
     setSelectedListingId(initialListingId || "");
     setAttachedFiles([]);
     setDueDateError(false);
+    setShowOnCalendar(false);
   };
 
   const handleAddAssignee = (userId: string) => {
@@ -274,6 +283,28 @@ export default function AddTaskModal({
                 <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Show on Calendar Toggle */}
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <Label htmlFor="show-on-calendar" className="text-text-heading cursor-pointer">
+                  Add to Calendar
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {hasGoogleCalendar 
+                    ? "Will appear on dashboard & sync to Google Calendar" 
+                    : "Will appear on your dashboard calendar"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="show-on-calendar"
+              checked={showOnCalendar}
+              onCheckedChange={setShowOnCalendar}
+            />
           </div>
 
           {/* Assign to Buyer - Only show if not pre-filled */}
