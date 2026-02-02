@@ -256,16 +256,27 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Validate required fields
+    if (!task.title?.trim()) {
+      toast({
+        title: "Error",
+        description: "Task title is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const newTask: any = {
+      // Build task object, ensuring all values are properly typed
+      const newTask = {
         user_id: user.id,
-        title: task.title,
-        date: task.date,
-        address: task.address || '',
-        assignee: task.assignee || '',
-        has_ai_assist: task.hasAIAssist,
-        priority: task.priority,
-        notes: task.notes || '',
+        title: task.title.trim(),
+        date: task.date || null,
+        address: task.address || null,
+        assignee: task.assignee || null,
+        has_ai_assist: task.hasAIAssist ?? false,
+        priority: task.priority || 'medium',
+        notes: task.notes || null,
         status: task.status || 'pending',
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
         buyer_id: task.buyerId || null,
@@ -274,16 +285,25 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignee_user_id: task.assigneeUserId || null,
       };
 
+      console.log('[TasksContext] Creating task:', newTask);
+
       const { data, error } = await supabase
         .from('tasks')
         .insert(newTask)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[TasksContext] Supabase error:', error);
+        throw error;
+      }
+
+      console.log('[TasksContext] Task created:', data.id);
 
       // Insert multiple assignees into task_assignees table
-      const assigneeIds = task.assigneeUserIds || (task.assigneeUserId ? [task.assigneeUserId] : []);
+      const assigneeIds = task.assigneeUserIds?.filter(Boolean) || 
+        (task.assigneeUserId ? [task.assigneeUserId] : []);
+      
       if (assigneeIds.length > 0) {
         const assigneesInsert = assigneeIds.map(userId => ({
           task_id: data.id,
@@ -291,9 +311,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           assigned_by: user.id,
         }));
 
-        await supabase
+        console.log('[TasksContext] Adding assignees:', assigneesInsert);
+
+        const { error: assigneeError } = await supabase
           .from('task_assignees')
           .insert(assigneesInsert);
+
+        if (assigneeError) {
+          console.error('[TasksContext] Assignee insert error:', assigneeError);
+          // Don't throw - task was created, just assignees failed
+        }
       }
 
       const mappedTask: Task = {
@@ -323,10 +350,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         description: "Task created successfully.",
       });
     } catch (error: any) {
-      console.error('Error adding task:', error);
+      console.error('[TasksContext] Error adding task:', error);
       toast({
         title: "Error",
-        description: "Failed to create task. Please try again.",
+        description: error?.message || "Failed to create task. Please try again.",
         variant: "destructive",
       });
     }
