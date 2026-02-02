@@ -174,8 +174,8 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                   <Input id="buyerEmail" name="buyerEmail" type="email" required />
                 </div>
                 <div>
-                  <Label htmlFor="buyerPhone">Cell Phone *</Label>
-                  <Input id="buyerPhone" name="buyerPhone" type="tel" required />
+                  <Label htmlFor="buyerPhone">Cell Phone</Label>
+                  <Input id="buyerPhone" name="buyerPhone" type="tel" />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="preApprovedAmount">Pre-approved Loan Amount</Label>
@@ -199,24 +199,24 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
               <h3 className="text-lg font-semibold text-text-heading">Brokerage Details</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="brokerageName">Brokerage Name *</Label>
-                  <Input id="brokerageName" name="brokerageName" required />
+                  <Label htmlFor="brokerageName">Brokerage Name</Label>
+                  <Input id="brokerageName" name="brokerageName" />
                 </div>
                 <div>
-                  <Label htmlFor="brokerageAddress">Brokerage Address *</Label>
-                  <Input id="brokerageAddress" name="brokerageAddress" required />
+                  <Label htmlFor="brokerageAddress">Brokerage Address</Label>
+                  <Input id="brokerageAddress" name="brokerageAddress" />
                 </div>
                 <div>
-                  <Label htmlFor="agentName">Assign To *</Label>
+                  <Label htmlFor="agentName">Assign To</Label>
                   <ContactSelect placeholder="Select contact..." className="mt-1" />
                 </div>
                 <div>
-                  <Label htmlFor="agentEmail">Agent Email *</Label>
-                  <Input id="agentEmail" name="agentEmail" type="email" placeholder="Default: User's Email" required />
+                  <Label htmlFor="agentEmail">Agent Email</Label>
+                  <Input id="agentEmail" name="agentEmail" type="email" placeholder="Default: User's Email" />
                 </div>
                 <div className="col-span-2">
-                  <Label htmlFor="commissionPercentage">Commission Percentage (%) *</Label>
-                  <Input id="commissionPercentage" name="commissionPercentage" type="number" step="0.01" min="0" max="100" placeholder="e.g., 3.0" required />
+                  <Label htmlFor="commissionPercentage">Commission Percentage (%)</Label>
+                  <Input id="commissionPercentage" name="commissionPercentage" type="number" step="0.01" min="0" max="100" placeholder="e.g., 3.0" />
                 </div>
               </div>
               <div className="text-sm text-muted-foreground p-4 bg-card-elevated rounded-lg">
