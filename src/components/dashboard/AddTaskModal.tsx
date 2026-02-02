@@ -356,7 +356,7 @@ export default function AddTaskModal({
                   <p className="text-xs text-muted-foreground">
                     {hasConnectedCalendar 
                       ? `Will create an event in your ${connectedCalendarName}` 
-                      : "Connect a calendar in Integrations to enable"}
+                      : "Connect a calendar to enable"}
                   </p>
                 </div>
               </div>
