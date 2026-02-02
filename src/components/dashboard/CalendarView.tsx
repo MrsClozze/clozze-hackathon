@@ -36,6 +36,16 @@ interface CalendarEvent {
 
 const initialEvents: CalendarEvent[] = [];
 
+// Helper function to format 24-hour time to 12-hour format
+const formatTimeTo12Hour = (time24: string | undefined): string => {
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return time24;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 // Apple Calendar Connection Modal
@@ -605,7 +615,7 @@ export default function CalendarView() {
                         {event.time && (
                           <div className="flex items-center gap-1 text-sm text-text-muted ml-5">
                             <Clock className="h-3 w-3" />
-                            <span>{event.time}</span>
+                            <span>{formatTimeTo12Hour(event.time)}</span>
                           </div>
                         )}
                         {event.description && (
