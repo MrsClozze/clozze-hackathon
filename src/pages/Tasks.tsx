@@ -37,14 +37,18 @@ export default function Tasks() {
   const [typeFilter, setTypeFilter] = useState<TypeFilterState>({ buyers: true, listings: true });
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
+  // Check if task is assigned to the current user (via junction table or legacy field)
   const isAssignedToMe = (task: any) => {
     if (!user) return false;
-    return task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id;
+    const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
+    return assigneeIds.includes(user.id) || task.assigneeUserId === user.id;
   };
 
-  const isAssignedToSomeoneElse = (task: any) => {
+  // Check if task has ANY teammate assigned (someone other than current user)
+  const hasTeammateAssigned = (task: any) => {
     if (!user) return false;
     const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
+    // Has at least one assignee who is NOT the current user
     if (assigneeIds.some((id) => id && id !== user.id)) return true;
     return Boolean(task.assigneeUserId && task.assigneeUserId !== user.id);
   };
@@ -79,16 +83,21 @@ export default function Tasks() {
     if (!user) return [];
     
     if (viewTab === "team") {
-      // Teammate's Tasks: tasks assigned to ANYONE else (team visibility)
-      return tasks.filter(isAssignedToSomeoneElse);
+      // Teammate's Tasks: show tasks where at least one teammate is assigned
+      // This includes tasks where BOTH me and a teammate are assigned
+      return tasks.filter(hasTeammateAssigned);
     }
     
-    // My Tasks: tasks assigned to me; if no explicit assignees exist, fallback to tasks I own
+    // My Tasks: tasks explicitly assigned to me, OR tasks I own with no assignees
     return tasks.filter((task) => {
+      // Check if I'm explicitly assigned
+      if (isAssignedToMe(task)) return true;
+      
+      // Fallback: if no assignees exist, show tasks I created/own
       const hasAnyAssignees =
         (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
         Boolean(task.assigneeUserId);
-      return isAssignedToMe(task) || (!hasAnyAssignees && task.userId === user.id);
+      return !hasAnyAssignees && task.userId === user.id;
     });
   }, [tasks, viewTab, user]);
 
@@ -123,11 +132,7 @@ export default function Tasks() {
     });
   }, [baseTasks, statusFilter, typeFilter]);
 
-  // Count tasks from teammates assigned to the current user
-  const teammateTasksCount = useMemo(() => {
-    if (!user) return 0;
-    return tasks.filter(isAssignedToSomeoneElse).length;
-  }, [tasks, user]);
+  // Note: Removed teammate task count badge as it wasn't useful
 
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
@@ -193,23 +198,32 @@ export default function Tasks() {
 
         {/* View Tabs - My Tasks vs Teammate's Tasks (only show if has team add-on) */}
         {hasTeamMemberAccess && (
-          <Tabs value={viewTab} onValueChange={(v) => setViewTab(v as ViewTab)} className="mb-6">
-            <TabsList>
-              <TabsTrigger value="my-tasks" className="gap-2">
+          <div className="mb-6">
+            <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+              <button
+                onClick={() => setViewTab("my-tasks")}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
+                  viewTab === "my-tasks"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "hover:bg-muted-foreground/10"
+                }`}
+              >
                 <User className="h-4 w-4" />
                 My Tasks
-              </TabsTrigger>
-              <TabsTrigger value="team" className="gap-2">
+              </button>
+              <button
+                onClick={() => setViewTab("team")}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
+                  viewTab === "team"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "hover:bg-muted-foreground/10"
+                }`}
+              >
                 <Users className="h-4 w-4" />
                 Teammate's Tasks
-                {teammateTasksCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {teammateTasksCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Secondary filter: Task context (implicit “All” when both are selected) */}
@@ -245,13 +259,40 @@ export default function Tasks() {
         </div>
 
         {/* Status Filter */}
-        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="mb-6">
+          <div className="inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
+                statusFilter === "all"
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                  : "hover:bg-muted-foreground/10"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter("active")}
+              className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
+                statusFilter === "active"
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                  : "hover:bg-muted-foreground/10"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter("completed")}
+              className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
+                statusFilter === "completed"
+                  ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                  : "hover:bg-muted-foreground/10"
+              }`}
+            >
+              Completed
+            </button>
+          </div>
+        </div>
 
         {/* Tasks List */}
         <div className="space-y-4">
