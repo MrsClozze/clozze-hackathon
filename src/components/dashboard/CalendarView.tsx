@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +22,14 @@ import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 interface CalendarEvent {
   id: string;
   date: number;
+  month: number;
+  year: number;
   title: string;
   time?: string;
   description?: string;
   color: string;
   textColor: string;
+  isTask?: boolean;
 }
 
 const initialEvents: CalendarEvent[] = [];
@@ -180,9 +183,45 @@ export default function CalendarView() {
     return dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : null;
   });
   
+  // Convert tasks with showOnCalendar to calendar events
+  const taskEvents = useMemo(() => {
+    return tasks
+      .filter(task => task.showOnCalendar && task.dueDate)
+      .map(task => {
+        const taskDate = new Date(task.dueDate!);
+        return {
+          id: `task-${task.id}`,
+          date: taskDate.getDate(),
+          month: taskDate.getMonth(),
+          year: taskDate.getFullYear(),
+          title: task.title,
+          time: task.dueTime || undefined,
+          description: task.notes || undefined,
+          color: task.priority === 'high' ? 'bg-destructive' : task.priority === 'medium' ? 'bg-accent-gold' : 'bg-primary',
+          textColor: 'text-white',
+          isTask: true,
+        };
+      });
+  }, [tasks]);
+
+  // Combine manual events with task events
+  const allEvents = useMemo(() => {
+    // Add month/year to manual events for comparison
+    const manualWithDate = calendarEvents.map(e => ({
+      ...e,
+      month: currentDate.getMonth(),
+      year: currentDate.getFullYear(),
+    }));
+    return [...manualWithDate, ...taskEvents];
+  }, [calendarEvents, taskEvents, currentDate]);
+
   const getEventsForDay = (day: number | null) => {
     if (!day) return [];
-    return calendarEvents.filter(event => event.date === day);
+    return allEvents.filter(event => 
+      event.date === day && 
+      event.month === currentDate.getMonth() && 
+      event.year === currentDate.getFullYear()
+    );
   };
 
   const handleDayClick = (day: number | null) => {
@@ -198,9 +237,11 @@ export default function CalendarView() {
     const newEvent: CalendarEvent = {
       id: Date.now().toString(),
       date: selectedDay,
+      month: currentDate.getMonth(),
+      year: currentDate.getFullYear(),
       title: newEventTitle,
-      time: newEventTime,
-      description: newEventDescription,
+      time: newEventTime || undefined,
+      description: newEventDescription || undefined,
       color: "bg-primary",
       textColor: "text-primary-foreground",
     };
