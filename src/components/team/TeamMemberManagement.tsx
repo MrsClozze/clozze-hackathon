@@ -217,6 +217,34 @@ export default function TeamMemberManagement({
     setShowRemoveDialog(true);
   };
 
+  // Helper function to determine subscription status based on account age
+  const getSubscriptionStatusForRemovedMember = async (userId: string) => {
+    // Get the user's profile to check account creation date
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('created_at')
+      .eq('id', userId)
+      .single();
+    
+    if (!profile?.created_at) {
+      // Default to trial if we can't determine
+      return { status: 'trial', trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() };
+    }
+    
+    const accountCreatedAt = new Date(profile.created_at);
+    const now = new Date();
+    const daysSinceCreation = Math.floor((now.getTime() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysSinceCreation > 30) {
+      // Account is older than 30 days - lock it (they need to upgrade)
+      return { status: 'canceled', trial_end: null };
+    } else {
+      // Within 30 days - give them remaining trial time
+      const originalTrialEnd = new Date(accountCreatedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      return { status: 'trial', trial_end: originalTrialEnd.toISOString() };
+    }
+  };
+
   const submitEditMember = async () => {
     if (!selectedMember) return;
 
@@ -227,7 +255,7 @@ export default function TeamMemberManagement({
     try {
       // If email changed, we need to:
       // 1. Remove the old member from team (they keep their account but lose team access)
-      // 2. Convert old member's subscription to trial
+      // 2. Convert old member's subscription based on account age
       // 3. Create a new invitation for the new email
       // 4. Send the invitation email
       
@@ -250,13 +278,17 @@ export default function TeamMemberManagement({
           .delete()
           .eq('id', selectedMember.id);
 
-        // Step 3: Convert old member's subscription to trial (they keep their account)
+        // Step 3: Convert old member's subscription based on their account age
+        // If account is older than 30 days, they get a "locked" (canceled) status
+        // If within 30 days, they get remaining trial time
+        const subscriptionStatus = await getSubscriptionStatusForRemovedMember(selectedMember.user_id);
+        
         await supabase
           .from('subscriptions')
           .update({
             plan_type: 'free',
-            status: 'trial',
-            trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+            status: subscriptionStatus.status,
+            trial_end: subscriptionStatus.trial_end,
           })
           .eq('user_id', selectedMember.user_id);
 
@@ -300,9 +332,13 @@ export default function TeamMemberManagement({
           },
         });
 
+        const statusMessage = subscriptionStatus.status === 'canceled' 
+          ? "Their account has been locked (past 30 days) - they'll need to upgrade to continue."
+          : "Their account has been converted to a trial.";
+
         toast({
           title: "Member Replaced",
-          description: `The previous member has been removed and an invitation has been sent to ${formData.email}. The previous member's account has been converted to a trial.`,
+          description: `The previous member has been removed and an invitation has been sent to ${formData.email}. ${statusMessage}`,
         });
       } else {
         // Just update the profile info (name only, email stays the same)
@@ -352,14 +388,17 @@ export default function TeamMemberManagement({
 
       if (removeError) throw removeError;
 
-      // Step 2: Convert the removed member's subscription to trial
-      // This allows them to continue with their own account if they want
+      // Step 2: Convert the removed member's subscription based on account age
+      // If account is older than 30 days, they get a "locked" (canceled) status
+      // If within 30 days, they get remaining trial time
+      const subscriptionStatus = await getSubscriptionStatusForRemovedMember(selectedMember.user_id);
+      
       const { error: subError } = await supabase
         .from('subscriptions')
         .update({
           plan_type: 'free',
-          status: 'trial',
-          trial_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          status: subscriptionStatus.status,
+          trial_end: subscriptionStatus.trial_end,
         })
         .eq('user_id', selectedMember.user_id);
 
@@ -368,9 +407,13 @@ export default function TeamMemberManagement({
         // Don't throw - the member was removed from team successfully
       }
 
+      const statusMessage = subscriptionStatus.status === 'canceled' 
+        ? "Their account has been locked (past 30 days) - they'll need to upgrade to continue."
+        : "They can still access their account as a trial user and upgrade if they wish.";
+
       toast({
         title: "Member Removed",
-        description: `${selectedMember.profile?.first_name || 'Team member'} has been removed from your team. They can still access their account as a trial user and upgrade if they wish. Your slot is now available for a new member.`,
+        description: `${selectedMember.profile?.first_name || 'Team member'} has been removed from your team. ${statusMessage} Your slot is now available for a new member.`,
       });
 
       setShowRemoveDialog(false);
@@ -459,8 +502,11 @@ export default function TeamMemberManagement({
       return;
     }
 
+    const emailChanged = formData.email !== selectedInvitation.email;
+
     setSubmitting(true);
     try {
+      // Update the invitation details
       const { error } = await supabase
         .from('team_invitations')
         .update({
@@ -472,10 +518,46 @@ export default function TeamMemberManagement({
 
       if (error) throw error;
 
-      toast({
-        title: "Invitation Updated",
-        description: "The invitation details have been updated. You may want to resend the invite.",
-      });
+      // If email was changed, automatically send invitation to the new email
+      if (emailChanged) {
+        const { data: inviterProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user!.id)
+          .single();
+
+        const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
+          ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
+          : user!.email?.split('@')[0] || 'A team owner';
+
+        const { data: inviteData, error: inviteError } = await supabase
+          .from('team_invitations')
+          .select('token')
+          .eq('id', selectedInvitation.id)
+          .single();
+
+        if (inviteError) throw inviteError;
+
+        await supabase.functions.invoke('send-team-invitation-email', {
+          body: {
+            inviteeEmail: formData.email,
+            inviteeFirstName: formData.firstName || '',
+            inviteeLastName: formData.lastName || '',
+            inviterName,
+            invitationToken: inviteData.token,
+          },
+        });
+
+        toast({
+          title: "Invitation Updated & Sent",
+          description: `The invitation has been updated and a new invitation email has been sent to ${formData.email}.`,
+        });
+      } else {
+        toast({
+          title: "Invitation Updated",
+          description: "The invitation details have been updated. You may want to resend the invite.",
+        });
+      }
 
       setShowEditInviteModal(false);
       setSelectedInvitation(null);
