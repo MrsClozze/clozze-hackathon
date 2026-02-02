@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
+import { useTasks } from "@/contexts/TasksContext";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 
@@ -133,6 +135,10 @@ export default function CalendarView() {
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
   const [newEventDescription, setNewEventDescription] = useState("");
+  
+  // Sync confirmation dialog state
+  const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
+  const [pendingAppleCredentials, setPendingAppleCredentials] = useState<{ appleId: string; password: string } | null>(null);
 
   const { 
     connections, 
@@ -144,6 +150,8 @@ export default function CalendarView() {
     connectApple,
     disconnect 
   } = useCalendarConnections();
+  
+  const { tasks, bulkEnableExternalSync } = useTasks();
   
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -225,11 +233,19 @@ export default function CalendarView() {
     });
   };
 
+  // Count tasks that would need syncing
+  const tasksToSync = tasks.filter(t => t.showOnCalendar && !t.syncToExternalCalendar);
+  
   const handleGoogleConnect = async () => {
     if (isConnected("google")) {
       await disconnect("google");
     } else {
-      await connectGoogle();
+      // Check if there are existing calendar tasks - show confirmation dialog
+      if (tasksToSync.length > 0) {
+        setSyncConfirmProvider("google");
+      } else {
+        await connectGoogle();
+      }
     }
   };
 
@@ -240,6 +256,45 @@ export default function CalendarView() {
       setIsAppleModalOpen(true);
     }
   };
+  
+  // Called when Apple modal submits credentials - check for existing tasks first
+  const handleAppleCredentialsSubmit = useCallback(async (appleId: string, password: string): Promise<boolean> => {
+    if (tasksToSync.length > 0) {
+      // Store credentials and show confirmation dialog
+      setPendingAppleCredentials({ appleId, password });
+      setSyncConfirmProvider("apple");
+      return true; // Return true to close the credentials modal
+    } else {
+      // No existing tasks, connect directly
+      return await connectApple(appleId, password);
+    }
+  }, [tasksToSync.length, connectApple]);
+  
+  // Called when user confirms or declines sync in the confirmation dialog
+  const handleSyncConfirm = useCallback(async (syncExisting: boolean) => {
+    const provider = syncConfirmProvider;
+    setSyncConfirmProvider(null);
+    
+    if (!provider) return;
+    
+    // First, sync existing tasks if user chose "Yes"
+    if (syncExisting && tasksToSync.length > 0) {
+      await bulkEnableExternalSync();
+    }
+    
+    // Then proceed with the actual calendar connection
+    if (provider === "google") {
+      await connectGoogle();
+    } else if (provider === "apple" && pendingAppleCredentials) {
+      await connectApple(pendingAppleCredentials.appleId, pendingAppleCredentials.password);
+      setPendingAppleCredentials(null);
+    }
+  }, [syncConfirmProvider, tasksToSync.length, bulkEnableExternalSync, connectGoogle, connectApple, pendingAppleCredentials]);
+  
+  const handleSyncCancel = useCallback(() => {
+    setSyncConfirmProvider(null);
+    setPendingAppleCredentials(null);
+  }, []);
 
   const connectedCount = connections.length;
 
@@ -516,7 +571,20 @@ export default function CalendarView() {
       <AppleCalendarModal 
         isOpen={isAppleModalOpen}
         onClose={() => setIsAppleModalOpen(false)}
-        onConnect={connectApple}
+        onConnect={handleAppleCredentialsSubmit}
+      />
+      
+      {/* Sync Confirmation Dialog - shown before connecting */}
+      <CalendarSyncConfirmDialog
+        open={syncConfirmProvider !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleSyncCancel();
+          }
+        }}
+        provider={syncConfirmProvider || "google"}
+        onConfirm={handleSyncConfirm}
+        onCancel={handleSyncCancel}
       />
     </div>
   );
