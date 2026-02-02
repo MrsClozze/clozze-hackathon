@@ -29,7 +29,8 @@ export interface Task {
   assigneeUserId?: string; // Legacy single assignee (kept for backward compatibility)
   assigneeUserIds?: string[]; // New: multiple assignees
   assignees?: TaskAssignee[]; // New: assignee details with names
-  showOnCalendar?: boolean; // Whether task appears on calendar view
+  showOnCalendar?: boolean; // Whether task appears on dashboard calendar
+  syncToExternalCalendar?: boolean; // Whether to sync to connected calendar (Google/Apple)
   isDemo?: boolean;
 }
 
@@ -123,6 +124,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserId: task.assignee_user_id || undefined,
         assigneeUserIds: assigneesMap[task.id] || [],
         showOnCalendar: task.show_on_calendar || false,
+        syncToExternalCalendar: task.sync_to_external_calendar || false,
         isDemo: false,
       }));
 
@@ -173,6 +175,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         contact_id: updates.contactId || null,
         assignee_user_id: updates.assigneeUserId || null,
         show_on_calendar: updates.showOnCalendar,
+        sync_to_external_calendar: updates.syncToExternalCalendar,
       };
 
       // Remove undefined values
@@ -287,6 +290,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         contact_id: task.contactId || null,
         assignee_user_id: task.assigneeUserId || null,
         show_on_calendar: task.showOnCalendar ?? false,
+        sync_to_external_calendar: task.syncToExternalCalendar ?? false,
       };
 
       console.log('[TasksContext] Creating task:', newTask);
@@ -370,6 +374,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserId: data.assignee_user_id || undefined,
         assigneeUserIds: assigneeIds,
         showOnCalendar: data.show_on_calendar || false,
+        syncToExternalCalendar: data.sync_to_external_calendar || false,
         isDemo: false,
       };
 
