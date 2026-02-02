@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContactSelect } from "@/components/ui/contact-select";
-import { Upload } from "lucide-react";
+import { FileDropZone } from "@/components/ui/file-drop-zone";
 import { useToast } from "@/hooks/use-toast";
 import { useListings } from "@/contexts/ListingsContext";
 import docusignLogo from "@/assets/docusign-logo-new.png";
@@ -92,25 +92,22 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      console.log("Uploading file for AI parsing:", file.name);
-      
-      toast({
-        title: "Document Uploaded",
-        description: "AI is parsing the document...",
-      });
+  const handleFileUpload = (file: File) => {
+    console.log("Uploading file for AI parsing:", file.name);
+    
+    toast({
+      title: "Document Uploaded",
+      description: "AI is parsing the document...",
+    });
 
-      // TODO: Integrate with backend AI parsing service
-      setTimeout(() => {
-        toast({
-          title: "Parsing Complete",
-          description: "Listing details extracted successfully.",
-        });
-        handleClose();
-      }, 2000);
-    }
+    // TODO: Integrate with backend AI parsing service
+    setTimeout(() => {
+      toast({
+        title: "Parsing Complete",
+        description: "Listing details extracted successfully.",
+      });
+      handleClose();
+    }, 2000);
   };
 
   const handleDocuSignUpload = async () => {
@@ -133,21 +130,11 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
             {/* Direct Upload */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Direct Upload</h3>
-              <label htmlFor="file-upload-listing" className="cursor-pointer">
-                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-accent-gold/50 transition-colors">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-lg font-semibold mb-2">Drop your document here</p>
-                  <p className="text-sm text-muted-foreground">or click to browse</p>
-                  <p className="text-xs text-muted-foreground mt-2">Supports PDF, DOC, DOCX files</p>
-                </div>
-                <input
-                  id="file-upload-listing"
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleFileUpload}
-                />
-              </label>
+              <FileDropZone
+                id="file-upload-listing"
+                onFileSelect={handleFileUpload}
+                accept=".pdf,.doc,.docx"
+              />
             </div>
 
             {/* Integration Options */}

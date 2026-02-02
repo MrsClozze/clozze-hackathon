@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FileDropZone } from "@/components/ui/file-drop-zone";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
@@ -149,24 +150,11 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
             {/* Direct Upload */}
             <div>
               <h3 className="text-sm font-semibold mb-3">Direct Upload</h3>
-              <label htmlFor="file-upload-direct" className="cursor-pointer">
-                <div className="border-2 border-dashed border-border rounded-lg p-12 text-center hover:border-accent-gold/50 transition-colors">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-lg font-semibold mb-2">Drop your document here</p>
-                  <p className="text-sm text-muted-foreground">or click to browse</p>
-                  <p className="text-xs text-muted-foreground mt-2">Supports PDF, DOC, DOCX files</p>
-                </div>
-                <input
-                  id="file-upload-direct"
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file);
-                  }}
-                />
-              </label>
+              <FileDropZone
+                id="file-upload-direct"
+                onFileSelect={handleFileUpload}
+                accept=".pdf,.doc,.docx"
+              />
             </div>
 
             {/* Integration Options */}
