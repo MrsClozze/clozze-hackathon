@@ -3,10 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
-import { Upload, FileText } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useListings } from "@/contexts/ListingsContext";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
@@ -21,7 +21,9 @@ type ModalView = "upload" | "manual";
 
 export default function AddListingModal({ open, onOpenChange }: AddListingModalProps) {
   const [view, setView] = useState<ModalView>("upload");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { addListing } = useListings();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
 
   const handleClose = () => {
@@ -29,30 +31,65 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     onOpenChange(false);
   };
 
-  const handleManualSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    setIsSubmitting(true);
     
-    // Calculate commission fields
-    const listingPrice = parseFloat(formData.get("listingPrice") as string) || 0;
-    const commissionPercentage = parseFloat(formData.get("commissionPercentage") as string) || 0;
-    const totalCommission = (listingPrice * commissionPercentage) / 100;
-    const agentCommission = totalCommission * 0.5; // Assuming 50/50 split
-    const brokerageCommission = totalCommission * 0.5;
+    try {
+      const formData = new FormData(e.currentTarget);
+      
+      // Calculate commission fields
+      const listingPrice = parseFloat(formData.get("listingPrice") as string) || 0;
+      const commissionPercentage = parseFloat(formData.get("commissionPercentage") as string) || 0;
+      const totalCommission = (listingPrice * commissionPercentage) / 100;
+      const agentCommission = totalCommission * 0.5; // Assuming 50/50 split
+      const brokerageCommission = totalCommission * 0.5;
 
-    console.log("New Listing Data:", {
-      ...Object.fromEntries(formData),
-      totalCommission,
-      agentCommission,
-      brokerageCommission,
-    });
+      // Create listing data object
+      const listingData = {
+        address: formData.get("address") as string,
+        city: formData.get("city") as string,
+        price: listingPrice,
+        status: 'Active',
+        daysOnMarket: 0,
+        commission: agentCommission,
+        image: '', // Default image handled by context
+        sellerFirstName: formData.get("sellerFirstName") as string,
+        sellerLastName: formData.get("sellerLastName") as string,
+        sellerEmail: formData.get("sellerEmail") as string,
+        sellerPhone: formData.get("sellerPhone") as string,
+        zipcode: formData.get("zipcode") as string,
+        county: formData.get("county") as string,
+        bedrooms: parseInt(formData.get("bedrooms") as string) || 0,
+        bathrooms: parseFloat(formData.get("bathrooms") as string) || 0,
+        sqFeet: parseInt(formData.get("sqFeet") as string) || 0,
+        appraisalPrice: parseFloat(formData.get("appraisalPrice") as string) || 0,
+        multiUnit: formData.get("multiUnit") as string || 'no',
+        listingStartDate: formData.get("listingStartDate") as string || '',
+        listingEndDate: formData.get("listingEndDate") as string || '',
+        brokerageName: formData.get("brokerageName") as string,
+        brokerageAddress: formData.get("brokerageAddress") as string,
+        agentName: formData.get("agentName") as string || '',
+        agentEmail: formData.get("agentEmail") as string,
+        commissionPercentage,
+        totalCommission,
+        agentCommission,
+        brokerageCommission,
+      };
 
-    toast({
-      title: "Listing Added",
-      description: "New listing has been created successfully.",
-    });
+      // Call the addListing function from context - this handles:
+      // 1. Saving to database
+      // 2. Activating account (switching from demo to live)
+      // 3. Refetching listings
+      await addListing(listingData);
 
-    handleClose();
+      handleClose();
+    } catch (error) {
+      console.error('Error adding listing:', error);
+      // Toast is already shown by context
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,8 +211,8 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                   <Input id="sellerEmail" name="sellerEmail" type="email" required />
                 </div>
                 <div>
-                  <Label htmlFor="sellerPhone">Cell Phone *</Label>
-                  <Input id="sellerPhone" name="sellerPhone" type="tel" required />
+                  <Label htmlFor="sellerPhone">Cell Phone</Label>
+                  <Input id="sellerPhone" name="sellerPhone" type="tel" />
                 </div>
               </div>
             </div>
@@ -193,24 +230,24 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                   <Input id="city" name="city" required />
                 </div>
                 <div>
-                  <Label htmlFor="zipcode">Zipcode *</Label>
-                  <Input id="zipcode" name="zipcode" required />
+                  <Label htmlFor="zipcode">Zipcode</Label>
+                  <Input id="zipcode" name="zipcode" />
                 </div>
                 <div>
-                  <Label htmlFor="county">County *</Label>
-                  <Input id="county" name="county" required />
+                  <Label htmlFor="county">County</Label>
+                  <Input id="county" name="county" />
                 </div>
                 <div>
-                  <Label htmlFor="bedrooms">Bedrooms *</Label>
-                  <Input id="bedrooms" name="bedrooms" type="number" min="0" required />
+                  <Label htmlFor="bedrooms">Bedrooms</Label>
+                  <Input id="bedrooms" name="bedrooms" type="number" min="0" />
                 </div>
                 <div>
-                  <Label htmlFor="bathrooms">Bathrooms *</Label>
-                  <Input id="bathrooms" name="bathrooms" type="number" step="0.5" min="0" required />
+                  <Label htmlFor="bathrooms">Bathrooms</Label>
+                  <Input id="bathrooms" name="bathrooms" type="number" step="0.5" min="0" />
                 </div>
                 <div>
-                  <Label htmlFor="sqFeet">SQ Feet *</Label>
-                  <Input id="sqFeet" name="sqFeet" type="number" min="0" required />
+                  <Label htmlFor="sqFeet">SQ Feet</Label>
+                  <Input id="sqFeet" name="sqFeet" type="number" min="0" />
                 </div>
                 <div>
                   <Label htmlFor="listingPrice">Listing Price *</Label>
@@ -221,24 +258,23 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                   <Input id="appraisalPrice" name="appraisalPrice" type="number" step="0.01" min="0" />
                 </div>
                 <div>
-                  <Label htmlFor="multiUnit">Multi-unit *</Label>
+                  <Label htmlFor="multiUnit">Multi-unit</Label>
                   <select
                     id="multiUnit"
                     name="multiUnit"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    required
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="listingStartDate">Listing Start Date *</Label>
-                  <Input id="listingStartDate" name="listingStartDate" type="date" required />
+                  <Label htmlFor="listingStartDate">Listing Start Date</Label>
+                  <Input id="listingStartDate" name="listingStartDate" type="date" />
                 </div>
                 <div>
-                  <Label htmlFor="listingEndDate">Listing End Date *</Label>
-                  <Input id="listingEndDate" name="listingEndDate" type="date" required />
+                  <Label htmlFor="listingEndDate">Listing End Date</Label>
+                  <Input id="listingEndDate" name="listingEndDate" type="date" />
                 </div>
               </div>
             </div>
@@ -248,24 +284,24 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
               <h3 className="text-lg font-semibold text-text-heading">Commission/Brokerage Details</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="brokerageName">Brokerage Name *</Label>
-                  <Input id="brokerageName" name="brokerageName" required />
+                  <Label htmlFor="brokerageName">Brokerage Name</Label>
+                  <Input id="brokerageName" name="brokerageName" />
                 </div>
                 <div>
-                  <Label htmlFor="brokerageAddress">Brokerage Address *</Label>
-                  <Input id="brokerageAddress" name="brokerageAddress" required />
+                  <Label htmlFor="brokerageAddress">Brokerage Address</Label>
+                  <Input id="brokerageAddress" name="brokerageAddress" />
                 </div>
                 <div>
-                  <Label htmlFor="agentName">Assign To *</Label>
+                  <Label htmlFor="agentName">Assign To</Label>
                   <ContactSelect placeholder="Select contact..." className="mt-1" />
                 </div>
                 <div>
-                  <Label htmlFor="agentEmail">Agent Email *</Label>
-                  <Input id="agentEmail" name="agentEmail" type="email" placeholder="Default: User's Email" required />
+                  <Label htmlFor="agentEmail">Agent Email</Label>
+                  <Input id="agentEmail" name="agentEmail" type="email" placeholder="Default: User's Email" />
                 </div>
                 <div className="col-span-2">
-                  <Label htmlFor="commissionPercentage">Commission Percentage (%) *</Label>
-                  <Input id="commissionPercentage" name="commissionPercentage" type="number" step="0.01" min="0" max="100" placeholder="e.g., 6.0" required />
+                  <Label htmlFor="commissionPercentage">Commission Percentage (%)</Label>
+                  <Input id="commissionPercentage" name="commissionPercentage" type="number" step="0.01" min="0" max="100" placeholder="e.g., 6.0" />
                 </div>
               </div>
               <div className="text-sm text-muted-foreground p-4 bg-card-elevated rounded-lg">
@@ -279,11 +315,11 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1">
+              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1" disabled={isSubmitting}>
                 Back
               </Button>
-              <Button type="submit" className="flex-1">
-                Add Listing
+              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                {isSubmitting ? "Adding..." : "Add Listing"}
               </Button>
             </div>
           </form>

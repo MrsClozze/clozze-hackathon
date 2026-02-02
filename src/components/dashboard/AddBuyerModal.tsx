@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
-import { Upload, FileText } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useBuyers } from "@/contexts/BuyersContext";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
@@ -21,7 +22,9 @@ type ModalView = "upload" | "manual";
 
 export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps) {
   const [view, setView] = useState<ModalView>("upload");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { addBuyer } = useBuyers();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
 
   const handleClose = () => {
@@ -29,30 +32,54 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     onOpenChange(false);
   };
 
-  const handleManualSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    setIsSubmitting(true);
     
-    // Calculate commission fields (anticipated)
-    const preApprovedAmount = parseFloat(formData.get("preApprovedAmount") as string) || 0;
-    const commissionPercentage = parseFloat(formData.get("commissionPercentage") as string) || 0;
-    const totalCommission = (preApprovedAmount * commissionPercentage) / 100;
-    const agentCommission = totalCommission * 0.5; // Assuming 50/50 split
-    const brokerageCommission = totalCommission * 0.5;
+    try {
+      const formData = new FormData(e.currentTarget);
+      
+      // Calculate commission fields (anticipated)
+      const preApprovedAmount = parseFloat(formData.get("preApprovedAmount") as string) || 0;
+      const commissionPercentage = parseFloat(formData.get("commissionPercentage") as string) || 0;
+      const totalCommission = (preApprovedAmount * commissionPercentage) / 100;
+      const agentCommission = totalCommission * 0.5; // Assuming 50/50 split
+      const brokerageCommission = totalCommission * 0.5;
 
-    console.log("New Buyer Data:", {
-      ...Object.fromEntries(formData),
-      totalCommission,
-      agentCommission,
-      brokerageCommission,
-    });
+      // Create buyer data object
+      const buyerData = {
+        firstName: formData.get("buyerFirstName") as string,
+        lastName: formData.get("buyerLastName") as string,
+        email: formData.get("buyerEmail") as string,
+        phone: formData.get("buyerPhone") as string || '',
+        description: '', // Will be derived from wantsNeeds
+        status: 'Active',
+        image: '', // Default image handled by context
+        preApprovedAmount,
+        wantsNeeds: formData.get("wantsNeeds") as string,
+        brokerageName: formData.get("brokerageName") as string || '',
+        brokerageAddress: formData.get("brokerageAddress") as string || '',
+        agentName: formData.get("agentName") as string || '',
+        agentEmail: formData.get("agentEmail") as string || '',
+        commissionPercentage,
+        totalCommission,
+        agentCommission,
+        brokerageCommission,
+      };
 
-    toast({
-      title: "Buyer Added",
-      description: "New buyer has been created successfully.",
-    });
+      // Call the addBuyer function from context - this handles:
+      // 1. Saving to database
+      // 2. Activating account (switching from demo to live)
+      // 3. Refetching buyers
+      await addBuyer(buyerData);
 
-    handleClose();
+      handleClose();
+    } catch (error) {
+      console.error('Error adding buyer:', error);
+      // Toast is already shown by context
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,11 +257,11 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1">
+              <Button type="button" variant="outline" onClick={() => setView("upload")} className="flex-1" disabled={isSubmitting}>
                 Back
               </Button>
-              <Button type="submit" className="flex-1">
-                Add Buyer
+              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                {isSubmitting ? "Adding..." : "Add Buyer"}
               </Button>
             </div>
           </form>
