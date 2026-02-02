@@ -119,6 +119,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: task.notes || '',
         status: task.status as "pending" | "in-progress" | "completed",
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
+        dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined, // Format as HH:mm
         buyerId: task.buyer_id || undefined,
         listingId: task.listing_id || undefined,
         userId: task.user_id,
@@ -172,6 +173,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: updates.notes,
         status: updates.status,
         due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
+        due_time: updates.dueTime !== undefined ? (updates.dueTime || null) : undefined,
         buyer_id: updates.buyerId || null,
         listing_id: updates.listingId || null,
         contact_id: updates.contactId || null,
@@ -287,6 +289,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: task.notes || null,
         status: task.status || 'pending',
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+        due_time: task.dueTime || null,
         buyer_id: task.buyerId || null,
         listing_id: task.listingId || null,
         contact_id: task.contactId || null,
@@ -339,7 +342,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           user_id: user.id,
           title: task.title.trim(),
           event_date: task.dueDate,
-          event_time: null, // Tasks don't have a specific time
+          event_time: task.dueTime || null, // Include time if provided
           description: task.notes || null,
           address: task.address || null,
           event_type: 'task',
@@ -369,6 +372,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: data.notes || '',
         status: data.status as "pending" | "in-progress" | "completed",
         dueDate: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
+        dueTime: data.due_time ? data.due_time.substring(0, 5) : undefined,
         buyerId: data.buyer_id || undefined,
         listingId: data.listing_id || undefined,
         userId: data.user_id,
