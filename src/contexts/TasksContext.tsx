@@ -56,7 +56,7 @@ const TasksContext = createContext<TasksContextType | undefined>(undefined);
 
 export function TasksProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isDemo } = useAccountState();
+  const { isDemo, isLoading: accountStateLoading } = useAccountState();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskDetailsModalOpen, setIsTaskDetailsModalOpen] = useState(false);
@@ -64,6 +64,11 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   const fetchTasks = useCallback(async () => {
+    // Wait for account state to be determined before fetching
+    if (accountStateLoading) {
+      return;
+    }
+
     // If no user, show demo tasks
     if (!user) {
       setTasks(DEMO_TASKS.map(t => ({ ...t, isDemo: true })));
@@ -132,7 +137,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, isDemo]);
+  }, [user, isDemo, accountStateLoading]);
 
   useEffect(() => {
     fetchTasks();

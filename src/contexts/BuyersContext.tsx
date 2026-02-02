@@ -47,14 +47,22 @@ const BuyersContext = createContext<BuyersContextType | undefined>(undefined);
 
 export function BuyersProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { isDemo, activateAccount } = useAccountState();
+  const { isDemo, isLoading: accountStateLoading } = useAccountState();
   const { toast } = useToast();
   const [buyers, setBuyers] = useState<BuyerData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBuyer, setSelectedBuyer] = useState<BuyerData | null>(null);
   const [isBuyerDetailsModalOpen, setIsBuyerDetailsModalOpen] = useState(false);
 
+  // Get activateAccount separately to avoid dependency issues
+  const { activateAccount } = useAccountState();
+
   const fetchBuyers = useCallback(async () => {
+    // Wait for account state to be determined before fetching
+    if (accountStateLoading) {
+      return;
+    }
+
     // In demo mode, show the demo buyer
     if (isDemo) {
       setBuyers([{ ...DEMO_BUYER, isDemo: true }]);
@@ -117,7 +125,7 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, isDemo]);
+  }, [user, isDemo, accountStateLoading]);
 
   useEffect(() => {
     fetchBuyers();
