@@ -91,16 +91,15 @@ export function useTeamRole() {
         }
 
         // User is not part of any team
-        // Check if they have a team_member subscription (invited but team might be missing)
-        const planType = subscription?.plan_type as string | undefined;
-        const isTeamMemberSubscription = planType === 'team_member';
-        
+        // IMPORTANT: Do NOT infer team membership from subscription state.
+        // Membership is defined strictly by an active team_members record.
+        // (Subscriptions can be stale if a user is removed by an owner.)
         setRoleInfo({
           isTeamOwner: false,
-          isTeamMember: isTeamMemberSubscription,
+          isTeamMember: false,
           teamId: null,
           teamOwnerId: null,
-          role: isTeamMemberSubscription ? 'member' : null,
+          role: null,
           loading: false,
         });
       } catch (error) {

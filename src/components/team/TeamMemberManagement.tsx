@@ -274,33 +274,13 @@ export default function TeamMemberManagement({
           .select('id')
           .eq('created_by', user!.id)
           .limit(1);
-        
+
         if (!teams || teams.length === 0) {
           throw new Error('No team found');
         }
         const teamId = teams[0].id;
 
-        // Step 2: Remove old member from team (but don't delete their user account)
-        await supabase
-          .from('team_members')
-          .delete()
-          .eq('id', selectedMember.id);
-
-        // Step 3: Convert old member's subscription based on their account age
-        // If account is older than 30 days, they get a "locked" (canceled) status
-        // If within 30 days, they get remaining trial time
-        const subscriptionStatus = await getSubscriptionStatusForRemovedMember(selectedMember.user_id);
-        
-        await supabase
-          .from('subscriptions')
-          .update({
-            plan_type: 'free',
-            status: subscriptionStatus.status,
-            trial_end: subscriptionStatus.trial_end,
-          })
-          .eq('user_id', selectedMember.user_id);
-
-        // Step 4: Create new invitation for the new email
+        // Step 2: Create the invitation FIRST so we can't end up with a removed member and no invite.
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -315,16 +295,48 @@ export default function TeamMemberManagement({
             expires_at: expiresAt.toISOString(),
           })
           .select('token')
-          .single();
+          .maybeSingle();
 
         if (inviteError) throw inviteError;
+        if (!invitation?.token) {
+          throw new Error('Invitation could not be created. Please try again.');
+        }
+
+        // Step 3: Remove old member from team (but don't delete their user account)
+        const { error: removeError } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('id', selectedMember.id);
+
+        if (removeError) throw removeError;
+
+        // Step 4: Attempt to convert old member's subscription based on their account age
+        // NOTE: This update may be blocked by RLS (members manage their own subscription record).
+        // The critical piece is removal + invitation creation.
+        try {
+          const subscriptionStatus = await getSubscriptionStatusForRemovedMember(selectedMember.user_id);
+          const { error: subError } = await supabase
+            .from('subscriptions')
+            .update({
+              plan_type: 'free',
+              status: subscriptionStatus.status,
+              trial_end: subscriptionStatus.trial_end,
+            })
+            .eq('user_id', selectedMember.user_id);
+
+          if (subError) {
+            console.warn('[TeamMemberManagement] Subscription update blocked:', subError);
+          }
+        } catch (e) {
+          console.warn('[TeamMemberManagement] Subscription update skipped due to error:', e);
+        }
 
         // Step 5: Send invitation email to new email
         const { data: inviterProfile } = await supabase
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', user!.id)
-          .single();
+          .maybeSingle();
 
         const inviterName = inviterProfile?.first_name && inviterProfile?.last_name
           ? `${inviterProfile.first_name} ${inviterProfile.last_name}`
@@ -344,7 +356,7 @@ export default function TeamMemberManagement({
 
         if (emailError) {
           console.error('Error sending invitation email:', emailError);
-          throw new Error('Failed to send invitation email: ' + emailError.message);
+          // Don't throw: invite exists and can be resent.
         }
         
         console.log('Invitation email sent successfully:', emailData);
@@ -358,16 +370,20 @@ export default function TeamMemberManagement({
         emitTeamDataRefresh();
 
         toast({
-          title: "✓ Member Updated Successfully",
+          title: emailError ? 'Member Updated (Invite Pending)' : '✓ Member Updated Successfully',
           description: (
             <div className="space-y-1.5 mt-1">
               <p className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-                <span>Team member information has been updated</span>
+                <span>Team member was removed and replaced</span>
               </p>
               <p className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary shrink-0" />
-                <span>New invitation email sent to {formData.email}</span>
+                <span>
+                  {emailError
+                    ? `Invitation was created for ${formData.email}. Click “Resend” if they don’t receive it.`
+                    : `New invitation email sent to ${formData.email}`}
+                </span>
               </p>
             </div>
           ),
