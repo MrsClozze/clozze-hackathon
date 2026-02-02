@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,28 +26,48 @@ export function CalendarSyncConfirmDialog({
   onConfirm,
   onCancel,
 }: CalendarSyncConfirmDialogProps) {
-  const { tasks } = useTasks();
+  const { tasks, refetchTasks } = useTasks();
   const [existingCalendarTasks, setExistingCalendarTasks] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasRefetched = useRef(false);
 
+  // Refetch tasks when dialog opens to get fresh data
   useEffect(() => {
-    // Count tasks that are on dashboard calendar but NOT synced to external
-    const count = tasks.filter(
-      (t) => t.showOnCalendar && !t.syncToExternalCalendar
-    ).length;
-    setExistingCalendarTasks(count);
-  }, [tasks]);
+    if (open && !hasRefetched.current) {
+      hasRefetched.current = true;
+      setIsLoading(true);
+      refetchTasks().finally(() => {
+        setIsLoading(false);
+      });
+    }
+    
+    // Reset the ref when dialog closes
+    if (!open) {
+      hasRefetched.current = false;
+    }
+  }, [open, refetchTasks]);
+
+  // Count tasks after data is loaded
+  useEffect(() => {
+    if (!isLoading) {
+      const count = tasks.filter(
+        (t) => t.showOnCalendar && !t.syncToExternalCalendar && !t.isDemo
+      ).length;
+      setExistingCalendarTasks(count);
+    }
+  }, [tasks, isLoading]);
 
   const providerName = provider === "google" ? "Google Calendar" : "Apple Calendar";
 
-  // If no existing calendar tasks, don't show dialog - just proceed
+  // If no existing calendar tasks and not loading, don't show dialog - just proceed
   useEffect(() => {
-    if (open && existingCalendarTasks === 0) {
+    if (open && !isLoading && existingCalendarTasks === 0) {
       onConfirm(false);
     }
-  }, [open, existingCalendarTasks, onConfirm]);
+  }, [open, existingCalendarTasks, isLoading, onConfirm]);
 
-  // Don't render dialog if no tasks to sync
-  if (existingCalendarTasks === 0) {
+  // Don't render dialog if loading or no tasks to sync
+  if (isLoading || existingCalendarTasks === 0) {
     return null;
   }
 
