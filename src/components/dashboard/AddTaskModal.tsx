@@ -422,50 +422,56 @@ export default function AddTaskModal({
             </div>
           )}
 
-          {/* Assign to Listing - Only show if not pre-filled and user has live data */}
-          {!initialListingId && !hasNoLiveData && (
+          {/* Assign to Listing - Only show if not pre-filled */}
+          {!initialListingId && (
             <div className="space-y-2">
               <Label className="text-text-heading flex items-center gap-2">
                 <Home className="h-4 w-4" />
                 Assign to Listing
               </Label>
-              <Select 
-                value={selectedListingId} 
-                onValueChange={(value) => {
-                  setSelectedListingId(value);
-                  // Clear buyer if listing is selected (task can only be linked to one)
-                  if (value && value !== "none") {
-                    setSelectedBuyerId("");
-                  }
-                }}
-              >
-                <SelectTrigger className="bg-background-elevated border-primary/25">
-                  <SelectValue
-                    placeholder={
-                      listings.length === 0 
-                        ? "No listings available" 
-                        : "Select a listing..."
-                    } 
-                  />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50 max-h-[200px]">
-                  {listings.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground text-center">
-                      <Home className="h-4 w-4 inline mr-2" />
-                      Add a listing to assign tasks
-                    </div>
-                  ) : (
-                    <>
-                      <SelectItem value="none">None</SelectItem>
-                      {listings.map((listing) => (
-                        <SelectItem key={listing.id} value={listing.id}>
-                          {listing.address}, {listing.city}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              {hasNoLiveData ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Add your first listing or buyer to start assigning tasks.
+                </p>
+              ) : (
+                <Select 
+                  value={selectedListingId} 
+                  onValueChange={(value) => {
+                    setSelectedListingId(value);
+                    // Clear buyer if listing is selected (task can only be linked to one)
+                    if (value && value !== "none") {
+                      setSelectedBuyerId("");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-background-elevated border-primary/25">
+                    <SelectValue
+                      placeholder={
+                        listings.length === 0 
+                          ? "No listings available" 
+                          : "Select a listing..."
+                      } 
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-[200px]">
+                    {listings.length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        <Home className="h-4 w-4 inline mr-2" />
+                        Add a listing to assign tasks
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="none">None</SelectItem>
+                        {listings.map((listing) => (
+                          <SelectItem key={listing.id} value={listing.id}>
+                            {listing.address}, {listing.city}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           )}
 
