@@ -47,8 +47,13 @@ export default function AddTaskModal({
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
   const { connections: calendarConnections } = useCalendarConnections();
 
-  // Check if Google Calendar is connected
-  const hasGoogleCalendar = calendarConnections.some(c => c.provider === "google" && c.syncEnabled);
+  // Check if any external calendar is connected
+  const hasConnectedCalendar = calendarConnections.some(c => c.syncEnabled);
+  const connectedCalendarName = calendarConnections.find(c => c.syncEnabled)?.provider === "google" 
+    ? "Google Calendar" 
+    : calendarConnections.find(c => c.syncEnabled)?.provider === "apple" 
+      ? "Apple Calendar" 
+      : "connected calendar";
 
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -62,7 +67,8 @@ export default function AddTaskModal({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dueDateError, setDueDateError] = useState(false);
-  const [showOnCalendar, setShowOnCalendar] = useState(false);
+  const [showOnCalendar, setShowOnCalendar] = useState(true); // Default ON
+  const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
@@ -116,6 +122,7 @@ export default function AddTaskModal({
         buyerId: selectedBuyerId && selectedBuyerId !== "none" ? selectedBuyerId : undefined,
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
         showOnCalendar,
+        syncToExternalCalendar: hasConnectedCalendar ? syncToExternalCalendar : false,
       });
 
       // TODO: Handle file attachments - for now just log them
@@ -144,7 +151,8 @@ export default function AddTaskModal({
     setSelectedListingId(initialListingId || "");
     setAttachedFiles([]);
     setDueDateError(false);
-    setShowOnCalendar(false);
+    setShowOnCalendar(true);
+    setSyncToExternalCalendar(false);
   };
 
   const handleAddAssignee = (userId: string) => {
@@ -285,24 +293,53 @@ export default function AddTaskModal({
             </Select>
           </div>
 
-          {/* Show on Calendar Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <div className="flex items-center gap-2">
-              <CalendarPlus className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <Label htmlFor="show-on-calendar" className="text-text-heading cursor-pointer">
-                  Add to Calendar
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Will appear on your dashboard calendar and sync to your connected calendar
-                </p>
+          {/* Calendar Toggles */}
+          <div className="space-y-3 py-2 border-t border-b border-border/50">
+            {/* Toggle A: Show on Dashboard Calendar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="show-on-calendar" className="text-text-heading cursor-pointer">
+                    Show on dashboard calendar
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Task will appear on your Clozze calendar view
+                  </p>
+                </div>
               </div>
+              <Switch
+                id="show-on-calendar"
+                checked={showOnCalendar}
+                onCheckedChange={setShowOnCalendar}
+              />
             </div>
-            <Switch
-              id="show-on-calendar"
-              checked={showOnCalendar}
-              onCheckedChange={setShowOnCalendar}
-            />
+
+            {/* Toggle B: Sync to Connected Calendar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label 
+                    htmlFor="sync-to-calendar" 
+                    className={`cursor-pointer ${hasConnectedCalendar ? 'text-text-heading' : 'text-muted-foreground'}`}
+                  >
+                    Sync to connected calendar
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {hasConnectedCalendar 
+                      ? `Will create an event in your ${connectedCalendarName}` 
+                      : "Connect a calendar in Integrations to enable"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="sync-to-calendar"
+                checked={syncToExternalCalendar}
+                onCheckedChange={setSyncToExternalCalendar}
+                disabled={!hasConnectedCalendar}
+              />
+            </div>
           </div>
 
           {/* Assign to Buyer - Only show if not pre-filled */}

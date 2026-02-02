@@ -615,6 +615,7 @@ export type Database = {
           priority: string
           show_on_calendar: boolean
           status: string
+          sync_to_external_calendar: boolean
           title: string
           updated_at: string
           user_id: string
@@ -635,6 +636,7 @@ export type Database = {
           priority?: string
           show_on_calendar?: boolean
           status?: string
+          sync_to_external_calendar?: boolean
           title: string
           updated_at?: string
           user_id: string
@@ -655,6 +657,7 @@ export type Database = {
           priority?: string
           show_on_calendar?: boolean
           status?: string
+          sync_to_external_calendar?: boolean
           title?: string
           updated_at?: string
           user_id?: string
