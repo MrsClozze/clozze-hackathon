@@ -294,9 +294,7 @@ export default function AddTaskModal({
                   Add to Calendar
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  {hasGoogleCalendar 
-                    ? "Will appear on dashboard & sync to Google Calendar" 
-                    : "Will appear on your dashboard calendar"}
+                  Will appear on your dashboard calendar and sync to your connected calendar
                 </p>
               </div>
             </div>
