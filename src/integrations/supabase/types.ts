@@ -853,6 +853,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_team_invitation: { Args: { _token: string }; Returns: Json }
       get_team_buyers: {
         Args: never
         Returns: {
