@@ -332,13 +332,20 @@ export default function TeamMemberManagement({
           },
         });
 
-        const statusMessage = subscriptionStatus.status === 'canceled' 
-          ? "Their account has been locked (past 30 days) - they'll need to upgrade to continue."
-          : "Their account has been converted to a trial.";
-
         toast({
-          title: "Member Replaced",
-          description: `The previous member has been removed and an invitation has been sent to ${formData.email}. ${statusMessage}`,
+          title: "✓ Member Updated Successfully",
+          description: (
+            <div className="space-y-1.5 mt-1">
+              <p className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                <span>Team member information has been updated</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary shrink-0" />
+                <span>New invitation email sent to {formData.email}</span>
+              </p>
+            </div>
+          ),
         });
       } else {
         // Just update the profile info (name only, email stays the same)
@@ -549,8 +556,19 @@ export default function TeamMemberManagement({
         });
 
         toast({
-          title: "Invitation Updated & Sent",
-          description: `The invitation has been updated and a new invitation email has been sent to ${formData.email}.`,
+          title: "✓ Invitation Updated Successfully",
+          description: (
+            <div className="space-y-1.5 mt-1">
+              <p className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                <span>Invitation details have been updated</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary shrink-0" />
+                <span>New invitation email sent to {formData.email}</span>
+              </p>
+            </div>
+          ),
         });
       } else {
         toast({
