@@ -58,6 +58,48 @@ export default function Auth() {
     navigate(target, { replace: true });
   }, [navigate, searchParams]);
 
+  // Process team invitation token for existing users
+  const processInvitationToken = async (token: string): Promise<boolean> => {
+    console.log('[AUTH] Processing invitation token for existing user');
+    try {
+      const { data, error } = await supabase.rpc('accept_team_invitation', { _token: token });
+      
+      if (error) {
+        console.error('[AUTH] Error accepting invitation:', error);
+        toast({
+          title: "Invitation error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      const result = data as { success: boolean; message?: string; error?: string; team_id?: string };
+      
+      if (result.success) {
+        console.log('[AUTH] Invitation accepted successfully:', result);
+        toast({
+          title: "Welcome to the team!",
+          description: result.message || "You've joined the team successfully.",
+        });
+        // Refresh subscription to get team_member status
+        await refreshSubscription();
+        return true;
+      } else {
+        console.warn('[AUTH] Invitation not accepted:', result.error);
+        toast({
+          title: "Invitation issue",
+          description: result.error || "Could not process invitation.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('[AUTH] Failed to process invitation:', err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     const checkOnboardingAndRedirect = async () => {
       // Don't redirect if password reset is active
@@ -76,6 +118,20 @@ export default function Auth() {
 
       if (user) {
         console.log('[AUTH] User detected, checking redirect...', user.id);
+        
+        // Check for invitation token - process for existing users
+        const invitationToken = searchParams.get('invitation');
+        if (invitationToken) {
+          console.log('[AUTH] Invitation token found, processing for existing user');
+          // Clear the URL param to prevent reprocessing
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete('invitation');
+          const newSearch = newParams.toString();
+          window.history.replaceState({}, '', `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
+          
+          await processInvitationToken(invitationToken);
+          // Continue to normal redirect flow after processing
+        }
         
         const sessionId = searchParams.get('session_id');
         const purchaseSuccess = searchParams.get('purchase_success');
