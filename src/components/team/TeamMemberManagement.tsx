@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { emitTeamDataRefresh, useTeamDataRefresh } from "@/hooks/useTeamDataRefresh";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,6 +99,13 @@ export default function TeamMemberManagement({
       }
     }
   }, [user]);
+
+  // Sync when the Team page (or other screens) updates team data.
+  useTeamDataRefresh(() => {
+    if (!user) return;
+    fetchTeamMembers();
+    if (showPendingInvitations) fetchPendingInvitations();
+  });
 
   const checkOwnerStatus = async () => {
     if (!user) return;
@@ -347,6 +355,8 @@ export default function TeamMemberManagement({
           showPendingInvitations ? fetchPendingInvitations() : Promise.resolve(),
         ]);
 
+        emitTeamDataRefresh();
+
         toast({
           title: "✓ Member Updated Successfully",
           description: (
@@ -379,6 +389,8 @@ export default function TeamMemberManagement({
 
         // Force immediate refresh
         await fetchTeamMembers();
+
+        emitTeamDataRefresh();
 
         toast({
           title: "Member Updated",
