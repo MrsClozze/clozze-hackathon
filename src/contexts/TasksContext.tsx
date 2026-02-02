@@ -41,6 +41,7 @@ interface TasksContextType {
   addTask: (task: Omit<Task, 'id'>) => Promise<void>;
   addTaskAssignees: (taskId: string, userIds: string[]) => Promise<void>;
   removeTaskAssignee: (taskId: string, userId: string) => Promise<void>;
+  bulkEnableExternalSync: () => Promise<void>;
   selectedTask: Task | null;
   setSelectedTask: (task: Task | null) => void;
   isTaskDetailsModalOpen: boolean;
@@ -467,6 +468,51 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Bulk enable external sync for all tasks that are on dashboard calendar but not yet synced
+  const bulkEnableExternalSync = async () => {
+    if (!user) return;
+
+    try {
+      // Find all tasks that are on dashboard calendar but NOT synced to external
+      const tasksToSync = tasks.filter(
+        (t) => t.showOnCalendar && !t.syncToExternalCalendar && !t.isDemo
+      );
+
+      if (tasksToSync.length === 0) return;
+
+      const taskIds = tasksToSync.map((t) => t.id);
+
+      // Batch update in database
+      const { error } = await supabase
+        .from("tasks")
+        .update({ sync_to_external_calendar: true })
+        .in("id", taskIds);
+
+      if (error) throw error;
+
+      // Update local state
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          taskIds.includes(task.id)
+            ? { ...task, syncToExternalCalendar: true }
+            : task
+        )
+      );
+
+      toast({
+        title: "Tasks synced",
+        description: `${tasksToSync.length} task${tasksToSync.length !== 1 ? "s" : ""} will sync to your connected calendar.`,
+      });
+    } catch (error: any) {
+      console.error("Error bulk syncing tasks:", error);
+      toast({
+        title: "Error",
+        description: "Failed to sync some tasks. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const openTaskModal = (task: Task) => {
     setSelectedTask(task);
     setIsTaskDetailsModalOpen(true);
@@ -481,6 +527,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         addTask,
         addTaskAssignees,
         removeTaskAssignee,
+        bulkEnableExternalSync,
         selectedTask,
         setSelectedTask,
         isTaskDetailsModalOpen,
