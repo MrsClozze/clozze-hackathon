@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
+import { CalendarEventDeleteDialog } from "@/components/dashboard/CalendarEventDeleteDialog";
 import { useTasks } from "@/contexts/TasksContext";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
@@ -30,6 +31,7 @@ interface CalendarEvent {
   color: string;
   textColor: string;
   isTask?: boolean;
+  taskId?: string; // The actual task ID (without 'task-' prefix)
 }
 
 const initialEvents: CalendarEvent[] = [];
@@ -142,6 +144,10 @@ export default function CalendarView() {
   // Sync confirmation dialog state
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
   const [pendingAppleCredentials, setPendingAppleCredentials] = useState<{ appleId: string; password: string } | null>(null);
+  
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
 
   const { 
     connections, 
@@ -154,7 +160,13 @@ export default function CalendarView() {
     disconnect 
   } = useCalendarConnections();
   
-  const { tasks, bulkEnableExternalSync } = useTasks();
+  const { 
+    tasks, 
+    bulkEnableExternalSync, 
+    openTaskModal, 
+    updateTask, 
+    deleteTask 
+  } = useTasks();
   
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -191,6 +203,7 @@ export default function CalendarView() {
         const taskDate = new Date(task.dueDate!);
         return {
           id: `task-${task.id}`,
+          taskId: task.id, // Store the actual task ID for click handling
           date: taskDate.getDate(),
           month: taskDate.getMonth(),
           year: taskDate.getFullYear(),
@@ -263,6 +276,54 @@ export default function CalendarView() {
       title: "Event deleted",
       description: "The event has been removed from your calendar",
     });
+  };
+
+  // Handle clicking on an event (opens task modal for task-linked events)
+  const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent day click from firing
+    
+    if (event.isTask && event.taskId) {
+      // Find the task and open it in the modal
+      const task = tasks.find(t => t.id === event.taskId);
+      if (task) {
+        openTaskModal(task);
+      }
+    }
+  };
+
+  // Handle delete button click on an event
+  const handleDeleteButtonClick = (event: CalendarEvent, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event click and day click from firing
+    
+    if (event.isTask) {
+      // Show confirmation dialog for task-linked events
+      setEventToDelete(event);
+      setDeleteDialogOpen(true);
+    } else {
+      // Direct delete for non-task events
+      handleDeleteEvent(event.id);
+    }
+  };
+
+  // Remove from calendar only (keep task, but set showOnCalendar to false)
+  const handleRemoveFromCalendarOnly = async () => {
+    if (eventToDelete?.taskId) {
+      await updateTask(eventToDelete.taskId, { showOnCalendar: false });
+      toast({
+        title: "Removed from calendar",
+        description: "The task has been removed from the calendar but still exists in your task list.",
+      });
+    }
+    setEventToDelete(null);
+  };
+
+  // Delete both the task and calendar event
+  const handleDeleteTaskAndEvent = async () => {
+    if (eventToDelete?.taskId) {
+      await deleteTask(eventToDelete.taskId);
+      // Task deletion will automatically remove it from taskEvents
+    }
+    setEventToDelete(null);
   };
 
   const formatDayWithMonth = (day: number) => {
@@ -523,12 +584,23 @@ export default function CalendarView() {
                   getEventsForDay(selectedDay).map((event) => (
                     <div
                       key={event.id}
-                      className="flex items-start justify-between p-3 rounded-lg bg-background-elevated border border-card-border"
+                      onClick={(e) => handleEventClick(event, e)}
+                      className={`flex items-start justify-between p-3 rounded-lg bg-background-elevated border border-card-border transition-all ${
+                        event.isTask 
+                          ? 'cursor-pointer hover:border-primary hover:bg-primary/5' 
+                          : ''
+                      }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-3 h-3 rounded-full ${event.color}`}></div>
                           <h4 className="font-medium text-text-heading">{event.title}</h4>
+                          {event.isTask && (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Edit2 className="h-3 w-3" />
+                              Task
+                            </span>
+                          )}
                         </div>
                         {event.time && (
                           <div className="flex items-center gap-1 text-sm text-text-muted ml-5">
@@ -539,11 +611,14 @@ export default function CalendarView() {
                         {event.description && (
                           <p className="text-sm text-text-muted ml-5 mt-1">{event.description}</p>
                         )}
+                        {event.isTask && (
+                          <p className="text-xs text-primary ml-5 mt-2">Click to edit task</p>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteEvent(event.id)}
+                        onClick={(e) => handleDeleteButtonClick(event, e)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <X className="h-4 w-4" />
@@ -626,6 +701,17 @@ export default function CalendarView() {
         provider={syncConfirmProvider || "google"}
         onConfirm={handleSyncConfirm}
         onCancel={handleSyncCancel}
+      />
+      
+      {/* Delete Confirmation Dialog for task-linked events */}
+      <CalendarEventDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        eventTitle={eventToDelete?.title || ""}
+        isTaskEvent={eventToDelete?.isTask || false}
+        onDeleteEventOnly={() => handleDeleteEvent(eventToDelete?.id || "")}
+        onRemoveFromCalendarOnly={handleRemoveFromCalendarOnly}
+        onDeleteBoth={handleDeleteTaskAndEvent}
       />
     </div>
   );
