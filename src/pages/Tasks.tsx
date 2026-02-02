@@ -59,14 +59,22 @@ export default function Tasks() {
 
   // Filter tasks based on view tab (my tasks vs teammate's tasks)
   const baseTasks = useMemo(() => {
-    if (viewTab === "team" && user) {
-      // Show tasks from teammates (tasks where current user is NOT the owner but IS assigned)
+    if (!user) return [];
+    
+    if (viewTab === "team") {
+      // Teammate's Tasks: tasks created by someone else where I am assigned
       return tasks.filter(task => 
-        task.userId !== user.id && (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
+        task.userId !== user.id && 
+        (task.assigneeUserIds?.includes(user.id) || task.assigneeUserId === user.id)
       );
     }
-    // Default: show tasks owned by the user
-    return tasks.filter(task => task.userId === user?.id);
+    
+    // My Tasks: tasks I own OR tasks where I am assigned (regardless of owner)
+    return tasks.filter(task => 
+      task.userId === user.id || 
+      task.assigneeUserIds?.includes(user.id) || 
+      task.assigneeUserId === user.id
+    );
   }, [tasks, viewTab, user]);
 
   // Filter and sort tasks
@@ -186,48 +194,40 @@ export default function Tasks() {
           </Tabs>
         )}
 
-        {/* Category Tabs */}
-        <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="all">All Tasks</TabsTrigger>
-            <TabsTrigger value="buyers">Buyers</TabsTrigger>
-            <TabsTrigger value="listings">Listings</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {/* Status Filter */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setStatusFilter("all")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              statusFilter === "all"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+        {/* Category Filter - Buyers/Listings only (All is handled by status filter) */}
+        <div className="flex gap-2 mb-4">
+          <span className="text-sm text-muted-foreground self-center mr-2">Filter by:</span>
+          <Button
+            variant={categoryFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("all")}
           >
             All
-          </button>
-          <button
-            onClick={() => setStatusFilter("active")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              statusFilter === "active"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+          </Button>
+          <Button
+            variant={categoryFilter === "buyers" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("buyers")}
           >
-            Active
-          </button>
-          <button
-            onClick={() => setStatusFilter("completed")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              statusFilter === "completed"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
+            Buyers
+          </Button>
+          <Button
+            variant={categoryFilter === "listings" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCategoryFilter("listings")}
           >
-            Completed
-          </button>
+            Listings
+          </Button>
         </div>
+
+        {/* Status Filter */}
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="completed">Completed</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Tasks List */}
         <div className="space-y-4">
