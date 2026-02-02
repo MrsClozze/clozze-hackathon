@@ -281,6 +281,7 @@ export default function TeamMemberManagement({
         const teamId = teams[0].id;
 
         // Step 2: Create the invitation FIRST so we can't end up with a removed member and no invite.
+        // Include replaces_member_id so the trigger knows to remove the old member when new one accepts
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -293,6 +294,7 @@ export default function TeamMemberManagement({
             last_name: formData.lastName,
             invited_by: user!.id,
             expires_at: expiresAt.toISOString(),
+            replaces_member_id: selectedMember.id, // Track which member is being replaced
           })
           .select('token')
           .maybeSingle();

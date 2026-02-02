@@ -657,6 +657,7 @@ export type Database = {
           id: string
           invited_by: string
           last_name: string | null
+          replaces_member_id: string | null
           status: Database["public"]["Enums"]["invitation_status"]
           team_id: string
           token: string
@@ -669,6 +670,7 @@ export type Database = {
           id?: string
           invited_by: string
           last_name?: string | null
+          replaces_member_id?: string | null
           status?: Database["public"]["Enums"]["invitation_status"]
           team_id: string
           token?: string
@@ -681,11 +683,19 @@ export type Database = {
           id?: string
           invited_by?: string
           last_name?: string | null
+          replaces_member_id?: string | null
           status?: Database["public"]["Enums"]["invitation_status"]
           team_id?: string
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_invitations_replaces_member_id_fkey"
+            columns: ["replaces_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_invitations_team_id_fkey"
             columns: ["team_id"]
