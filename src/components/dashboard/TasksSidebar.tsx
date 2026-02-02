@@ -1,8 +1,9 @@
 import { Plus, Clock, AlertTriangle, Info } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/contexts/TasksContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
+import { useAuth } from "@/contexts/AuthContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import AddTaskModal from "./AddTaskModal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,27 +11,48 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function TasksSidebar() {
   const { tasks, loading, openTaskModal } = useTasks();
   const { isDemo } = useAccountState();
+  const { user } = useAuth();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
 
-  // Filter out completed tasks
-  const incompleteTasks = tasks.filter((task) => task.status !== "completed");
+  // Filter to only show tasks assigned to the current user
+  const myTasks = useMemo(() => {
+    if (!user) return [];
+    
+    return tasks.filter((task) => {
+      // Skip completed tasks
+      if (task.status === "completed") return false;
+      
+      // Check if current user is explicitly assigned via junction table
+      const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
+      if (assigneeIds.includes(user.id)) return true;
+      
+      // Check legacy assignee field
+      if (task.assigneeUserId === user.id) return true;
+      
+      // Fallback: if no assignees exist, show tasks the user owns
+      const hasAnyAssignees =
+        (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
+        Boolean(task.assigneeUserId);
+      return !hasAnyAssignees && task.userId === user.id;
+    });
+  }, [tasks, user]);
   
   // Sort by priority (high > medium > low) and then by date (earliest first)
-  const sortedTasks = [...incompleteTasks].sort((a, b) => {
-    // Priority weight: high = 3, medium = 2, low = 1
-    const priorityWeight = { high: 3, medium: 2, low: 1 };
-    const priorityDiff = priorityWeight[b.priority] - priorityWeight[a.priority];
-    
-    if (priorityDiff !== 0) return priorityDiff;
-    
-    // If priorities are equal, sort by date (earlier dates first)
-    const dateA = new Date(a.dueDate || a.date);
-    const dateB = new Date(b.dueDate || b.date);
-    return dateA.getTime() - dateB.getTime();
-  });
+  const sortedTasks = useMemo(() => {
+    return [...myTasks].sort((a, b) => {
+      const priorityWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+      const priorityDiff = (priorityWeight[b.priority] || 1) - (priorityWeight[a.priority] || 1);
+      
+      if (priorityDiff !== 0) return priorityDiff;
+      
+      const dateA = new Date(a.dueDate || a.date || 0);
+      const dateB = new Date(b.dueDate || b.date || 0);
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [myTasks]);
   
-  // Show only top 6 most urgent tasks
-  const todoTasks = sortedTasks.slice(0, 6);
+  // Show only top 5 most urgent tasks for the current user
+  const todoTasks = sortedTasks.slice(0, 5);
 
   if (loading) {
     return (
