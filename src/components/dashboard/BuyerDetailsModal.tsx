@@ -154,11 +154,13 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b">
               <div className="relative">
-                <img
-                  src={displayImage}
-                  alt={currentBuyer.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                  <img
+                    src={displayImage}
+                    alt={currentBuyer.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <Button
                   size="sm"
                   variant="outline"

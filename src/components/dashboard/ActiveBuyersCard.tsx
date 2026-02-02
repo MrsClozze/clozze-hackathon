@@ -80,11 +80,11 @@ export default function ActiveBuyersCard() {
               className="flex items-center gap-4 p-4 rounded-lg bg-card border border-card-border hover:border-accent-gold/30 transition-all duration-200 cursor-pointer group"
             >
               {/* Profile Photo */}
-              <div className="w-12 h-12 rounded-full overflow-hidden">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center">
                 <img
                   src={buyer.image}
                   alt={buyer.name}
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-full h-full object-cover"
                 />
               </div>
 
