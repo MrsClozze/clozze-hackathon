@@ -17,6 +17,7 @@ import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { isDemoId } from "@/data/demoData";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -42,10 +43,15 @@ export default function AddTaskModal({
 }: AddTaskModalProps) {
   const { addTask } = useTasks();
   const { contacts, loading: contactsLoading } = useContacts();
-  const { buyers } = useBuyers();
-  const { listings } = useListings();
+  const { buyers: allBuyers } = useBuyers();
+  const { listings: allListings } = useListings();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
   const { connections: calendarConnections } = useCalendarConnections();
+
+  // Filter out demo data - only show real buyers and listings
+  const buyers = allBuyers.filter(b => !isDemoId(b.id));
+  const listings = allListings.filter(l => !isDemoId(l.id));
+  const hasNoLiveData = buyers.length === 0 && listings.length === 0;
 
   // Check if any external calendar is connected
   const hasConnectedCalendar = calendarConnections.some(c => c.syncEnabled);
@@ -370,48 +376,54 @@ export default function AddTaskModal({
                 <User className="h-4 w-4" />
                 Assign to Buyer
               </Label>
-              <Select 
-                value={selectedBuyerId} 
-                onValueChange={(value) => {
-                  setSelectedBuyerId(value);
-                  // Clear listing if buyer is selected (task can only be linked to one)
-                  if (value && value !== "none") {
-                    setSelectedListingId("");
-                  }
-                }}
-              >
-              <SelectTrigger className="bg-background-elevated border-primary/25">
-                <SelectValue
-                    placeholder={
-                      buyers.length === 0 
-                        ? "No buyers available" 
-                        : "Select a buyer..."
-                    } 
-                  />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50 max-h-[200px]">
-                  {buyers.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground text-center">
-                      <User className="h-4 w-4 inline mr-2" />
-                      Add a buyer to assign tasks
-                    </div>
-                  ) : (
-                    <>
-                      <SelectItem value="none">None</SelectItem>
-                      {buyers.map((buyer) => (
-                        <SelectItem key={buyer.id} value={buyer.id}>
-                          {buyer.firstName} {buyer.lastName}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+              {hasNoLiveData ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Add your first listing or buyer to start assigning tasks.
+                </p>
+              ) : (
+                <Select 
+                  value={selectedBuyerId} 
+                  onValueChange={(value) => {
+                    setSelectedBuyerId(value);
+                    // Clear listing if buyer is selected (task can only be linked to one)
+                    if (value && value !== "none") {
+                      setSelectedListingId("");
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-background-elevated border-primary/25">
+                    <SelectValue
+                      placeholder={
+                        buyers.length === 0 
+                          ? "No buyers available" 
+                          : "Select a buyer..."
+                      } 
+                    />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-[200px]">
+                    {buyers.length === 0 ? (
+                      <div className="p-3 text-sm text-muted-foreground text-center">
+                        <User className="h-4 w-4 inline mr-2" />
+                        Add a buyer to assign tasks
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="none">None</SelectItem>
+                        {buyers.map((buyer) => (
+                          <SelectItem key={buyer.id} value={buyer.id}>
+                            {buyer.firstName} {buyer.lastName}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           )}
 
-          {/* Assign to Listing - Only show if not pre-filled */}
-          {!initialListingId && (
+          {/* Assign to Listing - Only show if not pre-filled and user has live data */}
+          {!initialListingId && !hasNoLiveData && (
             <div className="space-y-2">
               <Label className="text-text-heading flex items-center gap-2">
                 <Home className="h-4 w-4" />
@@ -427,8 +439,8 @@ export default function AddTaskModal({
                   }
                 }}
               >
-              <SelectTrigger className="bg-background-elevated border-primary/25">
-                <SelectValue
+                <SelectTrigger className="bg-background-elevated border-primary/25">
+                  <SelectValue
                     placeholder={
                       listings.length === 0 
                         ? "No listings available" 
