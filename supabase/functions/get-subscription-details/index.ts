@@ -117,6 +117,10 @@ serve(async (req) => {
     const cpe = activeSubscription.current_period_end;
     logStep("Period dates", { current_period_start: cps, current_period_end: cpe });
 
+    // Get trial end date if subscription is trialing
+    const trialEnd = activeSubscription.trial_end;
+    logStep("Trial info", { status: activeSubscription.status, trial_end: trialEnd });
+
     const subscriptionDetails = {
       id: activeSubscription.id,
       status: activeSubscription.status,
@@ -139,6 +143,10 @@ serve(async (req) => {
         : null,
       createdAt: activeSubscription.created 
         ? new Date(activeSubscription.created * 1000).toISOString() 
+        : null,
+      // Trial information
+      trialEnd: typeof trialEnd === "number"
+        ? new Date(trialEnd * 1000).toISOString()
         : null,
     };
 
