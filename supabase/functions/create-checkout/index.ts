@@ -220,12 +220,15 @@ serve(async (req) => {
       cancel_url: `${getRequestOrigin(req)}/pricing`,
     };
     
-    // Add 30-day free trial for Pro/Team plans (not for seats-only add-on)
-    if (plan !== 'seats') {
+    // Add 30-day free trial ONLY for solo Pro plans (no team seats)
+    // Team add-ons require immediate payment to unlock collaboration features
+    if (plan === 'pro' && seats === 0) {
       sessionConfig.subscription_data = {
         trial_period_days: 30,
       };
-      logStep("Adding 30-day trial to subscription");
+      logStep("Adding 30-day trial to solo Pro subscription");
+    } else {
+      logStep("No trial - team seats require immediate payment", { plan, seats });
     }
     
     // Add customer info based on checkout type
