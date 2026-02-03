@@ -115,11 +115,13 @@ export default function UnlockedTeamMembers() {
 
   const fetchSlots = async () => {
     try {
+      console.log('[UnlockedTeamMembers] Fetching slots...');
       const { data, error } = await supabase.functions.invoke('check-team-member-slots');
       if (error) throw error;
+      console.log('[UnlockedTeamMembers] Slots data received:', data);
       setSlots(data);
     } catch (error) {
-      console.error('Error fetching slots:', error);
+      console.error('[UnlockedTeamMembers] Error fetching slots:', error);
     }
   };
 
@@ -237,8 +239,14 @@ export default function UnlockedTeamMembers() {
   };
 
   const handleAddMember = () => {
-    // Always show the full upgrade modal with quantity selector + Stripe checkout
-    setShowUpgradeModal(true);
+    // If there are available slots, show the add member form directly
+    if (slots.availableSlots > 0) {
+      setFormData({ firstName: '', lastName: '', email: '' });
+      setShowAddModal(true);
+    } else {
+      // Otherwise, show upgrade modal to purchase more slots
+      setShowUpgradeModal(true);
+    }
   };
 
   const handleEditMember = (member: TeamMember) => {
