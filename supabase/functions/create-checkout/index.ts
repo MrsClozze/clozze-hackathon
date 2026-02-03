@@ -54,6 +54,7 @@ serve(async (req) => {
     // Accept either legacy priceId or new plan/seats format
     let plan = body?.plan as string | undefined;
     let seats = typeof body?.seats === 'number' ? body.seats : 0;
+    const quantity = typeof body?.quantity === 'number' ? body.quantity : 1;
     const legacyPriceId = body?.priceId as string | undefined;
     
     // Handle legacy priceId format for backwards compatibility
@@ -72,9 +73,9 @@ serve(async (req) => {
       plan = 'pro';
     }
     
-    // Validate plan type
-    if (plan !== 'pro' && plan !== 'team') {
-      throw new Error(`Invalid plan type: ${plan}. Must be 'pro' or 'team'.`);
+    // Validate plan type - now supports 'seats' for standalone seat purchases
+    if (plan !== 'pro' && plan !== 'team' && plan !== 'seats') {
+      throw new Error(`Invalid plan type: ${plan}. Must be 'pro', 'team', or 'seats'.`);
     }
     
     // 'team' is just 'pro' + seats
@@ -82,7 +83,10 @@ serve(async (req) => {
       seats = 1;
     }
     
-    logStep("Checkout params", { plan, seats });
+    // For 'seats' plan, use quantity parameter
+    const seatQuantity = plan === 'seats' ? Math.max(1, quantity) : seats;
+    
+    logStep("Checkout params", { plan, seats, seatQuantity });
 
     // Check if user is authenticated (optional for guest checkout)
     const authHeader = req.headers.get("Authorization");
@@ -125,16 +129,19 @@ serve(async (req) => {
         customerId = matchedCustomer.id;
         logStep("Found matched customer", { customerId });
         
-        // Check if user already has an active subscription
-        const existingSubs = await stripe.subscriptions.list({
-          customer: customerId,
-          status: "active",
-          limit: 5,
-        });
-        
-        if (existingSubs.data.length > 0) {
-          logStep("User already has active subscription - use customer portal to manage");
-          throw new Error("You already have an active subscription. Use 'Manage Subscription' to modify your plan.");
+        // For 'seats' plan, we ALLOW existing subscriptions (they're adding to it)
+        // For 'pro' or 'team' plans, check if they already have a subscription
+        if (plan !== 'seats') {
+          const existingSubs = await stripe.subscriptions.list({
+            customer: customerId,
+            status: "active",
+            limit: 5,
+          });
+          
+          if (existingSubs.data.length > 0) {
+            logStep("User already has active subscription - use customer portal to manage");
+            throw new Error("You already have an active subscription. Use 'Manage Subscription' to modify your plan.");
+          }
         }
       } else {
         // Check for orphaned customer (no user ID set) and claim it
@@ -160,22 +167,45 @@ serve(async (req) => {
       }
     }
 
-    // Build line items
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      {
-        price: PRO_PRICE_ID,
-        quantity: 1,
-      },
-    ];
+    // Build line items based on plan type
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
     
-    if (seats > 0) {
+    if (plan === 'seats') {
+      // Standalone seat purchase - only team seats, no Pro
       lineItems.push({
         price: TEAM_SEAT_PRICE_ID,
-        quantity: seats,
+        quantity: seatQuantity,
       });
+    } else {
+      // Pro or Team plan - always includes Pro base
+      lineItems.push({
+        price: PRO_PRICE_ID,
+        quantity: 1,
+      });
+      
+      if (seats > 0) {
+        lineItems.push({
+          price: TEAM_SEAT_PRICE_ID,
+          quantity: seats,
+        });
+      }
     }
     
     logStep("Line items prepared", { lineItems: lineItems.map(li => ({ price: li.price, qty: li.quantity })) });
+
+    // Determine plan type for metadata
+    let planType: string;
+    let successRedirectPlan: string;
+    if (plan === 'seats') {
+      planType = 'seats_addon';
+      successRedirectPlan = 'seats';
+    } else if (seats > 0) {
+      planType = 'team';
+      successRedirectPlan = 'team';
+    } else {
+      planType = 'pro';
+      successRedirectPlan = 'pro';
+    }
 
     // Build checkout session config
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -183,10 +213,10 @@ serve(async (req) => {
       mode: "subscription",
       allow_promotion_codes: true,
       metadata: {
-        plan_type: seats > 0 ? 'team' : 'pro',
-        initial_seats: seats.toString(),
+        plan_type: planType,
+        initial_seats: (plan === 'seats' ? seatQuantity : seats).toString(),
       },
-      success_url: `${getRequestOrigin(req)}/auth?session_id={CHECKOUT_SESSION_ID}&plan=${seats > 0 ? 'team' : 'pro'}&purchase_success=true`,
+      success_url: `${getRequestOrigin(req)}/auth?session_id={CHECKOUT_SESSION_ID}&plan=${successRedirectPlan}&purchase_success=true`,
       cancel_url: `${getRequestOrigin(req)}/pricing`,
     };
     
@@ -206,8 +236,8 @@ serve(async (req) => {
 
     logStep("Checkout session created", { 
       sessionId: session.id, 
-      plan: seats > 0 ? 'team' : 'pro', 
-      seats,
+      plan: planType, 
+      seats: plan === 'seats' ? seatQuantity : seats,
       isGuest: isGuestCheckout 
     });
 
