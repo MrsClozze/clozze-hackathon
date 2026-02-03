@@ -87,33 +87,25 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
 
     setLoading(true);
     try {
-      // Use update-team-seats to add the exact number of seats
-      const { data, error } = await supabase.functions.invoke('update-team-seats', {
-        body: { 
-          action: 'add', 
-          quantity: seatsToAdd 
-        }
+      // IMPORTANT: do not change seat totals locally.
+      // Redirect to Stripe Checkout so the user explicitly confirms the purchase.
+      const { data, error } = await supabase.functions.invoke('create-team-member-checkout', {
+        body: { quantity: seatsToAdd },
       });
 
       if (error) throw error;
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (!data?.url) throw new Error("Unable to start checkout. Please try again.");
 
       toast({
-        title: "Team seats added!",
-        description: `Successfully added ${seatsToAdd} seat${seatsToAdd > 1 ? 's' : ''} to your subscription. You now have ${data.totalSlots} total seats.`,
+        title: "Redirecting to checkout",
+        description: `You'll confirm ${seatsToAdd} seat${seatsToAdd > 1 ? 's' : ''} in Stripe. Your seat totals will update after payment is confirmed.`,
       });
 
-      // Refresh subscription and slots data
-      await Promise.all([
-        refreshSubscription(),
-        refetchSlots()
-      ]);
-
+      // Close modal before redirect to avoid UI confusion.
       handleClose();
-      onSuccess?.();
+
+      // Redirect in the same tab so the flow is explicit.
+      window.location.href = data.url;
     } catch (error: any) {
       console.error('Add seats error:', error);
       toast({
