@@ -129,9 +129,30 @@ serve(async (req) => {
         customerId = matchedCustomer.id;
         logStep("Found matched customer", { customerId });
         
-        // For 'seats' plan, we ALLOW existing subscriptions (they're adding to it)
-        // For 'pro' or 'team' plans, check if they already have a subscription
-        if (plan !== 'seats') {
+        // For 'seats' plan, check if they have an active subscription to add seats to
+        if (plan === 'seats') {
+          const existingSubs = await stripe.subscriptions.list({
+            customer: customerId,
+            limit: 5,
+          });
+          
+          // Find active or trialing subscription
+          const activeSub = existingSubs.data.find(
+            (s: Stripe.Subscription) => s.status === 'active' || s.status === 'trialing'
+          );
+          
+          if (!activeSub) {
+            throw new Error("You need an active Pro subscription to add team seats. Please subscribe to Pro first.");
+          }
+          
+          // Use Stripe's subscription update with payment behavior that creates an invoice
+          // This ensures payment confirmation for the new seats
+          logStep("Adding seats to existing subscription via checkout", { 
+            subscriptionId: activeSub.id, 
+            seatQuantity 
+          });
+        } else {
+          // For 'pro' or 'team' plans, check if they already have a subscription
           const existingSubs = await stripe.subscriptions.list({
             customer: customerId,
             status: "active",

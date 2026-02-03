@@ -11,8 +11,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Users, Plus, Minus, ArrowRight, AlertCircle } from "lucide-react";
+import { Users, ArrowRight, AlertCircle } from "lucide-react";
 import clozzeLogo from "@/assets/clozze-logo.png";
 
 interface TeamMemberUpgradeModalProps {
@@ -25,26 +24,13 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
   const { subscription } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  const pricePerMember = 9.99;
-  const totalPrice = (quantity * pricePerMember).toFixed(2);
   
   const hasPro = subscription?.plan_type === 'pro' || 
     subscription?.plan_type === 'team' || 
     (subscription?.plan_type as string) === 'enterprise';
 
-  const handleQuantityChange = (delta: number) => {
-    setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
-  };
-
-  const resetForm = () => {
-    setQuantity(1);
-  };
-
   const handleClose = () => {
-    resetForm();
     onClose();
   };
 
@@ -60,43 +46,32 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
 
     setLoading(true);
     try {
-      // Use the unified update-team-seats function to add seats to existing subscription
-      const { data, error } = await supabase.functions.invoke('update-team-seats', {
-        body: { action: 'add', quantity }
-      });
+      // Redirect to Stripe Customer Portal to manage subscription and add seats
+      const { data, error } = await supabase.functions.invoke('customer-portal');
 
       if (error) throw error;
 
       if (data?.error) {
-        // Check if user needs to subscribe first
-        if (data.error.includes('Pro') || data.error.includes('subscribe')) {
-          toast({
-            title: "Pro Account Required",
-            description: "Please upgrade to Pro first to add team members.",
-            variant: "destructive",
-          });
-          return;
-        }
         throw new Error(data.error);
       }
 
-      if (data?.success) {
-        toast({
-          title: "Team Seats Added",
-          description: `You now have ${data.totalSlots} team member seat${data.totalSlots !== 1 ? 's' : ''} available. You can now invite team members from the Team page.`,
-        });
+      if (data?.url) {
+        // Open Customer Portal in new tab - user can add seats there
+        window.open(data.url, '_blank');
         handleClose();
-        onSuccess?.();
-        window.location.reload();
+        toast({
+          title: "Opening Subscription Management",
+          description: "Update your team seats in the Stripe portal. Changes will sync automatically.",
+        });
         return;
       }
 
-      throw new Error("Unexpected response from server");
+      throw new Error("No portal URL returned");
     } catch (error: any) {
-      console.error('Seat update error:', error);
+      console.error('Portal error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to add team member seats. Please try again.",
+        description: error.message || "Failed to open subscription management. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -117,10 +92,10 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
             <img src={clozzeLogo} alt="Clozze" className="h-32 w-auto" />
           </div>
           <DialogTitle className="text-xl font-semibold text-center">
-            Add Team Seats
+            Manage Team Seats
           </DialogTitle>
           <DialogDescription className="text-center text-text-muted">
-            Purchase additional seats for your team
+            Add or modify team seats through your subscription
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +131,7 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
                   </div>
                   <div>
                     <h4 className="font-medium text-text-heading">
-                      Team Member Add-on
+                      Team Member Seats
                     </h4>
                     <p className="text-primary font-semibold">
                       $9.99 per seat / month
@@ -164,58 +139,8 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
                   </div>
                 </div>
                 <p className="text-text-muted text-sm">
-                  Purchase seats now, then invite team members from the Team page. Each seat allows one team member to collaborate on your deals and tasks.
+                  Add team seats through the Stripe subscription portal. You'll be able to increase or decrease seats, and charges will be prorated automatically.
                 </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-sm font-medium">
-                  How many seats do you want to add?
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={quantity <= 1}
-                      className="h-10 w-10"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
-                      className="w-20 text-center"
-                      min={1}
-                      max={10}
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={quantity >= 10}
-                      className="h-10 w-10"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <span className="text-text-muted text-sm">
-                    {quantity === 1 ? 'seat' : 'seats'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-4 border">
-                <div className="flex justify-between items-center">
-                  <span className="text-text-muted">
-                    {quantity} seat{quantity !== 1 ? 's' : ''}
-                  </span>
-                  <span className="text-xl font-bold text-text-heading">
-                    ${totalPrice}/month
-                  </span>
-                </div>
               </div>
 
               <Button 
@@ -223,11 +148,12 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={loading}
               >
-                {loading ? 'Processing...' : `Add ${quantity} Seat${quantity !== 1 ? 's' : ''}`}
+                {loading ? 'Opening Portal...' : 'Manage Team Seats'}
+                <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
 
               <p className="text-xs text-text-muted text-center">
-                Team seats are billed at $9.99/month each and will be prorated on your existing subscription. After purchase, invite team members from the Team page.
+                After adding seats, return here to invite team members. Changes sync automatically.
               </p>
             </>
           )}
