@@ -28,7 +28,8 @@ import { trackPurchase } from "@/lib/analytics";
 export default function Team() {
   const { subscription, user, refreshSubscription, loading: authLoading } = useAuth();
   const { refreshUser } = useUser();
-  const { stats: personalStats, loading: personalLoading } = usePersonalData();
+  const [selectedPeriod, setSelectedPeriod] = useState("ytd");
+  const { stats: personalStats, loading: personalLoading } = usePersonalData(selectedPeriod);
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
   const { isTeamOwner, isTeamMember, teamOwnerId, loading: roleLoading } = useTeamRole();
@@ -36,7 +37,6 @@ export default function Team() {
   // Combined loading state: don't block the whole page on subscription resolving.
   // If subscription fails to load for any reason, we'll render the locked state instead of spinning forever.
   const teamMembersLoading = slotsLoading || authLoading || roleLoading;
-  const [selectedPeriod, setSelectedPeriod] = useState("ytd");
   const { toast } = useToast();
 
   // Check if user has Pro/Team/Enterprise plan OR is a team member (can view team)
