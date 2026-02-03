@@ -226,7 +226,7 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={clozzeLogo} alt="Clozze" className="w-20 h-20" />
+            <img src={clozzeLogo} alt="Clozze" className="h-20 w-auto" style={{ height: '80px' }} />
           </div>
           <DialogTitle className="text-xl font-semibold text-center">
             Add Team Members
