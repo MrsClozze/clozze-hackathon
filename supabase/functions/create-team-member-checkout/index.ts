@@ -121,14 +121,15 @@ serve(async (req) => {
       customerId = matchedCustomer.id;
       logStep("Found existing customer", { customerId });
       
-      // Check if customer has an active Pro subscription
+      // Check if customer has an active or trialing Pro subscription
       const subscriptions = await stripe.subscriptions.list({
         customer: customerId,
-        status: "active",
         limit: 10,
       });
       
+      // Filter to active or trialing subscriptions with Pro product
       const hasProSubscription = subscriptions.data.some((sub: any) => 
+        (sub.status === "active" || sub.status === "trialing") &&
         sub.items.data.some((item: any) => item.price.product === PRO_PRODUCT_ID)
       );
       
