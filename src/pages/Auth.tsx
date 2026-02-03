@@ -119,6 +119,9 @@ export default function Auth() {
       if (user) {
         console.log('[AUTH] User detected, checking redirect...', user.id);
         
+        // Check for redirect parameter (e.g., from /checkout page)
+        const redirectUrl = searchParams.get('redirect');
+        
         // Check for invitation token - process for existing users
         const invitationToken = searchParams.get('invitation');
         if (invitationToken) {
@@ -186,6 +189,13 @@ export default function Auth() {
             console.log('[AUTH] Profile not found, retrying in 500ms...');
             await new Promise(resolve => setTimeout(resolve, 500));
             return checkProfile();
+          }
+          
+          // If there's a redirect URL, honor it after ensuring profile exists
+          if (redirectUrl) {
+            console.log('[AUTH] Redirect URL found, navigating to:', redirectUrl);
+            navigate(redirectUrl);
+            return;
           }
           
           if (!profile || !profile.onboarding_completed) {
