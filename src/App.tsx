@@ -20,6 +20,7 @@ import CommunicationHub from "./pages/CommunicationHub";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import Pricing from "./pages/Pricing";
+import Checkout from "./pages/Checkout";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
       { path: "/reset-password", element: <ResetPassword /> },
       { path: "/reset-password/*", element: <ResetPassword /> },
       { path: "/pricing", element: <Pricing /> },
+      { path: "/checkout", element: <Checkout /> },
       { path: "/integrations", element: <Integrations /> },
       { path: "/settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },

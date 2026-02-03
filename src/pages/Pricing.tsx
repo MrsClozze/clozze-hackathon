@@ -12,19 +12,20 @@ import SubscriptionManagement from "@/components/subscription/SubscriptionManage
 
 const plans = [
   {
-    name: "Free website",
+    name: "Free Trial",
     price: "$0",
     period: "",
     description: "Explore every feature, no risk. Perfect for testing how AI can simplify your real estate deals.",
     features: [
-      "Try for free for 1 month",
+      "Try for free for 30 days",
       "AI-powered document reading",
       "Timeline creation",
       "Automated reminders",
       "AI transaction coordination",
       "Advanced dashboards"
     ],
-    priceId: null,
+    plan: null, // No checkout for free
+    seats: 0,
     planType: 'free',
     badge: "NEW"
   },
@@ -39,9 +40,11 @@ const plans = [
       "Multi-application syncing",
       "Custom tasks",
       "Automated reminders and workflows",
-      "Unlimited deals"
+      "Unlimited deals",
+      "30-day free trial included"
     ],
-    priceId: "price_1SD8YkRkZlhjPqo6lctEkYcA",
+    plan: 'pro',
+    seats: 0,
     planType: 'pro',
     badge: null,
     popular: true
@@ -53,13 +56,15 @@ const plans = [
     description: "Add multiple team members to one shared workspace so agents, assistants, transaction managers, and brokers can collaborate, manage users, and track every deal together",
     features: [
       { text: "Shared team dashboards", badge: "NEW" },
-      "Per-seat pricing",
+      "Everything in Pro",
+      "Per-seat pricing ($9.99/user)",
       "Task management",
       "Collaboration on shared deals",
       "Advanced analytics & reporting",
       "Sales monitoring"
     ],
-    priceId: "price_1SD8YzRkZlhjPqo6IMzZB3Fc",
+    plan: 'pro',
+    seats: 1, // Team = Pro + at least 1 seat
     planType: 'team',
     badge: null
   }
@@ -98,13 +103,15 @@ function PlanSelection() {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  const handleSignUp = async (priceId: string | null, planType: string) => {
+  const handleSignUp = async (plan: string | null, seats: number, planType: string) => {
     if (!user) {
-      navigate("/auth");
+      // Redirect to auth with return URL for checkout
+      const returnUrl = plan ? `/checkout?plan=${plan}${seats > 0 ? `&seats=${seats}` : ''}` : '/auth';
+      navigate(returnUrl === '/auth' ? '/auth' : `/auth?redirect=${encodeURIComponent(returnUrl)}`);
       return;
     }
 
-    if (!priceId) {
+    if (!plan) {
       toast({
         title: "You're already on the free trial!",
         description: "Upgrade to unlock more features.",
@@ -116,7 +123,7 @@ function PlanSelection() {
     
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId }
+        body: { plan, seats }
       });
 
       if (error) throw error;
@@ -188,7 +195,7 @@ function PlanSelection() {
                 className="w-full mb-6"
                 variant={plan.popular ? "default" : "outline"}
                 disabled={loading === plan.planType || isCurrentPlan}
-                onClick={() => handleSignUp(plan.priceId, plan.planType)}
+                onClick={() => handleSignUp(plan.plan, plan.seats, plan.planType)}
               >
                 {loading === plan.planType
                   ? "Loading..."

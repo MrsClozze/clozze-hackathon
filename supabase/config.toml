@@ -41,3 +41,10 @@ verify_jwt = false
 [functions.verify-whatsapp-code]
 
 [functions.send-team-invitation-email]
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.update-team-seats]
+
+[functions.check-team-member-slots]
