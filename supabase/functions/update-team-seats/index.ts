@@ -115,19 +115,23 @@ serve(async (req) => {
     const customerId = matchedCustomer.id;
     logStep("Found customer", { customerId });
 
-    // Find active subscription with Pro product
+    // Find active or trialing subscription with Pro product
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
       limit: 10,
     });
+    
+    // Filter to active or trialing subscriptions
+    const activeOrTrialing = subscriptions.data.filter(
+      (sub: Stripe.Subscription) => sub.status === "active" || sub.status === "trialing"
+    );
 
     let targetSubscription: Stripe.Subscription | null = null;
     let proItemId: string | null = null;
     let seatItemId: string | null = null;
     let currentSeatQuantity = 0;
 
-    for (const sub of subscriptions.data) {
+    for (const sub of activeOrTrialing) {
       for (const item of sub.items.data) {
         const productId = item.price.product as string;
         if (productId === PRO_PRODUCT_ID) {
