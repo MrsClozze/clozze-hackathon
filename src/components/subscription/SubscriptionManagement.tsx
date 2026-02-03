@@ -46,6 +46,7 @@ interface SubscriptionDetails {
   cancelAtPeriodEnd: boolean;
   cancelAt: string | null;
   createdAt: string;
+  trialEnd: string | null;
 }
 
 interface Invoice {
@@ -207,10 +208,10 @@ export default function SubscriptionManagement() {
             </div>
             {subscriptionDetails && (
               <Badge 
-                variant={subscriptionDetails.cancelAtPeriodEnd ? "destructive" : "default"}
+                variant={subscriptionDetails.cancelAtPeriodEnd ? "destructive" : subscriptionDetails.status === "trialing" ? "secondary" : "default"}
                 className="text-sm"
               >
-                {subscriptionDetails.cancelAtPeriodEnd ? "Cancelling" : subscriptionDetails.status === "trialing" ? "Trial" : "Active"}
+                {subscriptionDetails.cancelAtPeriodEnd ? "Cancelling" : subscriptionDetails.status === "trialing" ? "Free Trial" : "Active"}
               </Badge>
             )}
           </div>
@@ -218,6 +219,20 @@ export default function SubscriptionManagement() {
         <CardContent className="space-y-6">
           {subscriptionDetails ? (
             <>
+              {/* Trial Info Banner */}
+              {subscriptionDetails.status === "trialing" && subscriptionDetails.trialEnd && (
+                <div className="flex items-start gap-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                  <Clock className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium">You're on a free trial</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your trial ends on <strong>{format(new Date(subscriptionDetails.trialEnd), 'MMMM d, yyyy')}</strong>. 
+                      You will be charged <strong>${subscriptionDetails.amount.toFixed(2)}/{subscriptionDetails.interval}</strong> on this date.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Plan Details */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
@@ -225,26 +240,40 @@ export default function SubscriptionManagement() {
                   <p className="text-lg font-semibold">{subscriptionDetails.planName}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Amount</p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscriptionDetails.status === "trialing" ? "Price After Trial" : "Amount"}
+                  </p>
                   <p className="text-lg font-semibold">
                     ${subscriptionDetails.amount.toFixed(2)} / {subscriptionDetails.interval}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Current Period</p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscriptionDetails.status === "trialing" ? "Trial Ends" : "Current Period"}
+                  </p>
                   <p className="text-lg font-semibold">
-                    {subscriptionDetails.currentPeriodStart && 
-                      format(new Date(subscriptionDetails.currentPeriodStart), 'MMM d')} - {' '}
-                    {subscriptionDetails.currentPeriodEnd && 
-                      format(new Date(subscriptionDetails.currentPeriodEnd), 'MMM d, yyyy')}
+                    {subscriptionDetails.status === "trialing" && subscriptionDetails.trialEnd ? (
+                      format(new Date(subscriptionDetails.trialEnd), 'MMM d, yyyy')
+                    ) : (
+                      <>
+                        {subscriptionDetails.currentPeriodStart && 
+                          format(new Date(subscriptionDetails.currentPeriodStart), 'MMM d')} - {' '}
+                        {subscriptionDetails.currentPeriodEnd && 
+                          format(new Date(subscriptionDetails.currentPeriodEnd), 'MMM d, yyyy')}
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Next Billing Date</p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscriptionDetails.status === "trialing" ? "First Charge Date" : "Next Billing Date"}
+                  </p>
                   <p className="text-lg font-semibold flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     {subscriptionDetails.cancelAtPeriodEnd ? (
                       <span className="text-destructive">Cancelled</span>
+                    ) : subscriptionDetails.status === "trialing" && subscriptionDetails.trialEnd ? (
+                      format(new Date(subscriptionDetails.trialEnd), 'MMM d, yyyy')
                     ) : subscriptionDetails.currentPeriodEnd ? (
                       format(new Date(subscriptionDetails.currentPeriodEnd), 'MMM d, yyyy')
                     ) : (
@@ -271,13 +300,13 @@ export default function SubscriptionManagement() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-3">
-                <Button onClick={handleManageBilling} disabled={openingPortal}>
+                <Button onClick={handleManageBilling} disabled={openingPortal} variant="outline">
                   {openingPortal ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <CreditCard className="mr-2 h-4 w-4" />
                   )}
-                  Update Billing Info
+                  Update Payment Method
                 </Button>
                 
                 {!subscriptionDetails.cancelAtPeriodEnd && (
