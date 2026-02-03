@@ -7,7 +7,10 @@ import { Loader2 } from "lucide-react";
 /**
  * Checkout page that handles redirects from the marketing site (clozze.io)
  * 
- * Expected URL format: /checkout?plan=pro or /checkout?plan=pro&seats=2
+ * Expected URL formats:
+ * - /checkout?plan=pro - Pro subscription only
+ * - /checkout?plan=pro&seats=2 - Pro + 2 team seats
+ * - /checkout?plan=seats&quantity=1 - Team seats only (for existing Pro subscribers)
  * 
  * This page supports both authenticated and guest checkout:
  * - Authenticated users: Links subscription to their account
@@ -22,6 +25,7 @@ export default function Checkout() {
 
   const plan = searchParams.get("plan") || "pro";
   const seats = parseInt(searchParams.get("seats") || "0", 10);
+  const quantity = parseInt(searchParams.get("quantity") || "1", 10);
 
   useEffect(() => {
     // Wait for auth to finish loading before proceeding
@@ -36,7 +40,7 @@ export default function Checkout() {
       try {
         // Call create-checkout - it handles both authenticated and guest flows
         const { data, error: fnError } = await supabase.functions.invoke("create-checkout", {
-          body: { plan, seats },
+          body: { plan, seats, quantity },
         });
 
         if (fnError) throw fnError;
@@ -55,7 +59,7 @@ export default function Checkout() {
     };
 
     initiateCheckout();
-  }, [authLoading, plan, seats, processing]);
+  }, [authLoading, plan, seats, quantity, processing]);
 
   if (authLoading || processing) {
     return (
