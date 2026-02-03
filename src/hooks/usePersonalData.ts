@@ -135,10 +135,25 @@ export function usePersonalData(period: string = "ytd") {
       (sum, l) => sum + Number(l.price || 0),
       0
     );
-    const totalCommission = [
-      ...filteredListings.map((l) => Number(l.agent_commission || 0)),
-      ...filteredBuyers.map((b) => Number(b.agent_commission || 0)),
-    ].reduce((sum, c) => sum + c, 0);
+
+    // Calculate listing commissions from stored agent_commission
+    const listingCommissions = filteredListings.reduce(
+      (sum, l) => sum + Number(l.agent_commission || 0),
+      0
+    );
+
+    // Calculate buyer commissions dynamically using 50/50 split logic
+    // Total commission = pre_approved_amount * (commission_percentage / 100)
+    // Agent commission = Total commission * 0.5 (50/50 split)
+    const buyerCommissions = filteredBuyers.reduce((sum, b) => {
+      const preApproved = Number(b.pre_approved_amount || 0);
+      const commPct = Number(b.commission_percentage || 0);
+      const totalComm = preApproved * (commPct / 100);
+      const agentComm = totalComm * 0.5; // 50/50 split
+      return sum + agentComm;
+    }, 0);
+
+    const totalCommission = listingCommissions + buyerCommissions;
 
     const totalItems = filteredListings.length + filteredBuyers.length;
     const avgCommission = totalItems > 0 ? totalCommission / totalItems : 0;
