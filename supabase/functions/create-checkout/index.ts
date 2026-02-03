@@ -52,8 +52,6 @@ serve(async (req) => {
     const body = await req.json();
     
     // Accept either legacy priceId or new plan/seats format
-    // Legacy: { priceId: "price_xxx" }
-    // New: { plan: "pro" | "team", seats?: number }
     let plan = body?.plan as string | undefined;
     let seats = typeof body?.seats === 'number' ? body.seats : 0;
     const legacyPriceId = body?.priceId as string | undefined;
@@ -64,7 +62,6 @@ serve(async (req) => {
         plan = 'pro';
         seats = 0;
       } else if (legacyPriceId === "price_1SD8YzRkZlhjPqo6IMzZB3Fc") {
-        // Legacy team price - treat as pro + 1 seat
         plan = 'pro';
         seats = 1;
       }
@@ -82,72 +79,88 @@ serve(async (req) => {
     
     // 'team' is just 'pro' + seats
     if (plan === 'team' && seats < 1) {
-      seats = 1; // Team plan requires at least 1 additional seat
+      seats = 1;
     }
     
     logStep("Checkout params", { plan, seats });
 
-    const authHeader = req.headers.get("Authorization")!;
-    const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
-    const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    // Check if user is authenticated (optional for guest checkout)
+    const authHeader = req.headers.get("Authorization");
+    let user = null;
+    let userEmail: string | null = null;
+    let userId: string | null = null;
+    
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data } = await supabaseClient.auth.getUser(token);
+      user = data.user;
+      if (user?.email) {
+        userEmail = user.email;
+        userId = user.id;
+        logStep("Authenticated user", { userId, email: userEmail });
+      }
+    }
+    
+    // For guest checkout, we won't have user info - Stripe will collect email
+    const isGuestCheckout = !userId;
+    logStep("Checkout type", { isGuestCheckout });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
     
-    // Look for existing customer with matching user ID in metadata
-    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
-    let customerId;
+    let customerId: string | undefined;
     
-    // Find customer that matches this specific user ID
-    const matchedCustomer = customers.data.find(
-      (c: Stripe.Customer) => c.metadata?.supabase_user_id === user.id
-    );
-    
-    if (matchedCustomer) {
-      customerId = matchedCustomer.id;
-      logStep("Found matched customer", { customerId });
+    // Only look up/create customer if we have a user
+    if (userId && userEmail) {
+      // Look for existing customer with matching user ID in metadata
+      const customers = await stripe.customers.list({ email: userEmail, limit: 10 });
       
-      // Check if user already has an active subscription
-      const existingSubs = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "active",
-        limit: 5,
-      });
-      
-      if (existingSubs.data.length > 0) {
-        // User already has a subscription - redirect to customer portal instead
-        logStep("User already has active subscription - use customer portal to manage");
-        throw new Error("You already have an active subscription. Use 'Manage Subscription' to modify your plan.");
-      }
-    } else {
-      // Check for orphaned customer (no user ID set) and claim it
-      const orphanedCustomer = customers.data.find(
-        (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+      // Find customer that matches this specific user ID
+      const matchedCustomer = customers.data.find(
+        (c: Stripe.Customer) => c.metadata?.supabase_user_id === userId
       );
       
-      if (orphanedCustomer) {
-        // Update metadata to link to current user
-        await stripe.customers.update(orphanedCustomer.id, {
-          metadata: { supabase_user_id: user.id }
+      if (matchedCustomer) {
+        customerId = matchedCustomer.id;
+        logStep("Found matched customer", { customerId });
+        
+        // Check if user already has an active subscription
+        const existingSubs = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "active",
+          limit: 5,
         });
-        customerId = orphanedCustomer.id;
-        logStep("Claimed orphaned customer", { customerId });
+        
+        if (existingSubs.data.length > 0) {
+          logStep("User already has active subscription - use customer portal to manage");
+          throw new Error("You already have an active subscription. Use 'Manage Subscription' to modify your plan.");
+        }
       } else {
-        // Create new customer with user ID metadata
-        const newCustomer = await stripe.customers.create({
-          email: user.email,
-          metadata: { supabase_user_id: user.id }
-        });
-        customerId = newCustomer.id;
-        logStep("Created new customer", { customerId });
+        // Check for orphaned customer (no user ID set) and claim it
+        const orphanedCustomer = customers.data.find(
+          (c: Stripe.Customer) => !c.metadata?.supabase_user_id
+        );
+        
+        if (orphanedCustomer) {
+          await stripe.customers.update(orphanedCustomer.id, {
+            metadata: { supabase_user_id: userId }
+          });
+          customerId = orphanedCustomer.id;
+          logStep("Claimed orphaned customer", { customerId });
+        } else {
+          // Create new customer with user ID metadata
+          const newCustomer = await stripe.customers.create({
+            email: userEmail,
+            metadata: { supabase_user_id: userId }
+          });
+          customerId = newCustomer.id;
+          logStep("Created new customer", { customerId });
+        }
       }
     }
 
-    // Build line items - always include Pro base, optionally add seats
+    // Build line items
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       {
         price: PRO_PRICE_ID,
@@ -155,9 +168,6 @@ serve(async (req) => {
       },
     ];
     
-    // Add team seat line item (quantity 0 or more)
-    // Even if seats = 0, we include it so the subscription has both line items
-    // This makes it easy to add seats later via subscription update
     if (seats > 0) {
       lineItems.push({
         price: TEAM_SEAT_PRICE_ID,
@@ -167,23 +177,39 @@ serve(async (req) => {
     
     logStep("Line items prepared", { lineItems: lineItems.map(li => ({ price: li.price, qty: li.quantity })) });
 
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      client_reference_id: user.id, // Clozze user ID for webhook identification
+    // Build checkout session config
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       line_items: lineItems,
       mode: "subscription",
       allow_promotion_codes: true,
       metadata: {
-        clozze_user_id: user.id,
-        clozze_email: user.email,
         plan_type: seats > 0 ? 'team' : 'pro',
         initial_seats: seats.toString(),
       },
       success_url: `${getRequestOrigin(req)}/auth?session_id={CHECKOUT_SESSION_ID}&plan=${seats > 0 ? 'team' : 'pro'}&purchase_success=true`,
       cancel_url: `${getRequestOrigin(req)}/pricing`,
-    });
+    };
+    
+    // Add customer info based on checkout type
+    if (customerId) {
+      sessionConfig.customer = customerId;
+      sessionConfig.client_reference_id = userId!;
+      sessionConfig.metadata!.clozze_user_id = userId!;
+      sessionConfig.metadata!.clozze_email = userEmail!;
+    } else {
+      // Guest checkout - let Stripe collect email
+      // We'll create/link the user in the webhook
+      logStep("Guest checkout - Stripe will collect email");
+    }
 
-    logStep("Checkout session created", { sessionId: session.id, plan: seats > 0 ? 'team' : 'pro', seats });
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+
+    logStep("Checkout session created", { 
+      sessionId: session.id, 
+      plan: seats > 0 ? 'team' : 'pro', 
+      seats,
+      isGuest: isGuestCheckout 
+    });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

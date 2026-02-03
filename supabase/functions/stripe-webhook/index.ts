@@ -133,18 +133,82 @@ serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         
         // Get user ID from client_reference_id (primary) or metadata (fallback)
-        const userId = session.client_reference_id || session.metadata?.clozze_user_id;
+        let userId = session.client_reference_id || session.metadata?.clozze_user_id;
+        const customerEmail = session.customer_details?.email || session.customer_email;
+        
+        logStep("Processing checkout completion", { 
+          userId, 
+          customerEmail,
+          customerId: session.customer,
+          subscriptionId: session.subscription 
+        });
+        
+        // Handle guest checkout - create user if needed
+        if (!userId && customerEmail) {
+          logStep("Guest checkout detected, checking for existing user", { email: customerEmail });
+          
+          // Check if user with this email already exists
+          const { data: existingUser } = await supabaseClient.auth.admin.listUsers();
+          const matchedUser = existingUser?.users.find(u => u.email?.toLowerCase() === customerEmail.toLowerCase());
+          
+          if (matchedUser) {
+            userId = matchedUser.id;
+            logStep("Found existing user for guest checkout", { userId });
+            
+            // Update Stripe customer metadata with user ID
+            if (session.customer) {
+              await stripe.customers.update(session.customer as string, {
+                metadata: { supabase_user_id: userId }
+              });
+            }
+          } else {
+            // Create new user account
+            logStep("Creating new user for guest checkout", { email: customerEmail });
+            
+            // Generate a random password - user will reset it
+            const tempPassword = crypto.randomUUID() + crypto.randomUUID();
+            
+            const { data: newUser, error: createError } = await supabaseClient.auth.admin.createUser({
+              email: customerEmail,
+              password: tempPassword,
+              email_confirm: true, // Auto-confirm since they paid
+              user_metadata: {
+                created_via: 'stripe_checkout',
+              }
+            });
+            
+            if (createError) {
+              logStep("Failed to create user", { error: createError.message });
+            } else if (newUser?.user) {
+              userId = newUser.user.id;
+              logStep("Created new user", { userId });
+              
+              // Update Stripe customer metadata with user ID
+              if (session.customer) {
+                await stripe.customers.update(session.customer as string, {
+                  metadata: { supabase_user_id: userId }
+                });
+              }
+              
+              // Send password reset email so user can set their password
+              const { error: resetError } = await supabaseClient.auth.admin.generateLink({
+                type: 'recovery',
+                email: customerEmail,
+              });
+              
+              if (resetError) {
+                logStep("Failed to generate password reset link", { error: resetError.message });
+              } else {
+                logStep("Password reset link generated for new user");
+              }
+            }
+          }
+        }
         
         if (!userId) {
           logStep("No user ID found in checkout session", { sessionId: session.id });
           break;
         }
-        
-        logStep("Processing checkout completion", { 
-          userId, 
-          customerId: session.customer,
-          subscriptionId: session.subscription 
-        });
         
         // Fetch the subscription to get details
         if (session.subscription) {

@@ -9,10 +9,9 @@ import { Loader2 } from "lucide-react";
  * 
  * Expected URL format: /checkout?plan=pro or /checkout?plan=pro&seats=2
  * 
- * This page:
- * 1. Checks if user is authenticated
- * 2. If not, redirects to auth page with return URL
- * 3. If authenticated, calls create-checkout and redirects to Stripe
+ * This page supports both authenticated and guest checkout:
+ * - Authenticated users: Links subscription to their account
+ * - Guest users: Stripe collects email, account created after payment
  */
 export default function Checkout() {
   const navigate = useNavigate();
@@ -25,23 +24,17 @@ export default function Checkout() {
   const seats = parseInt(searchParams.get("seats") || "0", 10);
 
   useEffect(() => {
-    // Wait for auth to load
+    // Wait for auth to finish loading before proceeding
     if (authLoading) return;
 
-    // If not logged in, redirect to auth with return URL
-    if (!user) {
-      const returnUrl = `/checkout?plan=${plan}${seats > 0 ? `&seats=${seats}` : ""}`;
-      navigate(`/auth?redirect=${encodeURIComponent(returnUrl)}`);
-      return;
-    }
-
-    // User is authenticated - initiate checkout
+    // Initiate checkout (works for both authenticated and guest users)
     const initiateCheckout = async () => {
       if (processing) return;
       setProcessing(true);
       setError(null);
 
       try {
+        // Call create-checkout - it handles both authenticated and guest flows
         const { data, error: fnError } = await supabase.functions.invoke("create-checkout", {
           body: { plan, seats },
         });
@@ -52,7 +45,7 @@ export default function Checkout() {
           // Redirect to Stripe Checkout
           window.location.href = data.url;
         } else {
-          throw new Error("No checkout URL returned");
+          throw new Error(data?.error || "No checkout URL returned");
         }
       } catch (err: any) {
         console.error("Checkout error:", err);
@@ -62,7 +55,7 @@ export default function Checkout() {
     };
 
     initiateCheckout();
-  }, [user, authLoading, plan, seats, navigate, processing]);
+  }, [authLoading, plan, seats, processing]);
 
   if (authLoading || processing) {
     return (
@@ -70,7 +63,7 @@ export default function Checkout() {
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
           <h1 className="text-2xl font-semibold text-text-heading mb-2">
-            {authLoading ? "Checking authentication..." : "Preparing checkout..."}
+            {authLoading ? "Loading..." : "Preparing checkout..."}
           </h1>
           <p className="text-text-muted">
             You'll be redirected to complete your purchase shortly.
