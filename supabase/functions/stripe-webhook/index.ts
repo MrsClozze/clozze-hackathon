@@ -12,6 +12,10 @@ const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
 const TEAM_PRODUCT_ID = "prod_T9RRLKSinSr7xt";
 const TEAM_MEMBER_ADDON_PRODUCT_ID = "prod_TrfsLS44eabjDh";
 
+// Price IDs to Product mapping (for when product isn't expanded)
+const PRO_PRICE_ID = "price_1Swo7ODFKg8bCIsk0ZGRJDVa";
+const TEAM_SEAT_PRICE_ID = "price_1Swo7cDFKg8bCIskRcjBLk1k";
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
@@ -19,6 +23,7 @@ const logStep = (step: string, details?: any) => {
 
 /**
  * Determine plan type from subscription items
+ * Checks both product IDs and price IDs to handle all cases
  */
 function determinePlanType(subscription: Stripe.Subscription): 'pro' | 'team' | 'free' {
   const items = subscription.items?.data ?? [];
@@ -28,10 +33,18 @@ function determinePlanType(subscription: Stripe.Subscription): 'pro' | 'team' | 
   
   for (const item of items) {
     const productId = item.price?.product as string;
+    const priceId = item.price?.id as string;
+    
+    // Check by product ID first
     if (productId === PRO_PRODUCT_ID) {
       hasPro = true;
     }
-    if (productId === TEAM_MEMBER_ADDON_PRODUCT_ID && (item.quantity ?? 0) > 0) {
+    // Also check by price ID as fallback (when product isn't expanded)
+    if (priceId === PRO_PRICE_ID) {
+      hasPro = true;
+    }
+    
+    if ((productId === TEAM_MEMBER_ADDON_PRODUCT_ID || priceId === TEAM_SEAT_PRICE_ID) && (item.quantity ?? 0) > 0) {
       hasTeamSeats = true;
     }
     if (productId === TEAM_PRODUCT_ID) {
@@ -39,6 +52,8 @@ function determinePlanType(subscription: Stripe.Subscription): 'pro' | 'team' | 
       return 'team';
     }
   }
+  
+  logStep("determinePlanType result", { hasPro, hasTeamSeats, itemCount: items.length });
   
   if (hasPro && hasTeamSeats) {
     return 'team';
