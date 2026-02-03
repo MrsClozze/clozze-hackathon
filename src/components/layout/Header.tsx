@@ -90,13 +90,10 @@ export default function Header() {
               <button className="flex items-center gap-3 hover:bg-card px-3 py-2 rounded-lg transition-colors cursor-pointer">
                 <div>
                   <p className="text-sm font-medium text-text-heading text-left">
-                    {displayName}{isTrialAccount && !userLoading ? ' (Trial Account)' : ''}
+                    {displayName}
                   </p>
                   <p className="text-xs text-text-muted text-left">{displayTitle}</p>
                 </div>
-                {isTrialAccount && (
-                  <Badge variant="secondary">Trial</Badge>
-                )}
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user.avatarUrl} alt={displayName} />
                   <AvatarFallback className="text-sm font-semibold">{displayInitials}</AvatarFallback>
