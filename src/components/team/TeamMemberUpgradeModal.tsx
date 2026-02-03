@@ -225,7 +225,7 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-center">
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-2">
             <img src={clozzeLogo} alt="Clozze" className="h-32 w-auto" />
           </div>
           <DialogTitle className="text-xl font-semibold text-center">
