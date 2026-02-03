@@ -27,8 +27,9 @@ const getRequestOrigin = (req: Request) => {
   return "https://lovable.dev";
 };
 
-const TEAM_MEMBER_PRICE_ID = "price_1StwWwRkZlhjPqo6C2YuhMir";
-const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
+// LIVE mode IDs
+const TEAM_MEMBER_PRICE_ID = "price_1Swo7cDFKg8bCIskRcjBLk1k";
+const PRO_PRODUCT_ID = "prod_TudOA2vibGcSbd";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';

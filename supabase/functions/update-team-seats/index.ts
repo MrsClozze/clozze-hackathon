@@ -7,9 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const TEAM_SEAT_PRICE_ID = "price_1StwWwRkZlhjPqo6C2YuhMir";
-const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
-const TEAM_MEMBER_ADDON_PRODUCT_ID = "prod_TrfsLS44eabjDh";
+// LIVE mode IDs
+const TEAM_SEAT_PRICE_ID = "price_1Swo7cDFKg8bCIskRcjBLk1k";
+const PRO_PRODUCT_ID = "prod_TudOA2vibGcSbd";
+const TEAM_MEMBER_ADDON_PRODUCT_ID = "prod_TudONHbjI0ialh";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
