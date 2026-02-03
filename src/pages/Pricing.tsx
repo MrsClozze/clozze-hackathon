@@ -293,9 +293,10 @@ function PlanSelection() {
 export default function Pricing() {
   const { subscription, loading } = useAuth();
 
-  // Check if user has an active paid subscription (not trial or free)
+  // Check if user has an active paid subscription (including trialing pro/team subscriptions)
+  // Users on Stripe trial for Pro/Team should see subscription management, not pricing
   const hasActiveSubscription = subscription && 
-    subscription.status === 'active' && 
+    (subscription.status === 'active' || subscription.status === 'trial') && 
     (subscription.plan_type === 'pro' || subscription.plan_type === 'team');
 
   if (loading) {

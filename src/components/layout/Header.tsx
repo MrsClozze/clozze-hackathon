@@ -24,8 +24,13 @@ export default function Header() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
 
-  // User is on trial only if status is 'trial' AND they're not a team_member (team members are fully subscribed)
-  const isTrialAccount = subscription?.status === 'trial' && subscription?.plan_type !== 'team_member';
+  // Show upgrade button only for users without an active paid subscription
+  // Hide it for: active/trialing pro/team subscribers, and team members
+  const hasActiveSubscription = subscription && 
+    (subscription.status === 'active' || subscription.status === 'trial') &&
+    (subscription.plan_type === 'pro' || subscription.plan_type === 'team' || subscription.plan_type === 'team_member');
+  
+  const showUpgradeButton = !hasActiveSubscription && subscription?.status === 'trial' && subscription?.plan_type === 'free';
   
   // Show loading or actual name (never show empty)
   const displayName = userLoading 
@@ -45,7 +50,7 @@ export default function Header() {
 
       {/* Right Side - Controls */}
       <div className="flex items-center gap-3">
-        {isTrialAccount && (
+        {showUpgradeButton && (
           <Button
             variant="default"
             size="sm"
