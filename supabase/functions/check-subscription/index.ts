@@ -109,6 +109,8 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 10 });
     
+    logStep("Customer search results", { count: customers.data.length, email: user.email });
+    
     if (customers.data.length === 0) {
       logStep("No customer found");
       return new Response(JSON.stringify({ subscribed: false, plan_type: 'free', status: 'trial' }), {
@@ -153,7 +155,7 @@ serve(async (req) => {
     }
 
     const customerId = matchedCustomer.id;
-    logStep("Found Stripe customer", { customerId });
+    logStep("Found Stripe customer", { customerId, hasMetadata: !!matchedCustomer.metadata?.supabase_user_id });
 
     // NOTE: promo-code / free-trial checkouts often create subscriptions in `trialing` state,
     // so we must not only look for `active`.
@@ -162,12 +164,18 @@ serve(async (req) => {
       status: "all",
       limit: 20,
     });
+    
+    logStep("Subscriptions found", { count: subscriptions.data.length });
 
     // Products that count as primary plans (Pro/Team).
     // EXCLUDE the Team Member add-on product from plan evaluation.
     const PRO_PRODUCT_ID = "prod_T9RR0I88OJF8l0";
     const TEAM_PRODUCT_ID = "prod_T9RRLKSinSr7xt";
     const TEAM_MEMBER_ADDON_PRODUCT_ID = "prod_Tay3X0u5Vw4oNw"; // team-member add-on must be ignored
+    
+    // Price IDs to Product mapping (for when product isn't expanded)
+    const PRO_PRICE_ID = "price_1Swo7ODFKg8bCIsk0ZGRJDVa";
+    const TEAM_SEAT_PRICE_ID = "price_1Swo7cDFKg8bCIskRcjBLk1k";
 
     const statusPriority: Record<string, number> = {
       active: 0,
@@ -179,11 +187,21 @@ serve(async (req) => {
     const subs = subscriptions.data as Stripe.Subscription[];
 
     // Filter out subscriptions that ONLY contain the add-on product (not a plan).
+    // Check both product IDs and price IDs to handle all cases
     const planSubs = subs.filter((s: Stripe.Subscription) => {
-      const products: string[] = (s.items?.data ?? []).map((item: Stripe.SubscriptionItem) => (item.price?.product as string) ?? '');
-      // Accept if at least one product is a recognised plan (pro or team)
-      return products.some((p: string) => p === PRO_PRODUCT_ID || p === TEAM_PRODUCT_ID);
+      const items = s.items?.data ?? [];
+      for (const item of items) {
+        const productId = (item.price?.product as string) ?? '';
+        const priceId = item.price?.id ?? '';
+        // Accept if at least one item is a recognised plan (pro or team) by product ID or price ID
+        if (productId === PRO_PRODUCT_ID || productId === TEAM_PRODUCT_ID || priceId === PRO_PRICE_ID) {
+          return true;
+        }
+      }
+      return false;
     });
+    
+    logStep("Plan subscriptions after filter", { count: planSubs.length });
 
     const qualifyingSubs = planSubs
       .filter((s: Stripe.Subscription) => Object.prototype.hasOwnProperty.call(statusPriority, s.status))
@@ -214,11 +232,22 @@ serve(async (req) => {
 
       const firstItem = subscription.items?.data?.[0];
       productId = (firstItem?.price?.product as string) || null;
+      const firstPriceId = firstItem?.price?.id || null;
 
-      // Map product ID to plan type
-      if (productId === 'prod_T9RR0I88OJF8l0') {
+      // Map product ID or price ID to plan type
+      // Check price ID as fallback when product ID isn't expanded
+      if (productId === PRO_PRODUCT_ID || firstPriceId === PRO_PRICE_ID) {
         planType = 'pro';
-      } else if (productId === 'prod_T9RRLKSinSr7xt') {
+        // Check if there are team seats too
+        const hasSeatItem = subscription.items?.data?.some((item: Stripe.SubscriptionItem) => {
+          const itemProductId = item.price?.product as string;
+          const itemPriceId = item.price?.id;
+          return itemProductId === TEAM_MEMBER_ADDON_PRODUCT_ID || itemPriceId === TEAM_SEAT_PRICE_ID;
+        });
+        if (hasSeatItem) {
+          planType = 'team';
+        }
+      } else if (productId === TEAM_PRODUCT_ID) {
         planType = 'team';
       }
 
