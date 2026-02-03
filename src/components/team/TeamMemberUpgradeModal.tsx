@@ -169,29 +169,33 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-team-member-checkout', {
-        body: { quantity }
+      // Use the unified update-team-seats function to add seats to existing subscription
+      const { data, error } = await supabase.functions.invoke('update-team-seats', {
+        body: { action: 'add', quantity }
       });
 
       if (error) throw error;
 
-      if (data?.requiresPro) {
-        toast({
-          title: "Pro Account Required",
-          description: "Please upgrade to Pro first to add team members.",
-          variant: "destructive",
-        });
-        return;
+      if (data?.error) {
+        // Check if user needs to subscribe first
+        if (data.error.includes('Pro') || data.error.includes('subscribe')) {
+          toast({
+            title: "Pro Account Required",
+            description: "Please upgrade to Pro first to add team members.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error(data.error);
       }
 
-      // Handle internal users who get slots granted directly
-      if (data?.internalUser && data?.success) {
-        // Send the invitation immediately for internal users
+      if (data?.success) {
+        // Seats added successfully - send the invitation
         await sendInvitation();
         
         toast({
-          title: "Team Member Slots Added",
-          description: `You now have ${data.totalSlots} team member slot${data.totalSlots !== 1 ? 's' : ''} available.`,
+          title: "Team Member Seats Added",
+          description: `You now have ${data.totalSlots} team member slot${data.totalSlots !== 1 ? 's' : ''} available. An invitation has been sent.`,
         });
         handleClose();
         onSuccess?.();
@@ -199,21 +203,12 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
         return;
       }
 
-      if (data?.url) {
-        // Store pending invitation in sessionStorage to send after checkout
-        sessionStorage.setItem('pendingTeamInvite', JSON.stringify({
-          firstName,
-          lastName,
-          email,
-        }));
-        window.open(data.url, '_blank');
-        handleClose();
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
+      throw new Error("Unexpected response from server");
+    } catch (error: any) {
+      console.error('Seat update error:', error);
       toast({
         title: "Error",
-        description: "Failed to start checkout. Please try again.",
+        description: error.message || "Failed to add team member seats. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -379,7 +374,7 @@ export default function TeamMemberUpgradeModal({ isOpen, onClose, onSuccess }: T
               </Button>
 
               <p className="text-xs text-text-muted text-center">
-                You will be redirected to our secure payment processor. This is in addition to your Pro subscription.
+                Team member seats are billed at $9.99/month each and will be prorated on your existing subscription.
               </p>
             </>
           )}
