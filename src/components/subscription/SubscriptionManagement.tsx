@@ -74,6 +74,7 @@ export default function SubscriptionManagement() {
   const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [reenablingSubscription, setReenablingSubscription] = useState(false);
 
   useEffect(() => {
     fetchSubscriptionDetails();
@@ -173,6 +174,31 @@ export default function SubscriptionManagement() {
       });
     } finally {
       setCancellingSubscription(false);
+    }
+  };
+
+  const handleReenableSubscription = async () => {
+    setReenablingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reenable-subscription');
+      if (error) throw error;
+      
+      toast({
+        title: "Subscription re-enabled",
+        description: "Your subscription will continue as normal.",
+      });
+      
+      // Refresh data
+      await fetchSubscriptionDetails();
+      await refreshSubscription();
+    } catch (error: any) {
+      toast({
+        title: "Error re-enabling subscription",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setReenablingSubscription(false);
     }
   };
 
@@ -284,15 +310,35 @@ export default function SubscriptionManagement() {
               </div>
 
               {subscriptionDetails.cancelAtPeriodEnd && (
-                <div className="flex items-center gap-2 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  <p className="text-sm">
-                    Your subscription will end on{' '}
-                    <strong>
-                      {subscriptionDetails.currentPeriodEnd && 
-                        format(new Date(subscriptionDetails.currentPeriodEnd), 'MMMM d, yyyy')}
-                    </strong>
-                  </p>
+                <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <p className="text-sm">
+                      Your subscription will end on{' '}
+                      <strong>
+                        {(() => {
+                          // For trialing subscriptions, use trialEnd; otherwise use currentPeriodEnd
+                          const endDate = subscriptionDetails.status === "trialing" && subscriptionDetails.trialEnd
+                            ? subscriptionDetails.trialEnd
+                            : subscriptionDetails.currentPeriodEnd;
+                          return endDate ? format(new Date(endDate), 'MMMM d, yyyy') : 'the end of your billing period';
+                        })()}
+                      </strong>
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleReenableSubscription}
+                    disabled={reenablingSubscription}
+                  >
+                    {reenablingSubscription ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                    )}
+                    Re-enable Subscription
+                  </Button>
                 </div>
               )}
 
