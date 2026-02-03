@@ -7,9 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Clozze Pro product and prices
-const PRO_PRICE_ID = "price_1SD8YkRkZlhjPqo6lctEkYcA"; // $9.99/mo base Pro (30-day trial configured on price)
-const TEAM_SEAT_PRICE_ID = "price_1StwWwRkZlhjPqo6C2YuhMir"; // $9.99/mo per additional seat
+// Clozze Pro product and prices (LIVE)
+const PRO_PRICE_ID = "price_1Swo7ODFKg8bCIsk0ZGRJDVa"; // $9.99/mo base Pro
+const TEAM_SEAT_PRICE_ID = "price_1Swo7cDFKg8bCIskRcjBLk1k"; // $9.99/mo per additional seat
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
