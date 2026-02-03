@@ -53,17 +53,17 @@ const plans = [
     name: "Team Add-on",
     price: "$9.99",
     period: "/mo per seat",
-    description: "Requires a Pro subscription. Add team members to collaborate on deals, share dashboards, and manage transactions together.",
+    description: "Collaborate with your team on deals, share dashboards, and manage transactions together. Requires Pro subscription.",
     features: [
       { text: "Shared team dashboards", badge: "NEW" },
-      "Requires active Pro account",
       "Per-seat pricing ($9.99/user/mo)",
       "Collaboration on shared deals",
       "Task delegation & management",
-      "Advanced analytics & reporting"
+      "Advanced analytics & reporting",
+      "Includes Pro when upgrading"
     ],
-    plan: 'seats',
-    seats: 0,
+    plan: 'team', // Use 'team' plan (Pro + seats) for non-Pro users
+    seats: 1, // Default to 1 seat
     quantity: 1,
     planType: 'team',
     badge: "ADD-ON",
@@ -131,25 +131,46 @@ function PlanSelection() {
       return;
     }
 
-    // For team add-on, check if they have Pro first
-    if (isAddon) {
-      const currentPlanType = subscription?.plan_type;
-      const hasProAccess = currentPlanType === 'pro' || currentPlanType === 'team' || (currentPlanType as string) === 'enterprise';
-      if (!hasProAccess) {
+    // Check current subscription status
+    const currentPlanType = subscription?.plan_type;
+    const hasProAccess = currentPlanType === 'pro' || currentPlanType === 'team' || (currentPlanType as string) === 'enterprise';
+
+    // For team add-on: if user already has Pro, add seats only; otherwise upgrade to Pro + Team
+    if (isAddon && hasProAccess) {
+      // Already on Pro - just add seats to existing subscription
+      setLoading(planType);
+      try {
+        const { data, error } = await supabase.functions.invoke('create-checkout', {
+          body: { plan: 'seats', quantity }
+        });
+
+        if (error) throw error;
+        
+        if (data?.url) {
+          window.open(data.url, '_blank');
+        }
+      } catch (error: any) {
         toast({
-          title: "Pro Account Required",
-          description: "Please upgrade to Pro first before adding team members.",
+          title: "Error creating checkout",
+          description: error.message,
           variant: "destructive",
         });
-        return;
+      } finally {
+        setLoading(null);
       }
+      return;
     }
 
+    // For all other cases (Pro plan, or Team add-on without Pro)
     setLoading(planType);
     
     try {
+      // Team add-on for non-Pro users: checkout for Pro + 1 seat
+      const checkoutPlan = isAddon ? 'team' : plan;
+      const checkoutSeats = isAddon ? 1 : seats;
+      
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: plan === 'seats' ? { plan: 'seats', quantity } : { plan, seats }
+        body: { plan: checkoutPlan, seats: checkoutSeats }
       });
 
       if (error) throw error;
@@ -218,8 +239,8 @@ function PlanSelection() {
               </div>
 
               <Button
-                className="w-full mb-6"
-                variant={plan.popular ? "default" : "outline"}
+                className={`w-full mb-6 ${plan.planType === 'team' ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : ''}`}
+                variant={plan.popular ? "default" : plan.planType === 'team' ? "default" : "outline"}
                 disabled={loading === plan.planType || isCurrentPlan}
                 onClick={() => handleSignUp(plan)}
               >
@@ -227,7 +248,11 @@ function PlanSelection() {
                   ? "Loading..."
                   : isCurrentPlan
                   ? "Current Plan"
-                  : plan.planType === 'team' ? "Add Team Seats" : "Sign Up"}
+                  : plan.planType === 'team' 
+                    ? (subscription?.plan_type === 'pro' || subscription?.plan_type === 'team' || (subscription?.plan_type as string) === 'enterprise'
+                      ? "Add Team Seats"
+                      : "Get Pro + Team")
+                    : "Sign Up"}
               </Button>
 
               <ul className="space-y-3">
