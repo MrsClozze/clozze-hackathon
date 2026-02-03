@@ -50,23 +50,24 @@ const plans = [
     popular: true
   },
   {
-    name: "Team",
+    name: "Team Add-on",
     price: "$9.99",
-    period: "/mo per user",
-    description: "Add multiple team members to one shared workspace so agents, assistants, transaction managers, and brokers can collaborate, manage users, and track every deal together",
+    period: "/mo per seat",
+    description: "Requires a Pro subscription. Add team members to collaborate on deals, share dashboards, and manage transactions together.",
     features: [
       { text: "Shared team dashboards", badge: "NEW" },
-      "Everything in Pro",
-      "Per-seat pricing ($9.99/user)",
-      "Task management",
+      "Requires active Pro account",
+      "Per-seat pricing ($9.99/user/mo)",
       "Collaboration on shared deals",
-      "Advanced analytics & reporting",
-      "Sales monitoring"
+      "Task delegation & management",
+      "Advanced analytics & reporting"
     ],
-    plan: 'pro',
-    seats: 1, // Team = Pro + at least 1 seat
+    plan: 'seats',
+    seats: 0,
+    quantity: 1,
     planType: 'team',
-    badge: null
+    badge: "ADD-ON",
+    isAddon: true
   }
 ];
 
@@ -103,10 +104,21 @@ function PlanSelection() {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  const handleSignUp = async (plan: string | null, seats: number, planType: string) => {
+  const handleSignUp = async (planConfig: typeof plans[0]) => {
+    const { plan, seats, planType } = planConfig;
+    const quantity = (planConfig as any).quantity || 1;
+    const isAddon = (planConfig as any).isAddon;
+    
     if (!user) {
       // Redirect to auth with return URL for checkout
-      const returnUrl = plan ? `/checkout?plan=${plan}${seats > 0 ? `&seats=${seats}` : ''}` : '/auth';
+      let returnUrl: string;
+      if (!plan) {
+        returnUrl = '/auth';
+      } else if (plan === 'seats') {
+        returnUrl = `/checkout?plan=seats&quantity=${quantity}`;
+      } else {
+        returnUrl = `/checkout?plan=${plan}${seats > 0 ? `&seats=${seats}` : ''}`;
+      }
       navigate(returnUrl === '/auth' ? '/auth' : `/auth?redirect=${encodeURIComponent(returnUrl)}`);
       return;
     }
@@ -119,11 +131,25 @@ function PlanSelection() {
       return;
     }
 
+    // For team add-on, check if they have Pro first
+    if (isAddon) {
+      const currentPlanType = subscription?.plan_type;
+      const hasProAccess = currentPlanType === 'pro' || currentPlanType === 'team' || (currentPlanType as string) === 'enterprise';
+      if (!hasProAccess) {
+        toast({
+          title: "Pro Account Required",
+          description: "Please upgrade to Pro first before adding team members.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setLoading(planType);
     
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { plan, seats }
+        body: plan === 'seats' ? { plan: 'seats', quantity } : { plan, seats }
       });
 
       if (error) throw error;
@@ -195,13 +221,13 @@ function PlanSelection() {
                 className="w-full mb-6"
                 variant={plan.popular ? "default" : "outline"}
                 disabled={loading === plan.planType || isCurrentPlan}
-                onClick={() => handleSignUp(plan.plan, plan.seats, plan.planType)}
+                onClick={() => handleSignUp(plan)}
               >
                 {loading === plan.planType
                   ? "Loading..."
                   : isCurrentPlan
                   ? "Current Plan"
-                  : "Sign Up"}
+                  : plan.planType === 'team' ? "Add Team Seats" : "Sign Up"}
               </Button>
 
               <ul className="space-y-3">
