@@ -220,6 +220,14 @@ serve(async (req) => {
       cancel_url: `${getRequestOrigin(req)}/pricing`,
     };
     
+    // Add 30-day free trial for Pro/Team plans (not for seats-only add-on)
+    if (plan !== 'seats') {
+      sessionConfig.subscription_data = {
+        trial_period_days: 30,
+      };
+      logStep("Adding 30-day trial to subscription");
+    }
+    
     // Add customer info based on checkout type
     if (customerId) {
       sessionConfig.customer = customerId;
