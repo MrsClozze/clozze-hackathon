@@ -50,23 +50,23 @@ const plans = [
     popular: true
   },
   {
-    name: "Team Add-on",
-    price: "$9.99",
-    period: "/mo per seat",
-    description: "Collaborate with your team on deals, share dashboards, and manage transactions together. Requires Pro subscription.",
+    name: "Pro + Team Add-on",
+    price: "$19.98",
+    period: "/mo total",
+    description: "Get Pro ($9.99/mo) plus one team seat ($9.99/mo). Perfect for agents who want to collaborate with an assistant or colleague.",
     features: [
+      { text: "Everything in Pro", badge: "INCLUDED" },
       { text: "Shared team dashboards", badge: "NEW" },
-      "Per-seat pricing ($9.99/user/mo)",
+      "One team member seat included",
       "Collaboration on shared deals",
       "Task delegation & management",
-      "Advanced analytics & reporting",
-      "Includes Pro when upgrading"
+      "Advanced analytics & reporting"
     ],
     plan: 'team', // Use 'team' plan (Pro + seats) for non-Pro users
     seats: 1, // Default to 1 seat
     quantity: 1,
     planType: 'team',
-    badge: "ADD-ON",
+    badge: null,
     isAddon: true
   }
 ];
@@ -251,7 +251,7 @@ function PlanSelection() {
                   : plan.planType === 'team' 
                     ? (subscription?.plan_type === 'pro' || subscription?.plan_type === 'team' || (subscription?.plan_type as string) === 'enterprise'
                       ? "Add Team Seats"
-                      : "Get Pro + Team")
+                      : "Get Started")
                     : "Sign Up"}
               </Button>
 
@@ -275,6 +275,13 @@ function PlanSelection() {
                   );
                 })}
               </ul>
+              
+              {/* Footer note for team seats */}
+              {plan.planType === 'team' && (
+                <p className="mt-4 pt-4 border-t border-border text-xs text-text-muted">
+                  Need more than one seat? You can add additional team members from the Team page after upgrading.
+                </p>
+              )}
             </Card>
           );
         })}
