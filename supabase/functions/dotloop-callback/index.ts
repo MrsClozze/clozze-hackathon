@@ -112,30 +112,116 @@ serve(async (req) => {
 });
 
 function createRedirectResponse(path: string): Response {
-  // If path is a full URL, use it directly; otherwise, construct relative redirect
   const isFullUrl = path.startsWith('http');
+  const isSuccess = path.includes('dotloop=success');
+  const isDenied = path.includes('dotloop=denied');
+  const isError = path.includes('dotloop=error');
+  
+  // Create user-friendly messages
+  let title = 'Connecting...';
+  let message = 'Completing your Dotloop connection...';
+  let icon = '🔄';
+  
+  if (isSuccess) {
+    title = 'Connected!';
+    message = 'Your Dotloop account has been linked successfully. This window will close automatically.';
+    icon = '✅';
+  } else if (isDenied) {
+    title = 'Connection Cancelled';
+    message = 'You chose not to connect Dotloop. This window will close automatically.';
+    icon = '❌';
+  } else if (isError) {
+    title = 'Connection Failed';
+    message = 'There was a problem connecting to Dotloop. Please try again.';
+    icon = '⚠️';
+  }
   
   return new Response(
     `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Redirecting...</title>
+  <title>${title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      max-width: 400px;
+      margin: 20px;
+    }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 24px; margin-bottom: 12px; font-weight: 600; }
+    p { font-size: 14px; opacity: 0.8; line-height: 1.5; }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 20px auto 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <div class="icon">${icon}</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    ${!isError && !isDenied ? '<div class="spinner"></div>' : ''}
+  </div>
   <script>
-    // Post message to opener if in popup
-    if (window.opener) {
-      window.opener.postMessage({ type: 'dotloop-callback', url: '${path}' }, '*');
-      window.close();
-    } else {
-      window.location.href = '${isFullUrl ? path : path}';
-    }
+    (function() {
+      var path = '${path}';
+      var isFullUrl = ${isFullUrl};
+      
+      // Try to post message to opener and close
+      if (window.opener) {
+        try {
+          window.opener.postMessage({ type: 'dotloop-callback', url: path }, '*');
+          // Give a moment for the message to be received, then close
+          setTimeout(function() {
+            window.close();
+          }, 500);
+        } catch (e) {
+          console.error('postMessage failed:', e);
+          // Fallback: redirect after delay
+          setTimeout(function() {
+            window.location.href = isFullUrl ? path : path;
+          }, 2000);
+        }
+      } else {
+        // No opener - redirect after showing the message briefly
+        setTimeout(function() {
+          window.location.href = isFullUrl ? path : path;
+        }, 1500);
+      }
+      
+      // Fallback: if window doesn't close after 5 seconds, redirect
+      setTimeout(function() {
+        if (!window.closed) {
+          window.location.href = isFullUrl ? path : path;
+        }
+      }, 5000);
+    })();
   </script>
   <noscript>
-    <meta http-equiv="refresh" content="0;url=${path}">
+    <meta http-equiv="refresh" content="2;url=${path}">
   </noscript>
-  <p>Redirecting...</p>
 </body>
 </html>`,
     {
