@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "./AuthContext";
@@ -199,29 +199,30 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // If syncToExternalCalendar was just enabled, sync to Google Calendar
+      // If syncToExternalCalendar was just enabled, sync to connected calendars
       if (updates.syncToExternalCalendar === true) {
         const currentTask = tasks.find(t => t.id === taskId);
         if (currentTask?.dueDate) {
-          try {
-            await supabase.functions.invoke('sync-google-calendar', {
-              body: {
-                action: 'sync_task',
-                task: {
-                  id: taskId,
-                  title: updates.title || currentTask.title,
-                  notes: updates.notes ?? currentTask.notes,
-                  dueDate: updates.dueDate || currentTask.dueDate,
-                  dueTime: updates.dueTime ?? currentTask.dueTime,
-                  endTime: updates.endTime ?? currentTask.endTime,
-                  address: updates.address ?? currentTask.address,
-                  timezone: getBrowserTimezone(), // Pass browser timezone
-                },
-              },
-            });
-          } catch (syncErr) {
-            console.error('[TasksContext] Google Calendar sync error:', syncErr);
-          }
+          const taskPayload = {
+            id: taskId,
+            title: updates.title || currentTask.title,
+            notes: updates.notes ?? currentTask.notes,
+            dueDate: updates.dueDate || currentTask.dueDate,
+            dueTime: updates.dueTime ?? currentTask.dueTime,
+            endTime: updates.endTime ?? currentTask.endTime,
+            address: updates.address ?? currentTask.address,
+            timezone: getBrowserTimezone(),
+          };
+
+          // Sync to both Google and Apple in parallel
+          await Promise.allSettled([
+            supabase.functions.invoke('sync-google-calendar', {
+              body: { action: 'sync_task', task: taskPayload },
+            }),
+            supabase.functions.invoke('sync-apple-calendar', {
+              body: { action: 'sync_task', task: taskPayload },
+            }),
+          ]);
         }
       }
 
@@ -393,45 +394,51 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If syncToExternalCalendar is true, sync to Google Calendar
+      // If syncToExternalCalendar is true, sync to all connected calendars
       if (task.syncToExternalCalendar && task.dueDate) {
-        console.log('[TasksContext] Syncing task to Google Calendar:', {
+        console.log('[TasksContext] Syncing task to connected calendars:', {
           taskId: data.id,
           title: task.title,
           dueDate: task.dueDate,
           dueTime: task.dueTime,
         });
         
-        try {
-          const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-google-calendar', {
-            body: {
-              action: 'sync_task',
-              task: {
-                id: data.id,
-                title: task.title.trim(),
-                notes: task.notes || undefined,
-                dueDate: task.dueDate,
-                dueTime: task.dueTime || undefined,
-                endTime: task.endTime || undefined,
-                address: task.address || undefined,
-                timezone: getBrowserTimezone(), // Pass browser timezone
-              },
-            },
+        const taskPayload = {
+          id: data.id,
+          title: task.title.trim(),
+          notes: task.notes || undefined,
+          dueDate: task.dueDate,
+          dueTime: task.dueTime || undefined,
+          endTime: task.endTime || undefined,
+          address: task.address || undefined,
+          timezone: getBrowserTimezone(),
+        };
+        
+        // Sync to both Google and Apple in parallel
+        const syncResults = await Promise.allSettled([
+          supabase.functions.invoke('sync-google-calendar', {
+            body: { action: 'sync_task', task: taskPayload },
+          }),
+          supabase.functions.invoke('sync-apple-calendar', {
+            body: { action: 'sync_task', task: taskPayload },
+          }),
+        ]);
+        
+        // Check for errors
+        const hasError = syncResults.some(r => 
+          r.status === 'rejected' || 
+          (r.status === 'fulfilled' && (r.value.error || r.value.data?.error))
+        );
+        
+        if (hasError) {
+          console.error('[TasksContext] Some calendar syncs failed:', syncResults);
+          toast({
+            title: "Task created",
+            description: "Some calendar syncs failed. Please check your calendar connections.",
+            variant: "destructive",
           });
-
-          if (syncError) {
-            console.error('[TasksContext] Google Calendar sync error:', syncError);
-            // Don't throw - task was created, just sync failed
-            toast({
-              title: "Task created",
-              description: "Calendar sync failed. Please try reconnecting your calendar.",
-              variant: "destructive",
-            });
-          } else {
-            console.log('[TasksContext] Task synced to Google Calendar:', syncData);
-          }
-        } catch (syncErr) {
-          console.error('[TasksContext] Google Calendar sync exception:', syncErr);
+        } else {
+          console.log('[TasksContext] Task synced to connected calendars');
         }
       } else {
         console.log('[TasksContext] Task not synced to external calendar:', {
@@ -584,16 +591,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         )
       );
 
-      // Trigger sync to Google Calendar for all synced tasks
+      // Trigger sync to all connected calendars for synced tasks
       try {
-        await supabase.functions.invoke('sync-google-calendar', {
-          body: {
-            action: 'sync_all',
-            taskIds,
-          },
-        });
+        await Promise.allSettled([
+          supabase.functions.invoke('sync-google-calendar', {
+            body: { action: 'sync_all', taskIds },
+          }),
+          supabase.functions.invoke('sync-apple-calendar', {
+            body: { action: 'sync_all', taskIds },
+          }),
+        ]);
       } catch (syncErr) {
-        console.error('Error syncing to Google Calendar:', syncErr);
+        console.error('Error syncing to calendars:', syncErr);
         // Don't throw - database was updated, just sync failed
       }
 
