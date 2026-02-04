@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Copy, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Copy, ExternalLink, CheckCircle2, ArrowRight, ArrowLeft, Info } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import whatsappLogo from "@/assets/whatsapp-logo.webp";
 
 interface WhatsAppBusinessModalProps {
   open: boolean;
@@ -20,12 +22,14 @@ interface WhatsAppBusinessModalProps {
   onSuccess: () => void;
 }
 
+type Step = "intro" | "credentials" | "webhook";
+
 export function WhatsAppBusinessModal({
   open,
   onOpenChange,
   onSuccess,
 }: WhatsAppBusinessModalProps) {
-  const [step, setStep] = useState<"credentials" | "webhook">("credentials");
+  const [step, setStep] = useState<Step>("intro");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [businessPhoneNumber, setBusinessPhoneNumber] = useState("");
@@ -72,7 +76,6 @@ export function WhatsAppBusinessModal({
     setIsLoading(true);
 
     try {
-      // Save credentials to database
       const { error } = await supabase
         .from('whatsapp_business_connections')
         .upsert({
@@ -117,32 +120,115 @@ export function WhatsAppBusinessModal({
     setAccessToken("");
     setBusinessPhoneNumber("");
     setWebhookVerifyToken("");
-    setStep("credentials");
+    setStep("intro");
     onOpenChange(false);
     onSuccess();
   };
 
   const handleClose = () => {
-    setStep("credentials");
+    setStep("intro");
     onOpenChange(false);
+  };
+
+  const getProgress = () => {
+    switch (step) {
+      case "intro": return 0;
+      case "credentials": return 50;
+      case "webhook": return 100;
+    }
+  };
+
+  const getStepNumber = () => {
+    switch (step) {
+      case "intro": return 0;
+      case "credentials": return 1;
+      case "webhook": return 2;
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {step === "credentials" ? "Connect WhatsApp Business" : "Configure Webhook"}
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-[#25D366]/10 flex items-center justify-center mb-4">
+            <img src={whatsappLogo} alt="WhatsApp Business" className="w-10 h-10 object-contain" />
+          </div>
+          <DialogTitle className="text-center">
+            {step === "intro" && "Connect WhatsApp Business"}
+            {step === "credentials" && "Step 1: Enter Your Credentials"}
+            {step === "webhook" && "Step 2: Configure Webhook"}
           </DialogTitle>
-          <DialogDescription>
-            {step === "credentials" 
-              ? "Enter your WhatsApp Business API credentials from Meta Business Suite."
-              : "Copy these values to your Meta Business webhook settings."}
+          <DialogDescription className="text-center">
+            {step === "intro" && "Sync messages from your WhatsApp Business account"}
+            {step === "credentials" && "Enter your WhatsApp Business API credentials from Meta"}
+            {step === "webhook" && "Copy these values to your Meta Business webhook settings"}
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {step === "credentials" ? (
+        {step !== "intro" && (
+          <div className="px-1">
+            <Progress value={getProgress()} className="h-1.5" />
+            <p className="text-xs text-muted-foreground mt-1 text-center">
+              Step {getStepNumber()} of 2
+            </p>
+          </div>
+        )}
+        
+        <div className="space-y-4 py-2">
+          {step === "intro" && (
+            <>
+              <div className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
+                <div className="flex gap-3">
+                  <Info className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">WhatsApp Business Account Required</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      This integration requires a <strong>WhatsApp Business API</strong> account through Meta Business Platform. 
+                      Personal WhatsApp accounts cannot be connected.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Before you begin, make sure you have:</p>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-medium text-primary">1</span>
+                    </div>
+                    <span>A verified <strong>Meta Business account</strong> at business.facebook.com</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-medium text-primary">2</span>
+                    </div>
+                    <span>A <strong>WhatsApp Business API</strong> app created in Meta Developer Portal</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-xs font-medium text-primary">3</span>
+                    </div>
+                    <span>A <strong>permanent access token</strong> from System Users settings</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <p className="text-sm font-medium mb-2">New to WhatsApp Business API?</p>
+                <a
+                  href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  Follow Meta's Getting Started Guide <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </>
+          )}
+
+          {step === "credentials" && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="phoneNumberId">Phone Number ID *</Label>
@@ -154,7 +240,7 @@ export function WhatsAppBusinessModal({
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Found in Meta Business Suite → WhatsApp → API Setup
+                  Find this in <strong>Meta Business Suite → WhatsApp → API Setup</strong>
                 </p>
               </div>
 
@@ -163,13 +249,13 @@ export function WhatsAppBusinessModal({
                 <Input
                   id="accessToken"
                   type="password"
-                  placeholder="Your access token"
+                  placeholder="Your permanent access token"
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Generate in Meta Business Suite → System Users → Generate Token
+                  Generate in <strong>Meta Business Suite → Business Settings → System Users → Generate Token</strong>
                 </p>
               </div>
 
@@ -183,27 +269,34 @@ export function WhatsAppBusinessModal({
                   disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Your WhatsApp Business phone number for display
+                  Your WhatsApp Business phone number for display purposes
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
-                <p className="text-sm font-medium">Need help getting these credentials?</p>
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <p className="text-sm font-medium mb-2">Where do I find these credentials?</p>
                 <a
-                  href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+                  href="https://developers.facebook.com/docs/whatsapp/business-management-api/get-started#1--acquire-an-access-token-using-a-system-user-or-facebook-login"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  View Meta's Setup Guide <ExternalLink className="h-3 w-3" />
+                  View Meta's Token Guide <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
             </>
-          ) : (
+          )}
+
+          {step === "webhook" && (
             <>
-              <p className="text-sm text-muted-foreground">
-                Go to Meta Business Suite → WhatsApp → Configuration → Webhook and enter:
-              </p>
+              <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
+                <p className="text-sm font-medium mb-2">
+                  Go to your Meta Developer Portal and configure the webhook:
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  WhatsApp → Configuration → Webhook → Edit
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -250,10 +343,10 @@ export function WhatsAppBusinessModal({
                   </div>
                 </div>
 
-                <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
+                <div className="rounded-lg border bg-muted/50 p-4">
                   <p className="text-sm font-medium mb-2">Webhook Fields to Subscribe:</p>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>✓ messages</li>
+                    <li>✓ <strong>messages</strong> (required)</li>
                     <li>✓ message_deliveries (optional)</li>
                     <li>✓ message_reads (optional)</li>
                   </ul>
@@ -262,29 +355,49 @@ export function WhatsAppBusinessModal({
             </>
           )}
           
-          <div className="flex justify-end gap-3 pt-2">
-            {step === "webhook" && (
+          <div className="flex justify-between gap-3 pt-2">
+            <div>
+              {step !== "intro" && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setStep(step === "webhook" ? "credentials" : "intro")}
+                  disabled={isLoading}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setStep("credentials")}
+                onClick={handleClose}
                 disabled={isLoading}
               >
-                Back
+                Cancel
               </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={step === "credentials" ? handleSaveCredentials : handleComplete}
-              disabled={isLoading}
-            >
-              {isLoading ? "Saving..." : step === "credentials" ? "Next" : "Complete Setup"}
-            </Button>
+              {step === "intro" && (
+                <Button onClick={() => setStep("credentials")}>
+                  Get Started
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+              {step === "credentials" && (
+                <Button 
+                  onClick={handleSaveCredentials}
+                  disabled={isLoading || !phoneNumberId.trim() || !accessToken.trim()}
+                >
+                  {isLoading ? "Saving..." : "Next"}
+                  {!isLoading && <ArrowRight className="h-4 w-4 ml-2" />}
+                </Button>
+              )}
+              {step === "webhook" && (
+                <Button onClick={handleComplete}>
+                  Complete Setup
+                  <CheckCircle2 className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

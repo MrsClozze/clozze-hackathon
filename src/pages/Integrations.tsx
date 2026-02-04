@@ -58,9 +58,10 @@ const integrations = [
   {
     id: "whatsapp",
     name: "WhatsApp Business",
-    description: "Sync your WhatsApp Business messages",
+    description: "Connect your WhatsApp Business API account",
     icon: whatsappLogo,
     isImage: true,
+    note: "Requires a Meta Business account",
   },
   {
     id: "dotloop",
