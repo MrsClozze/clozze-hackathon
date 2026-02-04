@@ -386,8 +386,15 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       // If syncToExternalCalendar is true, sync to Google Calendar
       if (task.syncToExternalCalendar && task.dueDate) {
+        console.log('[TasksContext] Syncing task to Google Calendar:', {
+          taskId: data.id,
+          title: task.title,
+          dueDate: task.dueDate,
+          dueTime: task.dueTime,
+        });
+        
         try {
-          const { error: syncError } = await supabase.functions.invoke('sync-google-calendar', {
+          const { data: syncData, error: syncError } = await supabase.functions.invoke('sync-google-calendar', {
             body: {
               action: 'sync_task',
               task: {
@@ -410,11 +417,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
               variant: "destructive",
             });
           } else {
-            console.log('[TasksContext] Task synced to Google Calendar');
+            console.log('[TasksContext] Task synced to Google Calendar:', syncData);
           }
         } catch (syncErr) {
           console.error('[TasksContext] Google Calendar sync exception:', syncErr);
         }
+      } else {
+        console.log('[TasksContext] Task not synced to external calendar:', {
+          syncToExternalCalendar: task.syncToExternalCalendar,
+          dueDate: task.dueDate,
+        });
       }
 
       const mappedTask: Task = {
