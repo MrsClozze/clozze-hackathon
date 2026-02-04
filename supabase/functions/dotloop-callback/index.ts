@@ -21,9 +21,10 @@ serve(async (req) => {
           // Ignore parse errors
         }
       }
+      // Redirect directly to /integrations page with status param (no popup callback page)
       const redirectUrl = origin 
-        ? `${origin}/integrations/dotloop/callback?dotloop=denied`
-        : '/integrations/dotloop/callback?dotloop=denied';
+        ? `${origin}/integrations?dotloop=denied`
+        : '/integrations?dotloop=denied';
       return new Response(null, {
         status: 302,
         headers: { 'Location': redirectUrl },
@@ -34,7 +35,7 @@ serve(async (req) => {
       console.error('[dotloop-callback] Missing code or state');
       return new Response(null, {
         status: 302,
-        headers: { 'Location': '/integrations/dotloop/callback?dotloop=error&message=missing_params' },
+        headers: { 'Location': '/integrations?dotloop=error&message=missing_params' },
       });
     }
 
@@ -46,7 +47,7 @@ serve(async (req) => {
       console.error('[dotloop-callback] Invalid state:', e);
       return new Response(null, {
         status: 302,
-        headers: { 'Location': '/integrations/dotloop/callback?dotloop=error&message=invalid_state' },
+        headers: { 'Location': '/integrations?dotloop=error&message=invalid_state' },
       });
     }
 
@@ -55,7 +56,7 @@ serve(async (req) => {
       console.error('[dotloop-callback] No userId in state');
       return new Response(null, {
         status: 302,
-        headers: { 'Location': '/integrations/dotloop/callback?dotloop=error&message=no_user' },
+        headers: { 'Location': '/integrations?dotloop=error&message=no_user' },
       });
     }
 
@@ -91,8 +92,8 @@ serve(async (req) => {
       const errorText = await tokenResponse.text();
       console.error('[dotloop-callback] Token exchange failed:', tokenResponse.status, errorText);
       const errorRedirect = origin 
-        ? `${origin}/integrations/dotloop/callback?dotloop=error&message=token_exchange_failed`
-        : '/integrations/dotloop/callback?dotloop=error&message=token_exchange_failed';
+        ? `${origin}/integrations?dotloop=error&message=token_exchange_failed`
+        : '/integrations?dotloop=error&message=token_exchange_failed';
       return new Response(null, {
         status: 302,
         headers: { 'Location': errorRedirect },
@@ -129,8 +130,8 @@ serve(async (req) => {
     if (upsertError) {
       console.error('[dotloop-callback] Failed to store tokens:', upsertError);
       const errorRedirect = origin 
-        ? `${origin}/integrations/dotloop/callback?dotloop=error&message=storage_failed`
-        : '/integrations/dotloop/callback?dotloop=error&message=storage_failed';
+        ? `${origin}/integrations?dotloop=error&message=storage_failed`
+        : '/integrations?dotloop=error&message=storage_failed';
       return new Response(null, {
         status: 302,
         headers: { 'Location': errorRedirect },
@@ -139,10 +140,10 @@ serve(async (req) => {
 
     console.log('[dotloop-callback] Tokens stored successfully for user:', userId);
 
-    // Redirect back to the app's clean callback page
-    // Use the origin from state, falling back to integrations path
+    // Redirect back to the app's Integrations page with success status
+    // No popup needed - user returns directly to their integrations
     const baseUrl = origin || '';
-    const redirectPath = '/integrations/dotloop/callback';
+    const redirectPath = '/integrations';
     const redirectUrl = baseUrl 
       ? `${baseUrl}${redirectPath}?dotloop=success`
       : `${redirectPath}?dotloop=success`;
@@ -160,7 +161,7 @@ serve(async (req) => {
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': '/integrations/dotloop/callback?dotloop=error&message=unknown_error',
+        'Location': '/integrations?dotloop=error&message=unknown_error',
       },
     });
   }

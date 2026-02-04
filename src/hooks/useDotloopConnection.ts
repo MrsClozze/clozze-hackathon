@@ -76,79 +76,10 @@ export function useDotloopConnection() {
         throw new Error('No auth URL returned');
       }
 
-      // Open popup for OAuth - it will redirect through Dotloop authorization
-      // and then to our clean callback page
-      const popup = window.open(
-        authUrl,
-        'dotloop-oauth',
-        'width=600,height=700,scrollbars=yes'
-      );
-
-      // Listen for message from popup
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data?.type === 'dotloop-callback') {
-          window.removeEventListener('message', handleMessage);
-          setConnecting(false);
-          
-          if (event.data.url?.includes('dotloop=success')) {
-            toast({
-              title: "Dotloop connected!",
-              description: "Your Dotloop account has been linked successfully",
-            });
-            fetchConnection();
-          } else if (event.data.url?.includes('dotloop=denied')) {
-            toast({
-              title: "Connection cancelled",
-              description: "You denied access to Dotloop",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Connection failed",
-              description: "Failed to connect Dotloop. Please try again.",
-              variant: "destructive",
-            });
-          }
-        }
-      };
-
-      window.addEventListener('message', handleMessage);
-
-      // Fallback: Check if popup closed - then re-verify connection status
-      const checkClosed = setInterval(async () => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          
-          // Give a moment for the callback to complete writing to DB
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          
-          // Re-fetch connection status to see if it succeeded
-          const { data: updatedConnection } = await supabase
-            .from('service_integrations')
-            .select('id, is_connected')
-            .eq('user_id', user!.id)
-            .eq('service_name', 'dotloop')
-            .maybeSingle();
-
-          setConnecting(false);
-          
-          if (updatedConnection?.is_connected) {
-            toast({
-              title: "Dotloop connected!",
-              description: "Your Dotloop account has been linked successfully",
-            });
-            fetchConnection();
-          } else {
-            // Only show error if truly not connected
-            toast({
-              title: "Connection incomplete",
-              description: "Dotloop connection was not completed. Please try again.",
-              variant: "destructive",
-            });
-          }
-        }
-      }, 1000);
+      // Redirect the main window to Dotloop authorization
+      // After authorization, Dotloop redirects back to our callback which then
+      // redirects to /integrations with a success/error query param
+      window.location.href = authUrl;
 
     } catch (err) {
       console.error('Error connecting Dotloop:', err);
@@ -159,7 +90,7 @@ export function useDotloopConnection() {
       });
       setConnecting(false);
     }
-  }, [user, toast, fetchConnection]);
+  }, [user, toast]);
 
   const disconnect = useCallback(async () => {
     if (!user) return;
