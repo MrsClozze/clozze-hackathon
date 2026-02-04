@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -13,23 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
     const body = await req.json();
-    const { action } = body;
+    const { action, user_id } = body;
 
     // Get client credentials - prefer custom ones from secrets, fall back to defaults
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID') || Deno.env.get('DEFAULT_GOOGLE_CLIENT_ID');
@@ -40,6 +25,37 @@ serve(async (req) => {
         JSON.stringify({ client_id: clientId }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // For other actions, we need user authentication
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        {
+          global: {
+            headers: { Authorization: authHeader },
+          },
+        }
+      );
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (!authError && user) {
+        userId = user.id;
+      }
+    }
+
+    // For exchange_code, we can also use the user_id from the request body as backup
+    if (!userId && action === "exchange_code" && user_id) {
+      userId = user_id;
+    }
+
+    if (!userId) {
+      throw new Error('Unauthorized - No valid user session');
     }
 
     if (action === "exchange_code") {
@@ -92,7 +108,7 @@ serve(async (req) => {
       const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
       
       const { data: integrationData, error: storeError } = await adminClient.rpc('store_integration_tokens', {
-        _user_id: user.id,
+        _user_id: userId,
         _service_name: 'gmail',
         _access_token: tokenData.access_token,
         _refresh_token: tokenData.refresh_token || '',
@@ -105,7 +121,7 @@ serve(async (req) => {
         const { error: upsertError } = await adminClient
           .from("service_integrations")
           .upsert({
-            user_id: user.id,
+            user_id: userId,
             service_name: "gmail",
             is_connected: true,
             connected_at: new Date().toISOString(),
@@ -120,7 +136,7 @@ serve(async (req) => {
         }
       }
 
-      console.log(`Gmail connected for user ${user.id}, email: ${userInfo.email}`);
+      console.log(`Gmail connected for user ${userId}, email: ${userInfo.email}`);
 
       return new Response(
         JSON.stringify({ 
@@ -140,7 +156,7 @@ serve(async (req) => {
       const { error } = await adminClient
         .from("service_integrations")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("service_name", "gmail");
 
       if (error) throw error;
