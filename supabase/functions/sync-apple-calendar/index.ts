@@ -12,6 +12,17 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const CALDAV_BASE_URL = "https://caldav.icloud.com";
 
+// iCloud CalDAV sometimes returns absolute URLs (e.g. https://p140-caldav.icloud.com:443/...).
+// Normalize those so we never accidentally prefix CALDAV_BASE_URL onto an absolute URL.
+function resolveCaldavUrl(pathOrUrl: string): string {
+  const trimmed = (pathOrUrl || "").trim();
+  if (!trimmed) return CALDAV_BASE_URL;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Ensure leading slash for relative paths
+  if (!trimmed.startsWith("/")) return `${CALDAV_BASE_URL}/${trimmed}`;
+  return `${CALDAV_BASE_URL}${trimmed}`;
+}
+
 interface TaskToSync {
   id: string;
   title: string;
@@ -196,7 +207,7 @@ async function discoverCalendarUrl(
     const authHeader = `Basic ${btoa(`${credentials.appleId}:${credentials.appPassword}`)}`;
 
     // Step 1: Get current user principal
-    const principalResponse = await fetch(`${CALDAV_BASE_URL}/`, {
+    const principalResponse = await fetch(resolveCaldavUrl("/"), {
       method: "PROPFIND",
       headers: {
         Authorization: authHeader,
@@ -231,7 +242,7 @@ async function discoverCalendarUrl(
     console.log("Found principal URL:", principalUrl);
 
     // Step 2: Get calendar home set
-    const homeResponse = await fetch(`${CALDAV_BASE_URL}${principalUrl}`, {
+    const homeResponse = await fetch(resolveCaldavUrl(principalUrl), {
       method: "PROPFIND",
       headers: {
         Authorization: authHeader,
@@ -265,7 +276,7 @@ async function discoverCalendarUrl(
     console.log("Using calendar home URL:", calendarHomeUrl);
 
     // Step 3: List calendars and find the default one
-    const calendarsResponse = await fetch(`${CALDAV_BASE_URL}${calendarHomeUrl}`, {
+    const calendarsResponse = await fetch(resolveCaldavUrl(calendarHomeUrl), {
       method: "PROPFIND",
       headers: {
         Authorization: authHeader,
@@ -423,7 +434,7 @@ async function syncTaskToAppleCalendar(
   try {
     const authHeader = `Basic ${btoa(`${credentials.appleId}:${credentials.appPassword}`)}`;
     const eventUid = generateEventUid(task.id);
-    const eventUrl = `${CALDAV_BASE_URL}${calendarUrl}${eventUid}.ics`;
+    const eventUrl = resolveCaldavUrl(`${calendarUrl}${eventUid}.ics`);
     
     const icalEvent = createICalEvent(task);
     
@@ -461,7 +472,7 @@ async function deleteAppleCalendarEvent(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const authHeader = `Basic ${btoa(`${credentials.appleId}:${credentials.appPassword}`)}`;
-    const eventUrl = `${CALDAV_BASE_URL}${calendarUrl}${eventId}.ics`;
+    const eventUrl = resolveCaldavUrl(`${calendarUrl}${eventId}.ics`);
     
     console.log("Deleting event from Apple Calendar:", eventUrl);
     
@@ -501,7 +512,7 @@ async function pullEventsFromAppleCalendar(
     const startStr = startDate.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "").slice(0, 15) + "Z";
     const endStr = endDate.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "").slice(0, 15) + "Z";
     
-    const response = await fetch(`${CALDAV_BASE_URL}${calendarUrl}`, {
+    const response = await fetch(resolveCaldavUrl(calendarUrl), {
       method: "REPORT",
       headers: {
         Authorization: authHeader,
