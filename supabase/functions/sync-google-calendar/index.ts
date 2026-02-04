@@ -114,14 +114,27 @@ async function getValidAccessToken(
   }
 }
 
+// Format a date as local ISO string (without timezone conversion)
+function formatLocalDateTime(
+  year: number,
+  month: number,
+  day: number,
+  hours: number,
+  minutes: number
+): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
+}
+
 // Create or update a Google Calendar event
 async function syncTaskToGoogleCalendar(
   accessToken: string,
   task: TaskToSync
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   try {
-    // Parse the due date
-    const dueDate = new Date(task.dueDate);
+    // Parse the due date components directly to avoid timezone issues
+    // task.dueDate is in format "YYYY-MM-DD"
+    const [year, month, day] = task.dueDate.split("-").map(Number);
     
     // Build the event object
     const event: Record<string, unknown> = {
@@ -137,26 +150,52 @@ async function syncTaskToGoogleCalendar(
     // Set the start and end times
     if (task.dueTime) {
       // Has a specific time - create a timed event
+      // task.dueTime is in format "HH:MM" (24-hour)
       const [hours, minutes] = task.dueTime.split(":").map(Number);
-      const startDate = new Date(dueDate);
-      startDate.setHours(hours, minutes, 0, 0);
       
-      const endDate = new Date(startDate);
-      endDate.setHours(endDate.getHours() + 1); // Default 1 hour duration
+      // Calculate end time (1 hour after start)
+      let endHours = hours + 1;
+      let endDay = day;
+      let endMonth = month;
+      let endYear = year;
+      
+      if (endHours >= 24) {
+        endHours = 0;
+        endDay += 1;
+        // Handle month/year overflow (simplified - edge case)
+        const daysInMonth = new Date(year, month, 0).getDate();
+        if (endDay > daysInMonth) {
+          endDay = 1;
+          endMonth += 1;
+          if (endMonth > 12) {
+            endMonth = 1;
+            endYear += 1;
+          }
+        }
+      }
+
+      // Format as local ISO string without timezone suffix
+      // Google Calendar will apply the specified timezone
+      const startDateTime = formatLocalDateTime(year, month, day, hours, minutes);
+      const endDateTime = formatLocalDateTime(endYear, endMonth, endDay, endHours, minutes);
 
       event.start = {
-        dateTime: startDate.toISOString(),
-        timeZone: "America/Los_Angeles", // TODO: Get user's timezone
-      };
-      event.end = {
-        dateTime: endDate.toISOString(),
+        dateTime: startDateTime,
         timeZone: "America/Los_Angeles",
       };
+      event.end = {
+        dateTime: endDateTime,
+        timeZone: "America/Los_Angeles",
+      };
+      
+      console.log("Creating timed event:", { startDateTime, endDateTime, timezone: "America/Los_Angeles" });
     } else {
-      // All-day event
-      const dateStr = dueDate.toISOString().split("T")[0];
+      // All-day event - use the date string directly
+      const dateStr = task.dueDate;
       event.start = { date: dateStr };
       event.end = { date: dateStr };
+      
+      console.log("Creating all-day event:", { date: dateStr });
     }
 
     // Create the event in Google Calendar
