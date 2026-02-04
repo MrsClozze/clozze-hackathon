@@ -79,11 +79,14 @@ export function useSyncedEmails() {
       }
     } catch (error: any) {
       console.error("Error syncing emails:", error);
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Failed to sync emails from Gmail",
-        variant: "destructive",
-      });
+      // Only show toast for non-auth errors (auth errors mean tokens not yet stored)
+      if (!error.message?.includes("Unauthorized") && !error.message?.includes("not connected")) {
+        toast({
+          title: "Sync Failed",
+          description: error.message || "Failed to sync emails from Gmail",
+          variant: "destructive",
+        });
+      }
       return 0;
     } finally {
       setSyncing(false);
