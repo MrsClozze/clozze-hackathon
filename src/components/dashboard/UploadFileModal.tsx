@@ -8,6 +8,7 @@ import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
+import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 
 interface UploadFileModalProps {
   open: boolean;
@@ -44,6 +45,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { connect: connectDotloop, connecting: dotloopConnecting } = useDotloopConnection();
 
   const handleClose = () => {
     setView("upload");
@@ -179,8 +181,10 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
                 <Button
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => toast({ title: "Dotloop", description: "Integration coming soon..." })}
+                  onClick={() => connectDotloop()}
+                  disabled={dotloopConnecting}
                 >
+                  {dotloopConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
                 </Button>
               </div>
