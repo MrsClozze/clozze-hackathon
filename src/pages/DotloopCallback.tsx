@@ -86,12 +86,12 @@ export default function DotloopCallback() {
 
   return (
     <div className={`min-h-screen ${config.bgClass} flex flex-col items-center justify-center p-6`}>
-      {/* Clozze Logo */}
-      <div className="mb-8">
+      {/* Clozze Logo - Prominent branding */}
+      <div className="mb-10">
         <img 
           src={clozzeLogoBlack} 
           alt="Clozze" 
-          className="h-10 w-auto"
+          className="h-16 w-auto"
         />
       </div>
 
