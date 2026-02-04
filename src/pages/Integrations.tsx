@@ -12,18 +12,18 @@ import { AppleCalendarModal } from "@/components/integrations/AppleCalendarModal
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
 import { useTasks } from "@/contexts/TasksContext";
 import { useCalendarSync } from "@/hooks/useCalendarSync";
+import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { Check, Loader2 } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
-import outlookLogo from "@/assets/outlook-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
 import whatsappLogo from "@/assets/whatsapp-logo.webp";
-import outlookEmailLogo from "@/assets/outlook-email-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
+import { GmailConnectionModal } from "@/components/integrations/GmailConnectionModal";
 
 const integrations = [
   {
@@ -31,13 +31,6 @@ const integrations = [
     name: "Google Calendar",
     description: "Sync your appointments and showings",
     icon: googleCalendarLogo,
-    isImage: true,
-  },
-  {
-    id: "outlook_calendar",
-    name: "Outlook Calendar",
-    description: "Connect your Microsoft calendar",
-    icon: outlookLogo,
     isImage: true,
   },
   {
@@ -59,13 +52,6 @@ const integrations = [
     name: "Gmail",
     description: "Connect your Google email account",
     icon: gmailLogo,
-    isImage: true,
-  },
-  {
-    id: "outlook_email",
-    name: "Outlook Email",
-    description: "Connect your Microsoft email account",
-    icon: outlookEmailLogo,
     isImage: true,
   },
   {
@@ -108,11 +94,19 @@ export default function Integrations() {
     disconnect: disconnectCalendar,
     handleOAuthCallback 
   } = useCalendarConnections();
+  const { 
+    isConnected: isGmailConnected, 
+    isConnecting: gmailConnecting,
+    connectGmail,
+    disconnectGmail,
+    handleOAuthCallback: handleGmailOAuthCallback
+  } = useGmailConnection();
   const { tasks, bulkEnableExternalSync } = useTasks();
   const { pullAppleEvents } = useCalendarSync();
   
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
+  const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
   const [pendingAppleCredentials, setPendingAppleCredentials] = useState<{ appleId: string; password: string } | null>(null);
 
@@ -123,34 +117,48 @@ export default function Integrations() {
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const processedCodeRef = React.useRef<string | null>(null);
 
-  // Handle OAuth callback from Google
+  // Handle OAuth callback from Google (Calendar or Gmail)
   useEffect(() => {
     const code = searchParams.get("code");
     const scope = searchParams.get("scope");
-    const storedProvider = sessionStorage.getItem("calendar_oauth_provider");
+    const storedCalendarProvider = sessionStorage.getItem("calendar_oauth_provider");
+    const storedGmailProvider = sessionStorage.getItem("gmail_oauth_provider");
     
     // Prevent processing the same code twice
     if (!code || processedCodeRef.current === code || isProcessingOAuth) {
       return;
     }
     
-    // Detect Google Calendar OAuth callback by either:
-    // 1. Having stored provider in sessionStorage (same-origin redirect)
-    // 2. Having Google Calendar scopes in the URL (cross-origin redirect)
-    const isGoogleCalendarCallback = code && (
-      storedProvider === "google" ||
+    // Detect Gmail OAuth callback
+    const isGmailCallback = storedGmailProvider === "gmail" || (scope && scope.includes("gmail"));
+    
+    // Detect Google Calendar OAuth callback
+    const isGoogleCalendarCallback = !isGmailCallback && (
+      storedCalendarProvider === "google" ||
       (scope && scope.includes("calendar"))
     );
     
-    if (isGoogleCalendarCallback) {
-      // Mark this code as being processed
+    if (isGmailCallback) {
       processedCodeRef.current = code;
       setIsProcessingOAuth(true);
-      
-      // Clear URL params immediately
       setSearchParams({}, { replace: true });
       
-      // Process the callback
+      handleGmailOAuthCallback(code).then(success => {
+        setIsProcessingOAuth(false);
+        if (success) {
+          toast({
+            title: "Gmail connected",
+            description: "Your Gmail account has been linked successfully!",
+          });
+        }
+      }).catch(() => {
+        setIsProcessingOAuth(false);
+      });
+    } else if (isGoogleCalendarCallback) {
+      processedCodeRef.current = code;
+      setIsProcessingOAuth(true);
+      setSearchParams({}, { replace: true });
+      
       handleOAuthCallback(code, "google").then(success => {
         setIsProcessingOAuth(false);
         if (success) {
@@ -163,7 +171,7 @@ export default function Integrations() {
         setIsProcessingOAuth(false);
       });
     }
-  }, [searchParams, setSearchParams, handleOAuthCallback, toast, isProcessingOAuth]);
+  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth]);
 
   const handleGoogleCalendarConnect = async () => {
     if (!user) {
@@ -305,6 +313,15 @@ export default function Integrations() {
       return;
     }
 
+    if (integrationId === "gmail") {
+      if (isGmailConnected) {
+        await disconnectGmail();
+      } else {
+        setIsGmailModalOpen(true);
+      }
+      return;
+    }
+
     toast({
       title: "Coming soon",
       description: `${integrationId.replace(/_/g, " ")} integration will be available soon!`,
@@ -336,6 +353,11 @@ export default function Integrations() {
           variant: "destructive",
         });
       }
+      return;
+    }
+
+    if (integrationId === "gmail") {
+      await disconnectGmail();
     }
   };
 
@@ -353,6 +375,9 @@ export default function Integrations() {
     if (integrationId === "whatsapp") {
       return isWhatsAppConnected;
     }
+    if (integrationId === "gmail") {
+      return isGmailConnected;
+    }
     return false;
   };
 
@@ -369,7 +394,7 @@ export default function Integrations() {
     return null;
   };
 
-  const isConnecting = (integrationId: string): boolean => {
+  const isConnectingIntegration = (integrationId: string): boolean => {
     if (integrationId === "google_calendar") {
       return calendarConnecting === "google";
     }
@@ -378,6 +403,9 @@ export default function Integrations() {
     }
     if (integrationId === "docusign") {
       return isAuthenticating;
+    }
+    if (integrationId === "gmail") {
+      return gmailConnecting;
     }
     return false;
   };
@@ -396,7 +424,7 @@ export default function Integrations() {
           {integrations.map((integration) => {
             const isConnected = getConnectionStatus(integration.id);
             const connectionDetails = getConnectionDetails(integration.id);
-            const connecting = isConnecting(integration.id);
+            const connecting = isConnectingIntegration(integration.id);
 
             return (
               <Card key={integration.id} className="p-6 flex flex-col">
@@ -414,7 +442,7 @@ export default function Integrations() {
                       }`}
                     />
                     {isConnected && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center border-2 border-background">
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success flex items-center justify-center border-2 border-background">
                         <Check className="w-3 h-3 text-white" />
                       </div>
                     )}
@@ -476,6 +504,11 @@ export default function Integrations() {
           provider={syncConfirmProvider || "google"}
           onConfirm={handleSyncConfirm}
           onCancel={handleSyncCancel}
+        />
+
+        <GmailConnectionModal
+          open={isGmailModalOpen}
+          onOpenChange={setIsGmailModalOpen}
         />
       </div>
     </Layout>
