@@ -76,6 +76,14 @@ export function useDotloopConnection() {
         throw new Error('No auth URL returned');
       }
 
+      // Set expectations: Dotloop may immediately redirect back if the user has already approved access.
+      // (In that case they won't see the "Authorize" screen again, but the OAuth code exchange still occurs.)
+      toast({
+        title: "Opening Dotloop…",
+        description:
+          "A Dotloop window will open. If you've previously authorized Clozze, Dotloop may redirect back instantly — that's normal.",
+      });
+
       // Open popup for OAuth
       const popup = window.open(
         authUrl,

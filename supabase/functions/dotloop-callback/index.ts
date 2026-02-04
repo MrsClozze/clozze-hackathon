@@ -120,20 +120,21 @@ function createRedirectResponse(path: string): Response {
   // Create user-friendly messages
   let title = 'Connecting...';
   let message = 'Completing your Dotloop connection...';
-  let icon = '🔄';
+  // Avoid unicode/encoding issues by using HTML entities rather than emoji characters.
+  let iconHtml = '&#x1F504;'; // 🔄
   
   if (isSuccess) {
     title = 'Connected!';
     message = 'Your Dotloop account has been linked successfully. This window will close automatically.';
-    icon = '✅';
+    iconHtml = '&#x2705;'; // ✅
   } else if (isDenied) {
     title = 'Connection Cancelled';
     message = 'You chose not to connect Dotloop. This window will close automatically.';
-    icon = '❌';
+    iconHtml = '&#x274C;'; // ❌
   } else if (isError) {
     title = 'Connection Failed';
     message = 'There was a problem connecting to Dotloop. Please try again.';
-    icon = '⚠️';
+    iconHtml = '&#x26A0;&#xFE0F;'; // ⚠️
   }
   
   return new Response(
@@ -179,9 +180,13 @@ function createRedirectResponse(path: string): Response {
 </head>
 <body>
   <div class="container">
-    <div class="icon">${icon}</div>
+    <div class="icon" aria-hidden="true">${iconHtml}</div>
     <h1>${title}</h1>
     <p>${message}</p>
+    <p style="margin-top:12px; font-size:12px; opacity:0.75;">
+      Note: seeing a URL with a <code style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">code=...</code>
+      parameter is normal during OAuth—it's exchanged for tokens behind the scenes.
+    </p>
     ${!isError && !isDenied ? '<div class="spinner"></div>' : ''}
   </div>
   <script>
