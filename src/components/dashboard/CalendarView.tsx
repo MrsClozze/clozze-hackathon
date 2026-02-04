@@ -434,6 +434,7 @@ export default function CalendarView() {
   }, []);
 
   const connectedCount = connections.length;
+  const allCalendarsConnected = isConnected("google") && isConnected("apple");
 
   return (
     <div>
@@ -444,13 +445,13 @@ export default function CalendarView() {
             <DialogTrigger asChild>
               <Button 
                 size="sm" 
-                variant={connectedCount > 0 ? "outline" : "default"}
-                className={connectedCount > 0 
+                variant={allCalendarsConnected ? "outline" : "default"}
+                className={allCalendarsConnected 
                   ? "gap-2 text-sm border-success/50 bg-success/5 hover:bg-success/10 text-success hover:text-success" 
                   : "gap-2 text-sm relative bg-primary text-primary-foreground hover:bg-primary-hover transition-all duration-300 overflow-hidden group before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 hover:backdrop-blur-md hover:border hover:border-white/20 hover:shadow-lg"
                 }
               >
-                {connectedCount > 0 ? (
+                {allCalendarsConnected ? (
                   <>
                     <Check className="h-4 w-4" />
                     <span>Connected</span>
