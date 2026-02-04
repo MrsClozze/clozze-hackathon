@@ -580,7 +580,9 @@ export type Database = {
           ai_action_item: string | null
           ai_analyzed: boolean | null
           ai_category: string | null
+          ai_ignored: boolean | null
           ai_priority: string | null
+          ai_requires_action: boolean | null
           body_preview: string | null
           created_at: string
           external_email_id: string
@@ -600,7 +602,9 @@ export type Database = {
           ai_action_item?: string | null
           ai_analyzed?: boolean | null
           ai_category?: string | null
+          ai_ignored?: boolean | null
           ai_priority?: string | null
+          ai_requires_action?: boolean | null
           body_preview?: string | null
           created_at?: string
           external_email_id: string
@@ -620,7 +624,9 @@ export type Database = {
           ai_action_item?: string | null
           ai_analyzed?: boolean | null
           ai_category?: string | null
+          ai_ignored?: boolean | null
           ai_priority?: string | null
+          ai_requires_action?: boolean | null
           body_preview?: string | null
           created_at?: string
           external_email_id?: string

@@ -18,6 +18,8 @@ export interface SyncedEmail {
   ai_action_item: string | null;
   ai_priority: "low" | "medium" | "high" | "urgent" | null;
   ai_category: string | null;
+  ai_requires_action: boolean;
+  ai_ignored: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -42,11 +44,18 @@ export function useSyncedEmails() {
         .from("synced_emails")
         .select("*")
         .order("received_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      setEmails((data as SyncedEmail[]) || []);
+      // Map the response to include new fields with defaults
+      const mappedEmails = (data || []).map((email: any) => ({
+        ...email,
+        ai_requires_action: email.ai_requires_action ?? false,
+        ai_ignored: email.ai_ignored ?? false,
+      })) as SyncedEmail[];
+
+      setEmails(mappedEmails);
     } catch (error) {
       console.error("Error fetching synced emails:", error);
     } finally {
@@ -79,7 +88,6 @@ export function useSyncedEmails() {
       }
     } catch (error: any) {
       console.error("Error syncing emails:", error);
-      // Only show toast for non-auth errors (auth errors mean tokens not yet stored)
       if (!error.message?.includes("Unauthorized") && !error.message?.includes("not connected")) {
         toast({
           title: "Sync Failed",
@@ -116,7 +124,6 @@ export function useSyncedEmails() {
       }
     } catch (error: any) {
       console.error("Error analyzing emails:", error);
-      // Don't show toast for rate limits - handled in edge function
       if (!error.message?.includes("Rate limit")) {
         toast({
           title: "Analysis Failed",
@@ -133,24 +140,89 @@ export function useSyncedEmails() {
   const syncAndAnalyze = useCallback(async () => {
     const synced = await syncEmails();
     if (synced > 0) {
-      // Small delay before analyzing
       await new Promise(resolve => setTimeout(resolve, 500));
       await analyzeEmails();
     }
   }, [syncEmails, analyzeEmails]);
 
-  // Get only analyzed emails for display
+  const ignoreEmail = useCallback(async (emailId: string) => {
+    try {
+      const { error } = await supabase
+        .from("synced_emails")
+        .update({ ai_ignored: true })
+        .eq("id", emailId);
+
+      if (error) throw error;
+
+      setEmails(prev => prev.map(e => 
+        e.id === emailId ? { ...e, ai_ignored: true } : e
+      ));
+
+      toast({
+        title: "Email Ignored",
+        description: "This email has been removed from your attention queue.",
+      });
+    } catch (error) {
+      console.error("Error ignoring email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to ignore email",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const restoreEmail = useCallback(async (emailId: string) => {
+    try {
+      const { error } = await supabase
+        .from("synced_emails")
+        .update({ ai_ignored: false })
+        .eq("id", emailId);
+
+      if (error) throw error;
+
+      setEmails(prev => prev.map(e => 
+        e.id === emailId ? { ...e, ai_ignored: false } : e
+      ));
+
+      toast({
+        title: "Email Restored",
+        description: "This email is back in your attention queue.",
+      });
+    } catch (error) {
+      console.error("Error restoring email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to restore email",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  // Get emails that require attention (analyzed, requires action, not ignored)
+  const actionRequiredEmails = emails.filter(
+    e => e.ai_analyzed && e.ai_requires_action && !e.ai_ignored
+  );
+
+  // Get all analyzed emails (for the "All Emails" tab)
+  const allAnalyzedEmails = emails.filter(e => e.ai_analyzed);
+
+  // Legacy: Get only analyzed emails with action items for backwards compatibility
   const analyzedEmails = emails.filter(e => e.ai_analyzed && e.ai_action_item);
 
   return {
     emails,
     analyzedEmails,
+    actionRequiredEmails,
+    allAnalyzedEmails,
     loading,
     syncing,
     analyzing,
     syncEmails,
     analyzeEmails,
     syncAndAnalyze,
+    ignoreEmail,
+    restoreEmail,
     refetch: fetchEmails,
   };
 }

@@ -41,10 +41,10 @@ const CommunicationHub = () => {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-6">
           <AIToneOnboarding onComplete={handleOnboardingComplete} />
           {showWidget && <HelpfulLinksWidget />}
-          <AICommunicationHub limit={3} />
+          <AICommunicationHub showTabs={true} />
         </div>
       </div>
     </Layout>
