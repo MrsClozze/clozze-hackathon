@@ -367,7 +367,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    <span className="ml-1">Sync</span>
                   </Button>
                 )}
               </div>

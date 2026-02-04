@@ -97,7 +97,7 @@ ${styleContext}
 
 Analyze the email and provide:
 1. Whether this email REQUIRES ACTION from the agent (questions needing answers, requests, deadlines, decisions needed)
-2. A clear, actionable summary of what the agent should do (if action is required)
+2. A clear, actionable summary of what the agent should do (if action is required) - MAXIMUM 1-2 sentences
 3. A priority level (low, medium, high, urgent)
 4. A category (client, lender, title_company, showing, offer, inspection, closing, marketing, team, other)
 
@@ -115,7 +115,7 @@ Examples that do NOT require action:
 - Thank you messages with no follow-up needed
 - Spam or irrelevant emails
 
-Be specific and actionable in your recommendations. Focus on what the agent needs to DO next.`;
+CRITICAL: Keep action_item to 1-2 sentences maximum. Be direct and concise.`;
 
       const userPrompt = `Analyze this email:
 
@@ -240,7 +240,9 @@ ${styleContext}
 
 IMPORTANT: Only mark requires_action as true if the email genuinely needs a response or action:
 - Direct questions, requests, deadlines, decisions needed = requires action
-- Newsletters, confirmations, FYI emails, thank yous = does NOT require action`;
+- Newsletters, confirmations, FYI emails, thank yous = does NOT require action
+
+CRITICAL: Keep action_item to 1-2 sentences maximum. Be direct and concise.`;
 
           const userPrompt = `Analyze this email and determine if it requires action:
 
