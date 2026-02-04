@@ -163,6 +163,12 @@ export function useGmailConnection() {
   const handleOAuthCallback = async (code: string) => {
     setIsConnecting(true);
     try {
+      // Ensure we have a valid session before calling the edge function
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Please sign in to connect Gmail");
+      }
+
       const redirectUri = sessionStorage.getItem("gmail_oauth_redirect") || 
         `${window.location.origin}/integrations`;
       
@@ -171,6 +177,7 @@ export function useGmailConnection() {
           action: "exchange_code", 
           code,
           redirect_uri: redirectUri,
+          user_id: user.id, // Pass user_id as backup
         },
       });
 
