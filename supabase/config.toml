@@ -58,3 +58,8 @@ verify_jwt = false
 [functions.sync-gmail-emails]
 
 [functions.analyze-email]
+
+[functions.whatsapp-business-webhook]
+verify_jwt = false
+
+[functions.send-whatsapp-business-message]
