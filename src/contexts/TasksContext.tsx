@@ -214,15 +214,31 @@ export function TasksProvider({ children }: { children: ReactNode }) {
             timezone: getBrowserTimezone(),
           };
 
-          // Sync to both Google and Apple in parallel
-          await Promise.allSettled([
-            supabase.functions.invoke('sync-google-calendar', {
-              body: { action: 'sync_task', task: taskPayload },
-            }),
+          // IMPORTANT: Do not let Apple sync latency block Google sync.
+          await supabase.functions.invoke('sync-google-calendar', {
+            body: { action: 'sync_task', task: taskPayload },
+          });
+
+          const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+            new Promise((resolve, reject) => {
+              const t = setTimeout(() => reject(new Error(`timeout_${ms}ms`)), ms);
+              p.then((v) => {
+                clearTimeout(t);
+                resolve(v);
+              }).catch((e) => {
+                clearTimeout(t);
+                reject(e);
+              });
+            });
+
+          void withTimeout(
             supabase.functions.invoke('sync-apple-calendar', {
               body: { action: 'sync_task', task: taskPayload },
             }),
-          ]);
+            6000
+          ).catch((err) => {
+            console.warn('[TasksContext] Apple calendar sync failed (non-blocking):', err);
+          });
         }
       }
 
@@ -414,27 +430,43 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           timezone: getBrowserTimezone(),
         };
         
-        // Sync to both Google and Apple in parallel
-        const syncResults = await Promise.allSettled([
-          supabase.functions.invoke('sync-google-calendar', {
-            body: { action: 'sync_task', task: taskPayload },
-          }),
+        // IMPORTANT: Do not let Apple sync latency block Google sync.
+        // We await Google (primary) and kick off Apple with a short timeout.
+        const googlePromise = supabase.functions.invoke('sync-google-calendar', {
+          body: { action: 'sync_task', task: taskPayload },
+        });
+
+        const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+          new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error(`timeout_${ms}ms`)), ms);
+            p.then((v) => {
+              clearTimeout(t);
+              resolve(v);
+            }).catch((e) => {
+              clearTimeout(t);
+              reject(e);
+            });
+          });
+
+        // Fire Apple sync (best effort) without slowing the UI.
+        void withTimeout(
           supabase.functions.invoke('sync-apple-calendar', {
             body: { action: 'sync_task', task: taskPayload },
           }),
-        ]);
-        
-        // Check for errors
-        const hasError = syncResults.some(r => 
-          r.status === 'rejected' || 
-          (r.status === 'fulfilled' && (r.value.error || r.value.data?.error))
-        );
-        
-        if (hasError) {
-          console.error('[TasksContext] Some calendar syncs failed:', syncResults);
+          6000
+        ).catch((err) => {
+          console.warn('[TasksContext] Apple calendar sync failed (non-blocking):', err);
+        });
+
+        const googleResult = await googlePromise;
+
+        const googleHasError = Boolean((googleResult as any)?.error || (googleResult as any)?.data?.error);
+
+        if (googleHasError) {
+          console.error('[TasksContext] Google calendar sync failed:', googleResult);
           toast({
             title: "Task created",
-            description: "Some calendar syncs failed. Please check your calendar connections.",
+            description: "Google calendar sync failed. Please check your calendar connection.",
             variant: "destructive",
           });
         } else {

@@ -311,6 +311,16 @@ async function discoverCalendarUrl(
 
     const isRealCalendarCollection = (href: string) => {
       if (!href.includes("/calendars/")) return false;
+      // Must be a specific calendar collection, not the calendar home itself.
+      // Examples:
+      //  - /177.../calendars/                (home)            ❌
+      //  - /177.../calendars/<id>/          (calendar)        ✅
+      //  - /177.../calendars/<id>/events/   (sub-collection)  ✅
+      const parts = href.split("/calendars/");
+      if (parts.length < 2) return false;
+      const after = parts[1] || "";
+      if (after === "" || after === "/") return false;
+
       const lower = href.toLowerCase();
       if (lower.includes("/inbox/")) return false;
       if (lower.includes("/outbox/")) return false;
