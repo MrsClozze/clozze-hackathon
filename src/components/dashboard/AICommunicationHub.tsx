@@ -1,10 +1,14 @@
-import { MessageSquare, Mail, ArrowRight, ChevronDown } from "lucide-react";
+import { MessageSquare, Mail, ArrowRight, ChevronDown, RefreshCw, Loader2 } from "lucide-react";
 import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import MessageActionModal from "./MessageActionModal";
+import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
+import { useGmailConnection } from "@/hooks/useGmailConnection";
+import { formatDistanceToNow } from "date-fns";
 
-// Mock data for AI-analyzed communications
+// Mock data for text messages (keeping for now until SMS integration)
 const mockTextMessages = [
   {
     id: 1,
@@ -29,25 +33,6 @@ const mockTextMessages = [
   },
 ];
 
-const mockEmailMessages = [
-  {
-    id: 1,
-    sender: "John Smith",
-    subject: "Re: 123 Main St Inspection Report",
-    snippet: "The inspector found some issues with the roof...",
-    actionItem: "Review the inspection report for 123 Main St with John Smith. Schedule a call to discuss roof repair negotiations with the seller.",
-    timestamp: "3 hours ago",
-  },
-  {
-    id: 2,
-    sender: "Lisa Park",
-    subject: "Pre-approval Letter Attached",
-    snippet: "Attached is my pre-approval letter for $750,000",
-    actionItem: "Lisa Park sent her pre-approval letter. Update her buyer profile and start sending properties in her price range.",
-    timestamp: "6 hours ago",
-  },
-];
-
 interface AICommunicationHubProps {
   limit?: number;
 }
@@ -63,14 +48,31 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
     subject?: string;
   } | null>(null);
 
+  const navigate = useNavigate();
+  const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
+  const { 
+    analyzedEmails, 
+    loading: emailsLoading, 
+    syncing, 
+    analyzing, 
+    syncAndAnalyze 
+  } = useSyncedEmails();
+
+  // Auto-sync when Gmail is connected and we have no emails
+  useEffect(() => {
+    if (isGmailConnected && !emailsLoading && analyzedEmails.length === 0 && !syncing && !analyzing) {
+      syncAndAnalyze();
+    }
+  }, [isGmailConnected, emailsLoading, analyzedEmails.length, syncing, analyzing, syncAndAnalyze]);
+
   const shouldLimitText = limit && !isTextExpanded;
   const shouldLimitEmail = limit && !isEmailExpanded;
   
   const displayedTextMessages = shouldLimitText ? mockTextMessages.slice(0, limit) : mockTextMessages;
-  const displayedEmailMessages = shouldLimitEmail ? mockEmailMessages.slice(0, limit) : mockEmailMessages;
+  const displayedEmailMessages = shouldLimitEmail ? analyzedEmails.slice(0, limit) : analyzedEmails;
   
   const hasMoreTextMessages = limit && mockTextMessages.length > limit;
-  const hasMoreEmailMessages = limit && mockEmailMessages.length > limit;
+  const hasMoreEmailMessages = limit && analyzedEmails.length > limit;
 
   const handleTextAction = (message: typeof mockTextMessages[0]) => {
     setSelectedMessage({
@@ -81,14 +83,31 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
     });
   };
 
-  const handleEmailAction = (email: typeof mockEmailMessages[0]) => {
+  const handleEmailAction = (email: SyncedEmail) => {
     setSelectedMessage({
       type: "email",
-      sender: email.sender,
-      snippet: email.snippet,
-      actionItem: email.actionItem,
-      subject: email.subject,
+      sender: email.sender_name || email.sender_email,
+      snippet: email.snippet || email.body_preview || "",
+      actionItem: email.ai_action_item || "",
+      subject: email.subject || undefined,
     });
+  };
+
+  const formatTimestamp = (dateStr: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+    } catch {
+      return "";
+    }
+  };
+
+  const getPriorityColor = (priority: string | null) => {
+    switch (priority) {
+      case "urgent": return "bg-destructive/10 border-destructive/30 text-destructive";
+      case "high": return "bg-warning/10 border-warning/30 text-warning";
+      case "medium": return "bg-primary/10 border-primary/25 text-primary";
+      default: return "bg-muted/10 border-muted/30 text-muted-foreground";
+    }
   };
 
   return (
@@ -170,9 +189,59 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
         subtitle="AI-analyzed emails"
         className="h-full"
         elevated
+        action={
+          isGmailConnected && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={syncAndAnalyze}
+              disabled={syncing || analyzing}
+              className="text-xs"
+            >
+              {syncing || analyzing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              <span className="ml-1">Sync</span>
+            </Button>
+          )
+        }
       >
         <div className="space-y-4">
-          {displayedEmailMessages.map((email) => (
+          {/* Loading state */}
+          {(emailsLoading || gmailLoading) && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          )}
+
+          {/* Not connected state */}
+          {!emailsLoading && !gmailLoading && !isGmailConnected && (
+            <div className="text-center py-8 text-text-muted text-sm">
+              <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Gmail not connected</p>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-xs mt-2"
+                onClick={() => navigate("/integrations")}
+              >
+                Connect Gmail in Integrations
+              </Button>
+            </div>
+          )}
+
+          {/* Syncing state */}
+          {isGmailConnected && (syncing || analyzing) && analyzedEmails.length === 0 && (
+            <div className="text-center py-8 text-text-muted text-sm">
+              <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-primary" />
+              <p>{syncing ? "Syncing emails from Gmail..." : "Analyzing emails with AI..."}</p>
+            </div>
+          )}
+
+          {/* Emails list */}
+          {!emailsLoading && !gmailLoading && isGmailConnected && displayedEmailMessages.map((email) => (
             <div
               key={email.id}
               className="p-4 rounded-lg bg-secondary border border-border hover:border-primary/40 transition-all duration-200 group cursor-pointer"
@@ -182,26 +251,33 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
                   <h4 className="text-sm font-semibold text-text-heading">
-                    {email.sender}
+                    {email.sender_name || email.sender_email}
                   </h4>
+                  {email.ai_priority && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${getPriorityColor(email.ai_priority)}`}>
+                      {email.ai_priority}
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs text-text-muted">{email.timestamp}</span>
+                <span className="text-xs text-text-muted">{formatTimestamp(email.received_at)}</span>
               </div>
 
               {/* Email Subject */}
-              <p className="text-xs font-medium text-text-body mb-2">
-                {email.subject}
-              </p>
+              {email.subject && (
+                <p className="text-xs font-medium text-text-body mb-2">
+                  {email.subject}
+                </p>
+              )}
 
               {/* Original Email Snippet */}
-              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-primary/40 pl-3">
-                "{email.snippet}"
+              <p className="text-xs text-text-subtle italic mb-3 border-l-2 border-primary/40 pl-3 line-clamp-2">
+                "{email.snippet || email.body_preview}"
               </p>
 
               {/* AI Action Item */}
               <div className="bg-primary/10 border border-primary/25 rounded-md p-3">
                 <p className="text-xs text-text-heading leading-relaxed">
-                  {email.actionItem}
+                  {email.ai_action_item}
                 </p>
               </div>
 
@@ -218,11 +294,20 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
             </div>
           ))}
 
-          {displayedEmailMessages.length === 0 && (
+          {/* No emails state */}
+          {!emailsLoading && !gmailLoading && isGmailConnected && !syncing && !analyzing && analyzedEmails.length === 0 && (
             <div className="text-center py-8 text-text-muted text-sm">
               <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No emails to analyze</p>
-              <p className="text-xs mt-1">Connect your email in Integrations</p>
+              <p>No analyzed emails yet</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={syncAndAnalyze}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sync & Analyze Emails
+              </Button>
             </div>
           )}
 
@@ -233,7 +318,7 @@ export default function AICommunicationHub({ limit }: AICommunicationHubProps = 
               className="w-full mt-4"
               onClick={() => setIsEmailExpanded(!isEmailExpanded)}
             >
-              {isEmailExpanded ? 'Show Less' : `View All (${mockEmailMessages.length} messages)`}
+              {isEmailExpanded ? 'Show Less' : `View All (${analyzedEmails.length} emails)`}
               <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${isEmailExpanded ? 'rotate-180' : ''}`} />
             </Button>
           )}

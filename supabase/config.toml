@@ -52,3 +52,9 @@ verify_jwt = false
 [functions.sync-apple-calendar]
 
 [functions.apple-calendar-auth]
+
+[functions.gmail-auth]
+
+[functions.sync-gmail-emails]
+
+[functions.analyze-email]

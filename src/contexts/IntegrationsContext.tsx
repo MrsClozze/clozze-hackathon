@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 
@@ -6,10 +6,12 @@ interface IntegrationsContextType {
   isPhoneConnected: boolean;
   isEmailConnected: boolean;
   isWhatsAppConnected: boolean;
+  isGmailConnected: boolean;
   whatsAppNumber: string | null;
   connectPhone: () => void;
   connectEmail: () => void;
   refreshWhatsAppStatus: () => Promise<void>;
+  refreshGmailStatus: () => Promise<void>;
   disconnectWhatsApp: () => Promise<void>;
 }
 
@@ -20,6 +22,7 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
   const [isPhoneConnected, setIsPhoneConnected] = useState(false);
   const [isEmailConnected, setIsEmailConnected] = useState(false);
   const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(false);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [whatsAppNumber, setWhatsAppNumber] = useState<string | null>(null);
 
   const connectPhone = () => setIsPhoneConnected(true);
@@ -56,6 +59,33 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshGmailStatus = useCallback(async () => {
+    if (!user) {
+      setIsGmailConnected(false);
+      setIsEmailConnected(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('service_integrations')
+        .select('is_connected')
+        .eq('user_id', user.id)
+        .eq('service_name', 'gmail')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const connected = data?.is_connected ?? false;
+      setIsGmailConnected(connected);
+      setIsEmailConnected(connected);
+    } catch (error) {
+      console.error('Error fetching Gmail status:', error);
+      setIsGmailConnected(false);
+      setIsEmailConnected(false);
+    }
+  }, [user]);
+
   const disconnectWhatsApp = async () => {
     if (!user) return;
 
@@ -77,7 +107,8 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     refreshWhatsAppStatus();
-  }, [user]);
+    refreshGmailStatus();
+  }, [user, refreshGmailStatus]);
 
   return (
     <IntegrationsContext.Provider
@@ -85,10 +116,12 @@ export const IntegrationsProvider = ({ children }: { children: ReactNode }) => {
         isPhoneConnected, 
         isEmailConnected, 
         isWhatsAppConnected,
+        isGmailConnected,
         whatsAppNumber,
         connectPhone, 
         connectEmail,
         refreshWhatsAppStatus,
+        refreshGmailStatus,
         disconnectWhatsApp
       }}
     >

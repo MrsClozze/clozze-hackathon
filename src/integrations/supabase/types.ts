@@ -569,6 +569,69 @@ export type Database = {
         }
         Relationships: []
       }
+      synced_emails: {
+        Row: {
+          ai_action_item: string | null
+          ai_analyzed: boolean | null
+          ai_category: string | null
+          ai_priority: string | null
+          body_preview: string | null
+          created_at: string
+          external_email_id: string
+          id: string
+          is_read: boolean | null
+          labels: string[] | null
+          received_at: string
+          sender_email: string
+          sender_name: string | null
+          snippet: string | null
+          subject: string | null
+          thread_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_action_item?: string | null
+          ai_analyzed?: boolean | null
+          ai_category?: string | null
+          ai_priority?: string | null
+          body_preview?: string | null
+          created_at?: string
+          external_email_id: string
+          id?: string
+          is_read?: boolean | null
+          labels?: string[] | null
+          received_at: string
+          sender_email: string
+          sender_name?: string | null
+          snippet?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_action_item?: string | null
+          ai_analyzed?: boolean | null
+          ai_category?: string | null
+          ai_priority?: string | null
+          body_preview?: string | null
+          created_at?: string
+          external_email_id?: string
+          id?: string
+          is_read?: boolean | null
+          labels?: string[] | null
+          received_at?: string
+          sender_email?: string
+          sender_name?: string | null
+          snippet?: string | null
+          subject?: string | null
+          thread_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       task_assignees: {
         Row: {
           assigned_at: string
