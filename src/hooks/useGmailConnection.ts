@@ -187,6 +187,16 @@ export function useGmailConnection() {
         sessionStorage.removeItem("gmail_oauth_redirect");
         
         await fetchConnection();
+        
+        // Trigger initial sync after connecting
+        try {
+          await supabase.functions.invoke("sync-gmail-emails", {
+            body: { action: "sync", maxResults: 20 },
+          });
+        } catch (syncError) {
+          console.log("Initial sync will happen in Communication Hub");
+        }
+        
         return true;
       } else {
         throw new Error(data.error || "Connection failed");
@@ -204,6 +214,20 @@ export function useGmailConnection() {
     }
   };
 
+  const syncEmails = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-gmail-emails", {
+        body: { action: "sync", maxResults: 20 },
+      });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error syncing emails:", error);
+      return null;
+    }
+  };
+
   return {
     connection,
     loading,
@@ -212,6 +236,7 @@ export function useGmailConnection() {
     connectGmail,
     disconnectGmail,
     handleOAuthCallback,
+    syncEmails,
     refetch: fetchConnection,
   };
 }
