@@ -7,36 +7,9 @@ import MessageActionModal from "./MessageActionModal";
 import { EmailCard, TextMessageCard } from "./MessageCard";
 import CommunicationHubSettings, { HubSettings } from "./CommunicationHubSettings";
 import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
+import { useSyncedMessages } from "@/hooks/useSyncedMessages";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
-
-// Mock data for text messages - only shown when connected
-const mockTextMessages = [
-  {
-    id: 1,
-    sender: "Sarah Johnson",
-    snippet: "Hey, I got pre-approved for $500,000 today!",
-    actionItem: "Looks like your client Sarah Johnson got approved for $500k. Let's send them a date where we can go look at houses and start sending them options.",
-    timestamp: "2 hours ago",
-    requiresAction: true,
-  },
-  {
-    id: 2,
-    sender: "Michael Chen",
-    snippet: "Can we schedule a showing for this weekend?",
-    actionItem: "Michael Chen wants to schedule a showing. Check your calendar and propose available times for this weekend.",
-    timestamp: "5 hours ago",
-    requiresAction: true,
-  },
-  {
-    id: 3,
-    sender: "Emily Davis",
-    snippet: "We're ready to make an offer on the property",
-    actionItem: "Emily Davis is ready to make an offer. Prepare the offer documents and discuss pricing strategy.",
-    timestamp: "1 day ago",
-    requiresAction: true,
-  },
-];
 
 interface AICommunicationHubProps {
   limit?: number;
@@ -61,7 +34,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
-  const { isPhoneConnected, isWhatsAppConnected } = useIntegrations();
+  const { isPhoneConnected, isWhatsAppBusinessConnected } = useIntegrations();
   const { 
     actionRequiredEmails,
     allAnalyzedEmails,
@@ -72,7 +45,15 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     ignoreEmail,
   } = useSyncedEmails();
 
-  const isTextConnected = isPhoneConnected || isWhatsAppConnected;
+  const {
+    whatsappMessages,
+    actionRequiredMessages: actionRequiredTextMessages,
+    allVisibleMessages: allTextMessages,
+    loading: messagesLoading,
+    ignoreMessage,
+  } = useSyncedMessages();
+
+  const isTextConnected = isPhoneConnected || isWhatsAppBusinessConnected;
 
   // Auto-sync when Gmail is connected and we have no emails
   useEffect(() => {
@@ -90,18 +71,18 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const displayedActionEmails = limit ? filteredActionEmails.slice(0, limit) : filteredActionEmails;
   const displayedAllEmails = limit ? allAnalyzedEmails.slice(0, limit) : allAnalyzedEmails;
   
-  // Only show text messages if connected
-  const actionRequiredTextMessages = isTextConnected ? mockTextMessages.filter(m => m.requiresAction) : [];
-  const allTextMessages = isTextConnected ? mockTextMessages : [];
-  const displayedActionTexts = limit ? actionRequiredTextMessages.slice(0, limit) : actionRequiredTextMessages;
-  const displayedAllTexts = limit ? allTextMessages.slice(0, limit) : allTextMessages;
+  // Filter WhatsApp messages for text section
+  const textActionRequired = isTextConnected ? actionRequiredTextMessages.filter(m => m.source === 'whatsapp') : [];
+  const textAllMessages = isTextConnected ? whatsappMessages.filter(m => !m.ai_ignored) : [];
+  const displayedActionTexts = limit ? textActionRequired.slice(0, limit) : textActionRequired;
+  const displayedAllTexts = limit ? textAllMessages.slice(0, limit) : textAllMessages;
 
-  const handleTextAction = (message: typeof mockTextMessages[0]) => {
+  const handleTextAction = (message: typeof whatsappMessages[0]) => {
     setSelectedMessage({
       type: "text",
-      sender: message.sender,
-      snippet: message.snippet,
-      actionItem: message.actionItem,
+      sender: message.sender_name || message.sender_phone || "Unknown",
+      snippet: message.message_body || "",
+      actionItem: message.ai_action_item || "",
     });
   };
 
@@ -117,13 +98,13 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   // Get counts for badges
   const emailNeedsAttentionCount = filteredActionEmails.length;
-  const textNeedsAttentionCount = actionRequiredTextMessages.length;
+  const textNeedsAttentionCount = textActionRequired.length;
 
   const renderTextNotConnected = () => (
     <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
       <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-50" />
       <p className="font-medium mb-1">Text messaging not connected</p>
-      <p className="text-xs mb-3">Connect your phone or WhatsApp to sync messages</p>
+      <p className="text-xs mb-3">Connect WhatsApp Business to sync messages</p>
       <Button
         variant="outline"
         size="sm"
@@ -134,9 +115,14 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     </div>
   );
 
-  const renderTextMessages = (messages: typeof mockTextMessages, showIgnore: boolean = true) => (
+  const renderTextMessages = (messages: typeof whatsappMessages, showIgnore: boolean = true) => (
     <div className="space-y-4">
-      {messages.length === 0 ? (
+      {messagesLoading ? (
+        <div className="flex items-center justify-center py-12 bg-secondary rounded-lg border border-border">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-text-muted">Loading messages...</span>
+        </div>
+      ) : messages.length === 0 ? (
         <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
           <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
           <p>{textSubTab === "needs-attention" ? "No text messages need attention" : "No text messages yet"}</p>
@@ -146,8 +132,16 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
           {messages.map((message) => (
             <TextMessageCard
               key={message.id}
-              message={message}
+              message={{
+                id: message.id,
+                sender: message.sender_name || message.sender_phone || "Unknown",
+                snippet: message.message_body || "",
+                actionItem: message.ai_action_item || "",
+                timestamp: new Date(message.received_at).toLocaleString(),
+                requiresAction: message.ai_requires_action || !!message.ai_action_item,
+              }}
               onTakeAction={() => handleTextAction(message)}
+              onIgnore={() => ignoreMessage(message.id)}
               showIgnore={showIgnore}
             />
           ))}

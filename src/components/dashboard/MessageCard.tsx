@@ -139,11 +139,12 @@ export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: 
 
 interface TextMessageCardProps {
   message: {
-    id: number;
+    id: string | number;
     sender: string;
     snippet: string;
     actionItem: string;
     timestamp: string;
+    requiresAction?: boolean;
   };
   onIgnore?: () => void;
   onTakeAction: () => void;

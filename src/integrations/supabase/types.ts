@@ -644,6 +644,72 @@ export type Database = {
         }
         Relationships: []
       }
+      synced_messages: {
+        Row: {
+          ai_action_item: string | null
+          ai_analyzed: boolean | null
+          ai_category: string | null
+          ai_ignored: boolean | null
+          ai_priority: string | null
+          ai_requires_action: boolean | null
+          created_at: string
+          direction: string
+          external_message_id: string
+          id: string
+          is_read: boolean | null
+          message_body: string | null
+          received_at: string
+          recipient_phone: string | null
+          sender_name: string | null
+          sender_phone: string | null
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_action_item?: string | null
+          ai_analyzed?: boolean | null
+          ai_category?: string | null
+          ai_ignored?: boolean | null
+          ai_priority?: string | null
+          ai_requires_action?: boolean | null
+          created_at?: string
+          direction?: string
+          external_message_id: string
+          id?: string
+          is_read?: boolean | null
+          message_body?: string | null
+          received_at?: string
+          recipient_phone?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_action_item?: string | null
+          ai_analyzed?: boolean | null
+          ai_category?: string | null
+          ai_ignored?: boolean | null
+          ai_priority?: string | null
+          ai_requires_action?: boolean | null
+          created_at?: string
+          direction?: string
+          external_message_id?: string
+          id?: string
+          is_read?: boolean | null
+          message_body?: string | null
+          received_at?: string
+          recipient_phone?: string | null
+          sender_name?: string | null
+          sender_phone?: string | null
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       task_assignees: {
         Row: {
           assigned_at: string
@@ -937,6 +1003,45 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_business_connections: {
+        Row: {
+          access_token_encrypted: string
+          business_phone_number: string | null
+          connected_at: string | null
+          created_at: string
+          id: string
+          is_connected: boolean
+          phone_number_id: string
+          updated_at: string
+          user_id: string
+          webhook_verify_token: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          business_phone_number?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          phone_number_id: string
+          updated_at?: string
+          user_id: string
+          webhook_verify_token?: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          business_phone_number?: string | null
+          connected_at?: string | null
+          created_at?: string
+          id?: string
+          is_connected?: boolean
+          phone_number_id?: string
+          updated_at?: string
+          user_id?: string
+          webhook_verify_token?: string
         }
         Relationships: []
       }
