@@ -32,6 +32,7 @@ serve(async (req) => {
     let userId: string | null = null;
 
     if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -42,7 +43,8 @@ serve(async (req) => {
         }
       );
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Lovable Cloud uses verify_jwt=false; we MUST pass the token explicitly
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
       if (!authError && user) {
         userId = user.id;
