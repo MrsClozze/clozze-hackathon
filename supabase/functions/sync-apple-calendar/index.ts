@@ -289,20 +289,36 @@ async function discoverCalendarUrl(
 
     const calendarsXml = await calendarsResponse.text();
     
-    // Find a calendar URL (look for paths containing "calendar")
-    // Handle both namespaced (D:href) and plain (href) formats
+    // Find a calendar URL.
+    // iCloud returns multiple CalDAV collections (inbox/outbox/notifications + actual calendars).
+    // We want a real calendar collection under /calendars/ and avoid inbox/outbox.
+    // Handle both namespaced (D:href) and plain (href) formats.
     const hrefMatches = calendarsXml.match(/<(?:D:)?href[^>]*>([^<]+)<\/(?:D:)?href>/gi) || [];
-    let calendarUrl = calendarHomeUrl;
+    const hrefs = hrefMatches
+      .map((m) => m.match(/<(?:D:)?href[^>]*>([^<]+)<\/(?:D:)?href>/i)?.[1]?.trim())
+      .filter((u): u is string => Boolean(u));
+
+    const isRealCalendarCollection = (href: string) => {
+      if (!href.includes("/calendars/")) return false;
+      const lower = href.toLowerCase();
+      if (lower.includes("/inbox/")) return false;
+      if (lower.includes("/outbox/")) return false;
+      if (lower.includes("/notifications/")) return false;
+      return true;
+    };
+
+    // Prefer a calendar collection that looks like an actual calendar (often ends with "/")
+    const candidateCalendars = hrefs.filter(isRealCalendarCollection);
+    const preferred =
+      candidateCalendars.find((u) => u.endsWith("/")) ||
+      candidateCalendars[0];
+
+    let calendarUrl = preferred || calendarHomeUrl;
+
+    // Ensure trailing slash so we can safely append "UID.ics"
+    if (!calendarUrl.endsWith("/")) calendarUrl += "/";
     
-    for (const match of hrefMatches) {
-      const urlMatch = match.match(/<(?:D:)?href[^>]*>([^<]+)<\/(?:D:)?href>/i);
-      if (urlMatch && urlMatch[1] && urlMatch[1].includes("/calendars/")) {
-        calendarUrl = urlMatch[1].trim();
-        break;
-      }
-    }
-    
-    console.log("Using calendar URL:", calendarUrl);
+    console.log("Using Apple CalDAV calendar collection:", calendarUrl);
 
     return { principalUrl, calendarUrl };
   } catch (error) {
