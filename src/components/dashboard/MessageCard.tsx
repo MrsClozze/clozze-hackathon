@@ -121,13 +121,23 @@ interface EmailCardProps {
 }
 
 export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: EmailCardProps) {
+  // Clean up AI action items that indicate no action needed
+  const getCleanActionItem = (item: string | null): string => {
+    if (!item) return "Review this email";
+    const lowerItem = item.toLowerCase().trim();
+    if (lowerItem === "none" || lowerItem === "n/a" || lowerItem === "no action needed" || lowerItem === "no action required") {
+      return "No action required - informational only";
+    }
+    return item;
+  };
+
   return (
     <MessageCard
       type="email"
       sender={email.sender_name || email.sender_email}
       subject={email.subject || undefined}
       snippet={email.snippet || email.body_preview || ""}
-      actionItem={email.ai_action_item || "No action item available"}
+      actionItem={getCleanActionItem(email.ai_action_item)}
       timestamp={email.received_at}
       priority={email.ai_priority}
       onIgnore={onIgnore}
