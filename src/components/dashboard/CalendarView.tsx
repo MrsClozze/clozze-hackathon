@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
 import { CalendarEventDeleteDialog } from "@/components/dashboard/CalendarEventDeleteDialog";
 import { useTasks } from "@/contexts/TasksContext";
+import { supabase } from "@/integrations/supabase/client";
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 
@@ -210,13 +211,15 @@ export default function CalendarView() {
     return tasks
       .filter(task => task.showOnCalendar && task.dueDate)
       .map(task => {
-        const taskDate = new Date(task.dueDate!);
+        // Parse date string as local date to avoid timezone shift
+        // dueDate is in YYYY-MM-DD format, parse components directly
+        const [year, month, day] = task.dueDate!.split('-').map(Number);
         return {
           id: `task-${task.id}`,
           taskId: task.id, // Store the actual task ID for click handling
-          date: taskDate.getDate(),
-          month: taskDate.getMonth(),
-          year: taskDate.getFullYear(),
+          date: day,
+          month: month - 1, // JavaScript months are 0-indexed
+          year: year,
           title: task.title,
           time: task.dueTime || undefined,
           description: task.notes || undefined,
@@ -330,6 +333,28 @@ export default function CalendarView() {
   // Delete both the task and calendar event
   const handleDeleteTaskAndEvent = async () => {
     if (eventToDelete?.taskId) {
+      // Find the task to check if it has external sync enabled
+      const task = tasks.find(t => t.id === eventToDelete.taskId);
+      
+      // If task was synced to external calendar, delete from Google Calendar first
+      if (task?.syncToExternalCalendar) {
+        try {
+          const { error } = await supabase.functions.invoke('sync-google-calendar', {
+            body: {
+              action: 'delete_event',
+              taskId: eventToDelete.taskId,
+            },
+          });
+          if (error) {
+            console.error('[CalendarView] Failed to delete Google Calendar event:', error);
+          } else {
+            console.log('[CalendarView] Google Calendar event deleted');
+          }
+        } catch (err) {
+          console.error('[CalendarView] Error deleting Google Calendar event:', err);
+        }
+      }
+      
       await deleteTask(eventToDelete.taskId);
       // Task deletion will automatically remove it from taskEvents
     }
@@ -419,13 +444,24 @@ export default function CalendarView() {
             <DialogTrigger asChild>
               <Button 
                 size="sm" 
-                className="gap-2 text-sm relative bg-primary text-primary-foreground hover:bg-primary-hover transition-all duration-300 overflow-hidden group before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 hover:backdrop-blur-md hover:border hover:border-white/20 hover:shadow-lg"
+                variant={connectedCount > 0 ? "outline" : "default"}
+                className={connectedCount > 0 
+                  ? "gap-2 text-sm border-success/50 bg-success/5 hover:bg-success/10 text-success hover:text-success" 
+                  : "gap-2 text-sm relative bg-primary text-primary-foreground hover:bg-primary-hover transition-all duration-300 overflow-hidden group before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-violet-500/20 before:via-fuchsia-500/20 before:to-cyan-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300 hover:backdrop-blur-md hover:border hover:border-white/20 hover:shadow-lg"
+                }
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
-                <Calendar className="h-4 w-4 relative z-10" />
-                <span className="relative z-10">
-                  {connectedCount > 0 ? `${connectedCount} connected` : "Connect calendar"}
-                </span>
+                {connectedCount > 0 ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span>Connected</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 via-pink-400/30 to-cyan-400/30 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500 skew-x-12"></div>
+                    <Calendar className="h-4 w-4 relative z-10" />
+                    <span className="relative z-10">Connect calendar</span>
+                  </>
+                )}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg bg-card border border-card-border shadow-elevated">
