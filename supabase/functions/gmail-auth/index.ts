@@ -98,7 +98,8 @@ serve(async (req) => {
       );
       const userInfo = await userInfoResponse.json();
 
-      // Store integration in database using admin client with tokens
+      // Store integration in database using admin client with tokens directly
+      // (vault encryption not available in Cloud environment)
       const adminClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -106,38 +107,28 @@ serve(async (req) => {
 
       const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
 
-      // Store tokens using the store_integration_tokens RPC function
-      const { data: vaultSecretId, error: storeError } = await adminClient.rpc('store_integration_tokens', {
-        _user_id: userId,
-        _service_name: 'gmail',
-        _access_token: tokenData.access_token,
-        _refresh_token: tokenData.refresh_token || '',
-        _expires_at: expiresAt.toISOString()
-      });
+      // Store tokens directly in service_integrations table
+      const { error: upsertError } = await adminClient
+        .from("service_integrations")
+        .upsert({
+          user_id: userId,
+          service_name: "gmail",
+          is_connected: true,
+          connected_at: new Date().toISOString(),
+          token_expires_at: expiresAt.toISOString(),
+          access_token_encrypted: tokenData.access_token,
+          refresh_token_encrypted: tokenData.refresh_token || null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "user_id,service_name",
+        });
 
-      if (storeError) {
-        console.error("Error storing tokens via RPC:", storeError);
-        // Fall back to direct upsert if RPC fails (won't have tokens but at least marks connected)
-        const { error: upsertError } = await adminClient
-          .from("service_integrations")
-          .upsert({
-            user_id: userId,
-            service_name: "gmail",
-            is_connected: true,
-            connected_at: new Date().toISOString(),
-            token_expires_at: expiresAt.toISOString(),
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: "user_id,service_name",
-          });
-
-        if (upsertError) {
-          console.error("Error upserting integration:", upsertError);
-          throw new Error(`Failed to store integration: ${upsertError.message}`);
-        }
+      if (upsertError) {
+        console.error("Error upserting integration:", upsertError);
+        throw new Error(`Failed to store integration: ${upsertError.message}`);
       }
 
-      console.log(`Gmail connected for user ${userId}, email: ${userInfo.email}, vault_secret_id: ${vaultSecretId || 'N/A'}`);
+      console.log(`Gmail connected for user ${userId}, email: ${userInfo.email}`);
 
       console.log(`Gmail connected for user ${userId}, email: ${userInfo.email}`);
 

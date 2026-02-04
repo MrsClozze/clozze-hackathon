@@ -493,10 +493,12 @@ export type Database = {
       }
       service_integrations: {
         Row: {
+          access_token_encrypted: string | null
           connected_at: string | null
           created_at: string
           id: string
           is_connected: boolean
+          refresh_token_encrypted: string | null
           service_name: string
           token_expires_at: string | null
           updated_at: string
@@ -504,10 +506,12 @@ export type Database = {
           vault_secret_id: string | null
         }
         Insert: {
+          access_token_encrypted?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
+          refresh_token_encrypted?: string | null
           service_name: string
           token_expires_at?: string | null
           updated_at?: string
@@ -515,10 +519,12 @@ export type Database = {
           vault_secret_id?: string | null
         }
         Update: {
+          access_token_encrypted?: string | null
           connected_at?: string | null
           created_at?: string
           id?: string
           is_connected?: boolean
+          refresh_token_encrypted?: string | null
           service_name?: string
           token_expires_at?: string | null
           updated_at?: string
