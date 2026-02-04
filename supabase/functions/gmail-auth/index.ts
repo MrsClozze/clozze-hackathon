@@ -16,9 +16,9 @@ serve(async (req) => {
     const body = await req.json();
     const { action, user_id } = body;
 
-    // Get client credentials - prefer custom ones from secrets, fall back to defaults
-    const clientId = Deno.env.get('GOOGLE_CLIENT_ID') || Deno.env.get('DEFAULT_GOOGLE_CLIENT_ID');
-    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') || Deno.env.get('DEFAULT_GOOGLE_CLIENT_SECRET');
+    // Get client credentials - use the same Google OAuth credentials as calendar
+    const clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') || Deno.env.get('GOOGLE_CLIENT_ID') || Deno.env.get('DEFAULT_GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') || Deno.env.get('GOOGLE_CLIENT_SECRET') || Deno.env.get('DEFAULT_GOOGLE_CLIENT_SECRET');
 
     if (action === "get_client_id") {
       return new Response(

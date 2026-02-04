@@ -54,15 +54,25 @@ export function useGmailConnection() {
     fetchConnection();
   }, [fetchConnection]);
 
-  // Fetch Google Client ID on mount (reuse calendar auth endpoint)
+  // Fetch Google Client ID on mount (using gmail-auth endpoint)
   useEffect(() => {
     const fetchGoogleClientId = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("google-calendar-auth", {
+        // First try gmail-auth endpoint
+        const { data, error } = await supabase.functions.invoke("gmail-auth", {
           body: { action: "get_client_id" },
         });
         if (!error && data?.client_id) {
           setGoogleClientId(data.client_id);
+          return;
+        }
+        
+        // Fallback to calendar auth endpoint if needed
+        const { data: calData, error: calError } = await supabase.functions.invoke("google-calendar-auth", {
+          body: { action: "get_client_id" },
+        });
+        if (!calError && calData?.client_id) {
+          setGoogleClientId(calData.client_id);
         }
       } catch (err) {
         console.error("Failed to fetch Google Client ID:", err);
