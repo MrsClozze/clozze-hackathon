@@ -25,6 +25,7 @@ interface RequestBody {
   action: "sync_task" | "delete_event" | "sync_all";
   task?: TaskToSync;
   eventId?: string;
+  taskId?: string; // For deleting by task ID
   taskIds?: string[];
 }
 
@@ -250,7 +251,7 @@ serve(async (req) => {
     }
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { action, task, eventId, taskIds } = await req.json() as RequestBody;
+    const { action, task, eventId, taskId, taskIds } = await req.json() as RequestBody;
 
     // Get valid access token
     const accessToken = await getValidAccessToken(adminClient, user.id);
@@ -268,14 +269,61 @@ serve(async (req) => {
     if (action === "sync_task" && task) {
       const result = await syncTaskToGoogleCalendar(accessToken, task);
       
+      // Store the Google Calendar event ID in the task for future reference
+      if (result.success && result.eventId && task.id) {
+        await adminClient
+          .from("tasks")
+          .update({ external_calendar_event_id: result.eventId })
+          .eq("id", task.id);
+        console.log("Stored Google Calendar event ID in task:", task.id, result.eventId);
+      }
+      
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (action === "delete_event" && eventId) {
-      const result = await deleteGoogleCalendarEvent(accessToken, eventId);
+    if (action === "delete_event") {
+      // Support deleting by eventId or taskId
+      let googleEventId = eventId;
+      
+      if (!googleEventId && taskId) {
+        // Look up the Google Calendar event ID from the task
+        const { data: taskData, error: taskError } = await adminClient
+          .from("tasks")
+          .select("external_calendar_event_id")
+          .eq("id", taskId)
+          .eq("user_id", user.id)
+          .single();
+        
+        if (taskError || !taskData?.external_calendar_event_id) {
+          console.log("No external calendar event ID found for task:", taskId);
+          return new Response(
+            JSON.stringify({ success: true, message: "No external event to delete" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        googleEventId = taskData.external_calendar_event_id;
+      }
+      
+      if (!googleEventId) {
+        return new Response(
+          JSON.stringify({ error: "No event ID provided" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const result = await deleteGoogleCalendarEvent(accessToken, googleEventId);
+      
+      // Clear the external_calendar_event_id from the task if deletion was successful
+      if (result.success && taskId) {
+        await adminClient
+          .from("tasks")
+          .update({ external_calendar_event_id: null })
+          .eq("id", taskId);
+      }
       
       return new Response(
         JSON.stringify(result),
