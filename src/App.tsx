@@ -23,6 +23,7 @@ import Pricing from "./pages/Pricing";
 import Checkout from "./pages/Checkout";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
+import DotloopCallback from "./pages/DotloopCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: "/pricing", element: <Pricing /> },
       { path: "/checkout", element: <Checkout /> },
       { path: "/integrations", element: <Integrations /> },
+      { path: "/integrations/dotloop/callback", element: <DotloopCallback /> },
       { path: "/settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },
     ],
