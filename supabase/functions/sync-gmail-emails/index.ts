@@ -21,10 +21,10 @@ interface GmailMessage {
 }
 
 async function getAccessToken(adminClient: any, userId: string): Promise<string | null> {
-  // Get the integration record with vault_secret_id
+  // Get the integration record with tokens stored directly
   const { data: integration, error } = await adminClient
     .from("service_integrations")
-    .select("vault_secret_id, token_expires_at")
+    .select("access_token_encrypted, refresh_token_encrypted, token_expires_at")
     .eq("user_id", userId)
     .eq("service_name", "gmail")
     .eq("is_connected", true)
@@ -35,18 +35,8 @@ async function getAccessToken(adminClient: any, userId: string): Promise<string 
     return null;
   }
 
-  if (!integration.vault_secret_id) {
-    console.error("Gmail integration found but no vault_secret_id - tokens not stored");
-    return null;
-  }
-
-  // Get tokens from vault using the RPC function
-  const { data: tokenData, error: vaultError } = await adminClient.rpc("get_vault_secret", {
-    secret_id: integration.vault_secret_id,
-  });
-
-  if (vaultError || !tokenData) {
-    console.error("Error retrieving tokens from vault:", vaultError);
+  if (!integration.access_token_encrypted) {
+    console.error("Gmail integration found but no access token stored");
     return null;
   }
 
@@ -60,25 +50,28 @@ async function getAccessToken(adminClient: any, userId: string): Promise<string 
       const clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') || Deno.env.get('GOOGLE_CLIENT_ID');
       const clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') || Deno.env.get('GOOGLE_CLIENT_SECRET');
       
-      if (tokenData.refresh_token && clientId && clientSecret) {
-        const refreshedTokens = await refreshAccessToken(tokenData.refresh_token, clientId, clientSecret);
+      if (integration.refresh_token_encrypted && clientId && clientSecret) {
+        const refreshedTokens = await refreshAccessToken(integration.refresh_token_encrypted, clientId, clientSecret);
         if (refreshedTokens) {
           // Update the stored tokens
           const newExpiresAt = new Date(Date.now() + (refreshedTokens.expires_in * 1000));
-          await adminClient.rpc('store_integration_tokens', {
-            _user_id: userId,
-            _service_name: 'gmail',
-            _access_token: refreshedTokens.access_token,
-            _refresh_token: tokenData.refresh_token,
-            _expires_at: newExpiresAt.toISOString()
-          });
+          await adminClient
+            .from("service_integrations")
+            .update({
+              access_token_encrypted: refreshedTokens.access_token,
+              token_expires_at: newExpiresAt.toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", userId)
+            .eq("service_name", "gmail");
+          
           return refreshedTokens.access_token;
         }
       }
     }
   }
 
-  return tokenData.access_token || null;
+  return integration.access_token_encrypted;
 }
 
 async function refreshAccessToken(
