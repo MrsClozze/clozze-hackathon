@@ -10,7 +10,7 @@ import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
 
-// Mock data for text messages (keeping for now until SMS integration)
+// Mock data for text messages - only shown when connected
 const mockTextMessages = [
   {
     id: 1,
@@ -55,7 +55,9 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     showOnlyActionRequired: true,
     excludeCategories: [],
   });
-  const [activeTab, setActiveTab] = useState("needs-attention");
+  const [activeTab, setActiveTab] = useState("email");
+  const [emailSubTab, setEmailSubTab] = useState("needs-attention");
+  const [textSubTab, setTextSubTab] = useState("needs-attention");
 
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
@@ -87,7 +89,12 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   // Apply limit if specified
   const displayedActionEmails = limit ? filteredActionEmails.slice(0, limit) : filteredActionEmails;
   const displayedAllEmails = limit ? allAnalyzedEmails.slice(0, limit) : allAnalyzedEmails;
-  const displayedTextMessages = mockTextMessages.filter(m => m.requiresAction);
+  
+  // Only show text messages if connected
+  const actionRequiredTextMessages = isTextConnected ? mockTextMessages.filter(m => m.requiresAction) : [];
+  const allTextMessages = isTextConnected ? mockTextMessages : [];
+  const displayedActionTexts = limit ? actionRequiredTextMessages.slice(0, limit) : actionRequiredTextMessages;
+  const displayedAllTexts = limit ? allTextMessages.slice(0, limit) : allTextMessages;
 
   const handleTextAction = (message: typeof mockTextMessages[0]) => {
     setSelectedMessage({
@@ -108,35 +115,35 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     });
   };
 
-  const renderTextSection = (showIgnore: boolean = true) => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-semibold text-text-heading">Text Messages</h3>
-        <span className="text-sm text-text-muted">({displayedTextMessages.length})</span>
-      </div>
+  // Get counts for badges
+  const emailNeedsAttentionCount = filteredActionEmails.length;
+  const textNeedsAttentionCount = actionRequiredTextMessages.length;
 
-      {!isTextConnected ? (
-        <div className="text-center py-8 text-text-muted text-sm bg-secondary rounded-lg border border-border">
-          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>Text messaging not connected</p>
-          <Button
-            variant="link"
-            size="sm"
-            className="text-xs mt-2"
-            onClick={() => navigate("/integrations")}
-          >
-            Connect in Integrations
-          </Button>
-        </div>
-      ) : displayedTextMessages.length === 0 ? (
-        <div className="text-center py-8 text-text-muted text-sm bg-secondary rounded-lg border border-border">
-          <Inbox className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>No text messages need attention</p>
+  const renderTextNotConnected = () => (
+    <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+      <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-50" />
+      <p className="font-medium mb-1">Text messaging not connected</p>
+      <p className="text-xs mb-3">Connect your phone or WhatsApp to sync messages</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/integrations")}
+      >
+        Connect in Integrations
+      </Button>
+    </div>
+  );
+
+  const renderTextMessages = (messages: typeof mockTextMessages, showIgnore: boolean = true) => (
+    <div className="space-y-4">
+      {messages.length === 0 ? (
+        <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+          <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p>{textSubTab === "needs-attention" ? "No text messages need attention" : "No text messages yet"}</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {displayedTextMessages.map((message) => (
+          {messages.map((message) => (
             <TextMessageCard
               key={message.id}
               message={message}
@@ -149,59 +156,34 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     </div>
   );
 
+  const renderEmailNotConnected = () => (
+    <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+      <Mail className="h-10 w-10 mx-auto mb-3 opacity-50" />
+      <p className="font-medium mb-1">Gmail not connected</p>
+      <p className="text-xs mb-3">Connect Gmail to sync and analyze your emails</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigate("/integrations")}
+      >
+        Connect Gmail in Integrations
+      </Button>
+    </div>
+  );
+
   const renderEmailSection = (emails: SyncedEmail[], showIgnore: boolean = true) => (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold text-text-heading">Email</h3>
-          <span className="text-sm text-text-muted">({emails.length})</span>
-        </div>
-        {isGmailConnected && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={syncAndAnalyze}
-            disabled={syncing || analyzing}
-            className="text-xs"
-          >
-            {syncing || analyzing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            <span className="ml-1">Sync</span>
-          </Button>
-        )}
-      </div>
-
       {/* Loading state */}
       {(emailsLoading || gmailLoading) && (
-        <div className="flex items-center justify-center py-8 bg-secondary rounded-lg border border-border">
+        <div className="flex items-center justify-center py-12 bg-secondary rounded-lg border border-border">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      )}
-
-      {/* Not connected state */}
-      {!emailsLoading && !gmailLoading && !isGmailConnected && (
-        <div className="text-center py-8 text-text-muted text-sm bg-secondary rounded-lg border border-border">
-          <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>Gmail not connected</p>
-          <Button
-            variant="link"
-            size="sm"
-            className="text-xs mt-2"
-            onClick={() => navigate("/integrations")}
-          >
-            Connect Gmail in Integrations
-          </Button>
         </div>
       )}
 
       {/* Syncing state */}
       {isGmailConnected && (syncing || analyzing) && emails.length === 0 && (
-        <div className="text-center py-8 text-text-muted text-sm bg-secondary rounded-lg border border-border">
-          <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-primary" />
+        <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+          <Loader2 className="h-10 w-10 mx-auto mb-3 animate-spin text-primary" />
           <p>{syncing ? "Syncing emails from Gmail..." : "Analyzing emails with AI..."}</p>
         </div>
       )}
@@ -223,14 +205,14 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
       {/* No emails state */}
       {!emailsLoading && !gmailLoading && isGmailConnected && !syncing && !analyzing && emails.length === 0 && (
-        <div className="text-center py-8 text-text-muted text-sm bg-secondary rounded-lg border border-border">
-          <Inbox className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>{activeTab === "needs-attention" ? "No emails need attention" : "No analyzed emails yet"}</p>
-          {activeTab === "all-emails" && (
+        <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+          <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p>{emailSubTab === "needs-attention" ? "No emails need attention" : "No analyzed emails yet"}</p>
+          {emailSubTab === "all" && (
             <Button
               variant="outline"
               size="sm"
-              className="mt-2"
+              className="mt-3"
               onClick={syncAndAnalyze}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -246,8 +228,33 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   if (!showTabs) {
     return (
       <div className="space-y-6">
-        {renderTextSection(false)}
-        {renderEmailSection(displayedActionEmails, false)}
+        {/* Text Messages Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold text-text-heading">Text Messages</h3>
+            {isTextConnected && actionRequiredTextMessages.length > 0 && (
+              <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                {actionRequiredTextMessages.length}
+              </span>
+            )}
+          </div>
+          {!isTextConnected ? renderTextNotConnected() : renderTextMessages(displayedActionTexts, false)}
+        </div>
+
+        {/* Email Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold text-text-heading">Email</h3>
+            {isGmailConnected && emailNeedsAttentionCount > 0 && (
+              <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                {emailNeedsAttentionCount}
+              </span>
+            )}
+          </div>
+          {!isGmailConnected && !emailsLoading && !gmailLoading ? renderEmailNotConnected() : renderEmailSection(displayedActionEmails, false)}
+        </div>
         
         {selectedMessage && (
           <MessageActionModal
@@ -265,36 +272,119 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-          <div className="flex items-center justify-between mb-6">
-            <TabsList className="grid w-auto grid-cols-2">
-              <TabsTrigger value="needs-attention" className="gap-2">
-                <Inbox className="h-4 w-4" />
-                Needs Attention
-                {filteredActionEmails.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
-                    {filteredActionEmails.length + displayedTextMessages.length}
-                  </span>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+        <div className="flex items-center justify-between mb-6">
+          <TabsList className="grid w-auto grid-cols-2">
+            <TabsTrigger value="text" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Text Messages
+              {isTextConnected && textNeedsAttentionCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                  {textNeedsAttentionCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="email" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Email
+              {isGmailConnected && emailNeedsAttentionCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
+                  {emailNeedsAttentionCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <CommunicationHubSettings onSettingsChange={setSettings} />
+        </div>
+
+        {/* Text Messages Tab */}
+        <TabsContent value="text" className="mt-0 space-y-4">
+          {!isTextConnected ? (
+            renderTextNotConnected()
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={textSubTab === "needs-attention" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTextSubTab("needs-attention")}
+                >
+                  Needs Attention
+                  {textNeedsAttentionCount > 0 && (
+                    <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-background/20">
+                      {textNeedsAttentionCount}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  variant={textSubTab === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTextSubTab("all")}
+                >
+                  All Messages
+                </Button>
+              </div>
+              {textSubTab === "needs-attention" 
+                ? renderTextMessages(displayedActionTexts)
+                : renderTextMessages(displayedAllTexts, false)
+              }
+            </>
+          )}
+        </TabsContent>
+
+        {/* Email Tab */}
+        <TabsContent value="email" className="mt-0 space-y-4">
+          {!isGmailConnected && !emailsLoading && !gmailLoading ? (
+            renderEmailNotConnected()
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={emailSubTab === "needs-attention" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setEmailSubTab("needs-attention")}
+                  >
+                    Needs Attention
+                    {emailNeedsAttentionCount > 0 && (
+                      <span className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full bg-background/20">
+                        {emailNeedsAttentionCount}
+                      </span>
+                    )}
+                  </Button>
+                  <Button
+                    variant={emailSubTab === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setEmailSubTab("all")}
+                  >
+                    All Emails
+                  </Button>
+                </div>
+                {isGmailConnected && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={syncAndAnalyze}
+                    disabled={syncing || analyzing}
+                    className="text-xs"
+                  >
+                    {syncing || analyzing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    <span className="ml-1">Sync</span>
+                  </Button>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="all-emails">
-                All Emails
-              </TabsTrigger>
-            </TabsList>
-            <CommunicationHubSettings onSettingsChange={setSettings} />
-          </div>
-
-          <TabsContent value="needs-attention" className="mt-0 space-y-8">
-            {renderTextSection()}
-            {renderEmailSection(displayedActionEmails)}
-          </TabsContent>
-
-          <TabsContent value="all-emails" className="mt-0">
-            {renderEmailSection(displayedAllEmails, false)}
-          </TabsContent>
-        </Tabs>
-      </div>
+              </div>
+              {emailSubTab === "needs-attention" 
+                ? renderEmailSection(displayedActionEmails)
+                : renderEmailSection(displayedAllEmails, false)
+              }
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Message Action Modal */}
       {selectedMessage && (
