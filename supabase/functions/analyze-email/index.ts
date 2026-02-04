@@ -92,13 +92,28 @@ ${preferences.has_booking_link && preferences.booking_link_url ? `The agent uses
         throw new Error("Email not found");
       }
 
-      const systemPrompt = `You are an AI assistant for a real estate agent. Your job is to analyze incoming emails and identify actionable items.
+      const systemPrompt = `You are an AI assistant for a real estate agent. Your job is to analyze incoming emails and identify which ones require a response or action from the agent.
 ${styleContext}
 
 Analyze the email and provide:
-1. A clear, actionable summary of what the agent should do
-2. A priority level (low, medium, high, urgent)
-3. A category (client, lender, title_company, showing, offer, inspection, closing, marketing, team, other)
+1. Whether this email REQUIRES ACTION from the agent (questions needing answers, requests, deadlines, decisions needed)
+2. A clear, actionable summary of what the agent should do (if action is required)
+3. A priority level (low, medium, high, urgent)
+4. A category (client, lender, title_company, showing, offer, inspection, closing, marketing, team, other)
+
+IMPORTANT: Only mark requires_action as true if the email genuinely needs a response or action. Examples that DO require action:
+- Direct questions needing an answer
+- Requests for information, meetings, or showings
+- Time-sensitive matters or deadlines
+- Offers or negotiations requiring response
+- Issues needing resolution
+
+Examples that do NOT require action:
+- Newsletters, marketing emails, promotions
+- Automated confirmations or receipts
+- FYI/informational emails with no ask
+- Thank you messages with no follow-up needed
+- Spam or irrelevant emails
 
 Be specific and actionable in your recommendations. Focus on what the agent needs to DO next.`;
 
@@ -110,10 +125,7 @@ Subject: ${email.subject}
 Content:
 ${email.body_preview || email.snippet}
 
-Provide a JSON response with these fields:
-- action_item: A clear, actionable task description (1-2 sentences)
-- priority: "low", "medium", "high", or "urgent"
-- category: The category of this email`;
+Determine if this email requires action from the agent.`;
 
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -132,15 +144,16 @@ Provide a JSON response with these fields:
               type: "function",
               function: {
                 name: "analyze_email",
-                description: "Analyze an email and extract action items",
+                description: "Analyze an email and determine if it requires action",
                 parameters: {
                   type: "object",
                   properties: {
-                    action_item: { type: "string", description: "A clear, actionable task for the agent" },
+                    requires_action: { type: "boolean", description: "True if the email requires a response or action from the agent" },
+                    action_item: { type: "string", description: "A clear, actionable task for the agent (if requires_action is true)" },
                     priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
                     category: { type: "string" }
                   },
-                  required: ["action_item", "priority", "category"],
+                  required: ["requires_action", "action_item", "priority", "category"],
                   additionalProperties: false
                 }
               }
@@ -183,6 +196,7 @@ Provide a JSON response with these fields:
           ai_action_item: analysis.action_item,
           ai_priority: analysis.priority,
           ai_category: analysis.category,
+          ai_requires_action: analysis.requires_action === true,
         })
         .eq("id", emailId);
 
@@ -221,10 +235,14 @@ Provide a JSON response with these fields:
       
       for (const email of emails) {
         try {
-          const systemPrompt = `You are an AI assistant for a real estate agent. Analyze emails and identify actionable items.
-${styleContext}`;
+          const systemPrompt = `You are an AI assistant for a real estate agent. Analyze emails and determine which ones require a response or action.
+${styleContext}
 
-          const userPrompt = `Analyze this email:
+IMPORTANT: Only mark requires_action as true if the email genuinely needs a response or action:
+- Direct questions, requests, deadlines, decisions needed = requires action
+- Newsletters, confirmations, FYI emails, thank yous = does NOT require action`;
+
+          const userPrompt = `Analyze this email and determine if it requires action:
 
 From: ${email.sender_name} <${email.sender_email}>
 Subject: ${email.subject}
@@ -249,15 +267,16 @@ ${email.body_preview || email.snippet}`;
                   type: "function",
                   function: {
                     name: "analyze_email",
-                    description: "Analyze an email and extract action items",
+                    description: "Analyze an email and determine if it requires action",
                     parameters: {
                       type: "object",
                       properties: {
+                        requires_action: { type: "boolean", description: "True if email requires response or action" },
                         action_item: { type: "string" },
                         priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
                         category: { type: "string" }
                       },
-                      required: ["action_item", "priority", "category"],
+                      required: ["requires_action", "action_item", "priority", "category"],
                       additionalProperties: false
                     }
                   }
@@ -281,6 +300,7 @@ ${email.body_preview || email.snippet}`;
                   ai_action_item: analysis.action_item,
                   ai_priority: analysis.priority,
                   ai_category: analysis.category,
+                  ai_requires_action: analysis.requires_action === true,
                 })
                 .eq("id", email.id);
 
