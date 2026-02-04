@@ -199,22 +199,29 @@ export function useSyncedEmails() {
     }
   }, [toast]);
 
-  // Get emails that require attention (analyzed, requires action, not ignored)
+  // Get emails that require attention (analyzed with priority/action item, not ignored)
+  // Use priority OR ai_requires_action OR has action item as signals for needing attention
   const actionRequiredEmails = emails.filter(
-    e => e.ai_analyzed && e.ai_requires_action && !e.ai_ignored
+    e => e.ai_analyzed && 
+         !e.ai_ignored && 
+         (e.ai_requires_action || e.ai_priority || e.ai_action_item)
   );
 
-  // Get all analyzed emails (for the "All Emails" tab)
-  const allAnalyzedEmails = emails.filter(e => e.ai_analyzed);
+  // Get all analyzed emails that are NOT ignored (for the "All Emails" tab)
+  const allAnalyzedEmails = emails.filter(e => e.ai_analyzed && !e.ai_ignored);
+
+  // Get ignored emails (for potential "Ignored" view)
+  const ignoredEmails = emails.filter(e => e.ai_ignored);
 
   // Legacy: Get only analyzed emails with action items for backwards compatibility
-  const analyzedEmails = emails.filter(e => e.ai_analyzed && e.ai_action_item);
+  const analyzedEmails = emails.filter(e => e.ai_analyzed && e.ai_action_item && !e.ai_ignored);
 
   return {
     emails,
     analyzedEmails,
     actionRequiredEmails,
     allAnalyzedEmails,
+    ignoredEmails,
     loading,
     syncing,
     analyzing,
