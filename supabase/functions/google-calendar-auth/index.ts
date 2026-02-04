@@ -25,7 +25,24 @@ serve(async (req) => {
   }
 
   try {
-    // Validate credentials exist
+    // Parse request body first to check action
+    const { action, code, redirect_uri } = await req.json() as RequestBody;
+
+    // get_client_id doesn't require auth - it returns public info
+    if (action === "get_client_id") {
+      if (!GOOGLE_CLIENT_ID) {
+        return new Response(
+          JSON.stringify({ error: "Google Calendar not configured", setup_required: true }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(
+        JSON.stringify({ client_id: GOOGLE_CLIENT_ID }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // All other actions require credentials and auth
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
       return new Response(
         JSON.stringify({ 
@@ -59,15 +76,6 @@ serve(async (req) => {
     }
 
     const userId = user.id;
-    const { action, code, redirect_uri } = await req.json() as RequestBody;
-
-    if (action === "get_client_id") {
-      // Return the client ID for use by the frontend
-      return new Response(
-        JSON.stringify({ client_id: GOOGLE_CLIENT_ID }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     if (action === "get_auth_url") {
       const scopes = [
