@@ -13,6 +13,8 @@ import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useDocumentParser } from "@/hooks/useDocumentParser";
+import { useDotloopConnection } from "@/hooks/useDotloopConnection";
+
 interface AddListingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,6 +77,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const { addListing } = useListings();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseListingDocument, isParsing } = useDocumentParser();
+  const { connect: connectDotloop, connecting: dotloopConnecting } = useDotloopConnection();
   const handleClose = () => {
     setView("upload");
     setFormData(emptyFormData);
@@ -218,8 +221,10 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                 <Button
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => toast({ title: "Dotloop", description: "Integration coming soon..." })}
+                  onClick={() => connectDotloop()}
+                  disabled={dotloopConnecting}
                 >
+                  {dotloopConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
                 </Button>
               </div>
