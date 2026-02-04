@@ -14,7 +14,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface RequestBody {
-  action: "get_auth_url" | "exchange_code" | "disconnect";
+  action: "get_auth_url" | "exchange_code" | "disconnect" | "get_client_id";
   code?: string;
   redirect_uri?: string;
 }
@@ -60,6 +60,14 @@ serve(async (req) => {
 
     const userId = user.id;
     const { action, code, redirect_uri } = await req.json() as RequestBody;
+
+    if (action === "get_client_id") {
+      // Return the client ID for use by the frontend
+      return new Response(
+        JSON.stringify({ client_id: GOOGLE_CLIENT_ID }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (action === "get_auth_url") {
       const scopes = [
