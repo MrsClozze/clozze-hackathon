@@ -11,6 +11,7 @@ import { WhatsAppConnectionModal } from "@/components/integrations/WhatsAppConne
 import { AppleCalendarModal } from "@/components/integrations/AppleCalendarModal";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
 import { useTasks } from "@/contexts/TasksContext";
+import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { Check, Loader2 } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
@@ -108,6 +109,7 @@ export default function Integrations() {
     handleOAuthCallback 
   } = useCalendarConnections();
   const { tasks, bulkEnableExternalSync } = useTasks();
+  const { pullAppleEvents } = useCalendarSync();
   
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
@@ -211,7 +213,24 @@ export default function Integrations() {
       setSyncConfirmProvider("apple");
       return true;
     } else {
-      return await connectApple(appleId, password);
+      const success = await connectApple(appleId, password);
+      
+      // Pull events from Apple Calendar after successful connection
+      if (success) {
+        try {
+          const result = await pullAppleEvents();
+          if (result.success && result.imported > 0) {
+            toast({
+              title: "Events imported",
+              description: `Imported ${result.imported} events from Apple Calendar`,
+            });
+          }
+        } catch (error) {
+          console.error("Error pulling Apple events:", error);
+        }
+      }
+      
+      return success;
     }
   };
 
@@ -231,8 +250,23 @@ export default function Integrations() {
     if (provider === "google") {
       await connectGoogle();
     } else if (provider === "apple" && pendingAppleCredentials) {
-      await connectApple(pendingAppleCredentials.appleId, pendingAppleCredentials.password);
+      const success = await connectApple(pendingAppleCredentials.appleId, pendingAppleCredentials.password);
       setPendingAppleCredentials(null);
+      
+      // Pull events from Apple Calendar after successful connection
+      if (success) {
+        try {
+          const result = await pullAppleEvents();
+          if (result.success && result.imported > 0) {
+            toast({
+              title: "Events imported",
+              description: `Imported ${result.imported} events from Apple Calendar`,
+            });
+          }
+        } catch (error) {
+          console.error("Error pulling Apple events:", error);
+        }
+      }
     }
   };
 
