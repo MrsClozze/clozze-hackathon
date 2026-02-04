@@ -38,19 +38,109 @@ interface AppleCalendarCredentials {
   calendarUrl?: string;
 }
 
+interface AppleEvent {
+  uid: string;
+  summary: string;
+  dtstart: string;
+  dtend?: string;
+  location?: string;
+  description?: string;
+}
+
 // deno-lint-ignore no-explicit-any
 type SupabaseAdminClient = any;
 
-// Get Apple Calendar credentials from vault
+// Parse iCalendar date/time format to standard date and time
+function parseICalDateTime(icalDate: string): { date: string; time: string | null } {
+  // Format: YYYYMMDDTHHMMSS or YYYYMMDD (all-day)
+  const dateStr = icalDate.replace(/[TZ]/g, "");
+  
+  if (dateStr.length >= 8) {
+    const year = dateStr.substring(0, 4);
+    const month = dateStr.substring(4, 6);
+    const day = dateStr.substring(6, 8);
+    
+    let time: string | null = null;
+    if (dateStr.length >= 12) {
+      const hours = dateStr.substring(8, 10);
+      const minutes = dateStr.substring(10, 12);
+      time = `${hours}:${minutes}`;
+    }
+    
+    return { date: `${year}-${month}-${day}`, time };
+  }
+  
+  return { date: icalDate, time: null };
+}
+
+// Import pulled events into the calendar_events table
+async function importEventsToDatabase(
+  adminClient: SupabaseAdminClient,
+  userId: string,
+  events: AppleEvent[]
+): Promise<number> {
+  let importedCount = 0;
+  
+  for (const event of events) {
+    try {
+      const { date, time } = parseICalDateTime(event.dtstart);
+      
+      // Check if event already exists (by external_event_id)
+      const { data: existing } = await adminClient
+        .from("calendar_events")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("external_event_id", event.uid)
+        .maybeSingle();
+      
+      if (existing) {
+        // Update existing event
+        await adminClient
+          .from("calendar_events")
+          .update({
+            title: event.summary,
+            event_date: date,
+            event_time: time,
+            address: event.location,
+            description: event.description,
+            source: "apple",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        // Insert new event
+        await adminClient
+          .from("calendar_events")
+          .insert({
+            user_id: userId,
+            title: event.summary,
+            event_date: date,
+            event_time: time,
+            address: event.location,
+            description: event.description,
+            source: "apple",
+            external_event_id: event.uid,
+          });
+        importedCount++;
+      }
+    } catch (error) {
+      console.error("Error importing event:", event.uid, error);
+    }
+  }
+  
+  return importedCount;
+}
+
+// Get Apple Calendar credentials from database
 async function getAppleCredentials(
   adminClient: SupabaseAdminClient,
   userId: string
 ): Promise<AppleCalendarCredentials | null> {
   try {
-    // Get the calendar connection with vault reference
+    // Get the calendar connection - credentials stored directly in table
     const { data: connection, error: connError } = await adminClient
       .from("calendar_connections")
-      .select("id, provider_email, vault_secret_id")
+      .select("id, provider_email, access_token_encrypted, vault_secret_id")
       .eq("user_id", userId)
       .eq("provider", "apple")
       .single();
@@ -60,33 +150,38 @@ async function getAppleCredentials(
       return null;
     }
 
-    if (!connection.vault_secret_id) {
-      console.error("No vault secret ID found for Apple connection");
-      return null;
+    // First try direct storage (access_token_encrypted column)
+    if (connection.access_token_encrypted) {
+      console.log("Using directly stored Apple credentials");
+      return {
+        appleId: String(connection.provider_email || ""),
+        appPassword: connection.access_token_encrypted,
+      };
     }
 
-    // Retrieve the app-specific password from vault
-    const { data: vaultData, error: vaultError } = await adminClient
-      .from("vault.decrypted_secrets")
-      .select("decrypted_secret")
-      .eq("id", connection.vault_secret_id)
-      .single();
+    // Fallback to vault if available
+    if (connection.vault_secret_id) {
+      const { data: vaultData, error: vaultError } = await adminClient
+        .from("vault.decrypted_secrets")
+        .select("decrypted_secret")
+        .eq("id", connection.vault_secret_id)
+        .single();
 
-    if (vaultError || !vaultData) {
-      console.error("Failed to retrieve vault secret:", vaultError);
-      return null;
+      if (!vaultError && vaultData) {
+        // deno-lint-ignore no-explicit-any
+        const secretData: any = typeof vaultData.decrypted_secret === "string"
+          ? JSON.parse(vaultData.decrypted_secret)
+          : vaultData.decrypted_secret;
+
+        return {
+          appleId: String(connection.provider_email || ""),
+          appPassword: secretData.access_token,
+        };
+      }
     }
 
-    // Parse the vault secret (stored as JSON object)
-    // deno-lint-ignore no-explicit-any
-    const secretData: any = typeof vaultData.decrypted_secret === "string"
-      ? JSON.parse(vaultData.decrypted_secret)
-      : vaultData.decrypted_secret;
-
-    return {
-      appleId: String(connection.provider_email || ""),
-      appPassword: secretData.access_token, // App-specific password stored as access_token
-    };
+    console.error("No credentials found for Apple connection");
+    return null;
   } catch (error) {
     console.error("Error getting Apple credentials:", error);
     return null;
@@ -622,6 +717,21 @@ serve(async (req) => {
 
     if (action === "pull_events") {
       const result = await pullEventsFromAppleCalendar(credentials, discovery.calendarUrl);
+      
+      if (result.success && result.events && result.events.length > 0) {
+        // Import events into calendar_events table
+        const importedCount = await importEventsToDatabase(adminClient, user.id, result.events as AppleEvent[]);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            pulled: result.events.length,
+            imported: importedCount,
+            events: result.events 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
