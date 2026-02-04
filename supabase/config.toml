@@ -63,3 +63,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-whatsapp-business-message]
+
+[functions.dotloop-auth]
+
+[functions.dotloop-callback]
+verify_jwt = false
+
+[functions.sync-dotloop]

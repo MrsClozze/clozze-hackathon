@@ -14,6 +14,7 @@ import { useTasks } from "@/contexts/TasksContext";
 import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { useWhatsAppBusinessConnection } from "@/hooks/useWhatsAppBusinessConnection";
+import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 import { Check, Loader2 } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
@@ -66,7 +67,7 @@ const integrations = [
   {
     id: "dotloop",
     name: "Dotloop",
-    description: "Transaction management platform",
+    description: "Sync transactions, loops, and contacts",
     icon: dotloopLogo,
     isImage: true,
   },
@@ -91,6 +92,12 @@ export default function Integrations() {
     disconnect: disconnectWhatsAppBusiness,
     refresh: refreshWhatsAppBusiness,
   } = useWhatsAppBusinessConnection();
+  const {
+    isConnected: isDotloopConnected,
+    connecting: dotloopConnecting,
+    connect: connectDotloop,
+    disconnect: disconnectDotloop,
+  } = useDotloopConnection();
   const { 
     connections, 
     loading: calendarLoading, 
@@ -330,6 +337,11 @@ export default function Integrations() {
       return;
     }
 
+    if (integrationId === "dotloop") {
+      await connectDotloop();
+      return;
+    }
+
     toast({
       title: "Coming soon",
       description: `${integrationId.replace(/_/g, " ")} integration will be available soon!`,
@@ -366,6 +378,12 @@ export default function Integrations() {
 
     if (integrationId === "gmail") {
       await disconnectGmail();
+      return;
+    }
+
+    if (integrationId === "dotloop") {
+      await disconnectDotloop();
+      return;
     }
   };
 
@@ -385,6 +403,9 @@ export default function Integrations() {
     }
     if (integrationId === "gmail") {
       return isGmailConnected;
+    }
+    if (integrationId === "dotloop") {
+      return isDotloopConnected;
     }
     return false;
   };
@@ -414,6 +435,9 @@ export default function Integrations() {
     }
     if (integrationId === "gmail") {
       return gmailConnecting;
+    }
+    if (integrationId === "dotloop") {
+      return dotloopConnecting;
     }
     return false;
   };
