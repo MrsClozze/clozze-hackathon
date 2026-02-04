@@ -62,9 +62,25 @@ export function useCalendarConnections() {
     return connections.find((c) => c.provider === provider);
   };
 
-  // Google OAuth Client ID (public, safe to expose)
-  // From BYOK configuration in Cloud Dashboard
-  const GOOGLE_CALENDAR_CLIENT_ID = "341877978556-qlqm6cadusk4766r05sjpdqq7gekknkv.apps.googleusercontent.com";
+  // Google OAuth Client ID - fetched from edge function to allow dynamic updates
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  
+  // Fetch Google Client ID on mount
+  useEffect(() => {
+    const fetchGoogleClientId = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("google-calendar-auth", {
+          body: { action: "get_client_id" },
+        });
+        if (!error && data?.client_id) {
+          setGoogleClientId(data.client_id);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Google Client ID:", err);
+      }
+    };
+    fetchGoogleClientId();
+  }, []);
 
   const connectGoogle = async () => {
     setConnecting("google");
@@ -80,8 +96,17 @@ export function useCalendarConnections() {
         return;
       }
 
+      // Wait for client ID if not yet loaded
+      if (!googleClientId) {
+        toast({
+          title: "Please wait",
+          description: "Loading Google Calendar configuration...",
+        });
+        setConnecting(null);
+        return;
+      }
+
       // Build OAuth URL directly on client for instant redirect
-      // This eliminates the edge function cold start delay (up to 375ms saved)
       const redirectUri = `${window.location.origin}/integrations`;
       
       const scopes = [
@@ -91,7 +116,7 @@ export function useCalendarConnections() {
       ];
 
       const params = new URLSearchParams({
-        client_id: GOOGLE_CALENDAR_CLIENT_ID,
+        client_id: googleClientId,
         redirect_uri: redirectUri,
         response_type: "code",
         scope: scopes.join(" "),
