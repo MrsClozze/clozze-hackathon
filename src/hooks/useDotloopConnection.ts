@@ -113,13 +113,39 @@ export function useDotloopConnection() {
 
       window.addEventListener('message', handleMessage);
 
-      // Fallback: Check if popup closed
-      const checkClosed = setInterval(() => {
+      // Fallback: Check if popup closed - then re-verify connection status
+      const checkClosed = setInterval(async () => {
         if (popup?.closed) {
           clearInterval(checkClosed);
           window.removeEventListener('message', handleMessage);
+          
+          // Give a moment for the callback to complete writing to DB
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          
+          // Re-fetch connection status to see if it succeeded
+          const { data: updatedConnection } = await supabase
+            .from('service_integrations')
+            .select('id, is_connected')
+            .eq('user_id', user!.id)
+            .eq('service_name', 'dotloop')
+            .maybeSingle();
+
           setConnecting(false);
-          fetchConnection();
+          
+          if (updatedConnection?.is_connected) {
+            toast({
+              title: "Dotloop connected!",
+              description: "Your Dotloop account has been linked successfully",
+            });
+            fetchConnection();
+          } else {
+            // Only show error if truly not connected
+            toast({
+              title: "Connection incomplete",
+              description: "Dotloop connection was not completed. Please try again.",
+              variant: "destructive",
+            });
+          }
         }
       }, 1000);
 
