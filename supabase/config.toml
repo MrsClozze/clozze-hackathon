@@ -48,3 +48,7 @@ verify_jwt = false
 [functions.update-team-seats]
 
 [functions.check-team-member-slots]
+
+[functions.sync-apple-calendar]
+
+[functions.apple-calendar-auth]
