@@ -21,43 +21,64 @@ interface GmailMessage {
 }
 
 async function getAccessToken(adminClient: any, userId: string): Promise<string | null> {
-  // First try to get from vault via service_integrations
+  // Get the integration record with vault_secret_id
   const { data: integration, error } = await adminClient
     .from("service_integrations")
-    .select("vault_secret_id")
+    .select("vault_secret_id, token_expires_at")
     .eq("user_id", userId)
     .eq("service_name", "gmail")
+    .eq("is_connected", true)
     .single();
 
-  if (error || !integration?.vault_secret_id) {
-    console.error("No Gmail integration found for user:", userId);
+  if (error || !integration) {
+    console.error("No Gmail integration found for user:", userId, error);
     return null;
   }
 
-  // Get tokens from vault
-  const { data: vaultData, error: vaultError } = await adminClient
-    .from("vault.secrets")
-    .select("secret")
-    .eq("id", integration.vault_secret_id)
-    .single();
+  if (!integration.vault_secret_id) {
+    console.error("Gmail integration found but no vault_secret_id - tokens not stored");
+    return null;
+  }
 
-  if (vaultError) {
-    // Try direct vault query
-    const { data: secretData } = await adminClient.rpc("get_vault_secret", {
-      secret_id: integration.vault_secret_id,
-    });
+  // Get tokens from vault using the RPC function
+  const { data: tokenData, error: vaultError } = await adminClient.rpc("get_vault_secret", {
+    secret_id: integration.vault_secret_id,
+  });
+
+  if (vaultError || !tokenData) {
+    console.error("Error retrieving tokens from vault:", vaultError);
+    return null;
+  }
+
+  // Check if token is expired and needs refresh
+  if (integration.token_expires_at) {
+    const expiresAt = new Date(integration.token_expires_at);
+    const now = new Date();
     
-    if (secretData?.access_token) {
-      return secretData.access_token;
+    // If token expires in less than 5 minutes, try to refresh
+    if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+      const clientId = Deno.env.get('GOOGLE_CALENDAR_CLIENT_ID') || Deno.env.get('GOOGLE_CLIENT_ID');
+      const clientSecret = Deno.env.get('GOOGLE_CALENDAR_CLIENT_SECRET') || Deno.env.get('GOOGLE_CLIENT_SECRET');
+      
+      if (tokenData.refresh_token && clientId && clientSecret) {
+        const refreshedTokens = await refreshAccessToken(tokenData.refresh_token, clientId, clientSecret);
+        if (refreshedTokens) {
+          // Update the stored tokens
+          const newExpiresAt = new Date(Date.now() + (refreshedTokens.expires_in * 1000));
+          await adminClient.rpc('store_integration_tokens', {
+            _user_id: userId,
+            _service_name: 'gmail',
+            _access_token: refreshedTokens.access_token,
+            _refresh_token: tokenData.refresh_token,
+            _expires_at: newExpiresAt.toISOString()
+          });
+          return refreshedTokens.access_token;
+        }
+      }
     }
   }
 
-  if (vaultData?.secret?.access_token) {
-    return vaultData.secret.access_token;
-  }
-
-  console.error("Could not retrieve access token from vault");
-  return null;
+  return tokenData.access_token || null;
 }
 
 async function refreshAccessToken(
