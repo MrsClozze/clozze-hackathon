@@ -117,11 +117,20 @@ export default function Integrations() {
   // Count tasks that would need syncing
   const tasksToSync = tasks.filter(t => t.showOnCalendar && !t.syncToExternalCalendar && !t.isDemo);
 
+  // Track if we're currently processing OAuth to prevent double-processing
+  const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
+  const processedCodeRef = React.useRef<string | null>(null);
+
   // Handle OAuth callback from Google
   useEffect(() => {
     const code = searchParams.get("code");
     const scope = searchParams.get("scope");
     const storedProvider = sessionStorage.getItem("calendar_oauth_provider");
+    
+    // Prevent processing the same code twice
+    if (!code || processedCodeRef.current === code || isProcessingOAuth) {
+      return;
+    }
     
     // Detect Google Calendar OAuth callback by either:
     // 1. Having stored provider in sessionStorage (same-origin redirect)
@@ -132,20 +141,27 @@ export default function Integrations() {
     );
     
     if (isGoogleCalendarCallback) {
+      // Mark this code as being processed
+      processedCodeRef.current = code;
+      setIsProcessingOAuth(true);
+      
       // Clear URL params immediately
       setSearchParams({}, { replace: true });
       
       // Process the callback
       handleOAuthCallback(code, "google").then(success => {
+        setIsProcessingOAuth(false);
         if (success) {
           toast({
             title: "Google Calendar connected",
             description: "Your calendar has been linked successfully!",
           });
         }
+      }).catch(() => {
+        setIsProcessingOAuth(false);
       });
     }
-  }, [searchParams, setSearchParams, handleOAuthCallback, toast]);
+  }, [searchParams, setSearchParams, handleOAuthCallback, toast, isProcessingOAuth]);
 
   const handleGoogleCalendarConnect = async () => {
     if (!user) {

@@ -139,24 +139,35 @@ serve(async (req) => {
       });
       const userInfo = await userInfoResponse.json();
 
-      // Store connection securely using vault via RPC function
+      // Store connection directly in calendar_connections table (not vault)
       const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-      const { data: connectionId, error: rpcError } = await adminClient.rpc('store_calendar_tokens', {
-        _user_id: userId,
-        _provider: 'google',
-        _provider_email: userInfo.email || null,
-        _provider_account_id: userInfo.id || null,
-        _access_token: tokenData.access_token,
-        _refresh_token: tokenData.refresh_token || null,
-        _expires_at: expiresAt.toISOString(),
-      });
+      // Delete any existing connection first
+      await adminClient
+        .from("calendar_connections")
+        .delete()
+        .eq("user_id", userId)
+        .eq("provider", "google");
 
-      if (rpcError) {
-        console.error("Database error:", rpcError);
+      // Insert new connection with encrypted token columns
+      const { error: insertError } = await adminClient
+        .from("calendar_connections")
+        .insert({
+          user_id: userId,
+          provider: "google",
+          provider_email: userInfo.email || null,
+          provider_account_id: userInfo.id || null,
+          access_token_encrypted: tokenData.access_token,
+          refresh_token_encrypted: tokenData.refresh_token || null,
+          token_expires_at: expiresAt.toISOString(),
+          sync_enabled: true,
+        });
+
+      if (insertError) {
+        console.error("Database error:", insertError);
         return new Response(
-          JSON.stringify({ error: "Failed to save connection securely" }),
+          JSON.stringify({ error: "Failed to save connection" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

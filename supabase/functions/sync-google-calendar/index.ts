@@ -30,12 +30,9 @@ interface RequestBody {
 
 interface CalendarConnection {
   id: string;
-  vault_secret_id: string;
+  access_token_encrypted: string | null;
+  refresh_token_encrypted: string | null;
   token_expires_at: string;
-}
-
-interface VaultSecret {
-  decrypted_secret: string;
 }
 
 // Refresh access token if expired
@@ -45,10 +42,10 @@ async function getValidAccessToken(
   userId: string
 ): Promise<string | null> {
   try {
-    // Get the calendar connection
+    // Get the calendar connection with tokens
     const { data: connection, error: connError } = await adminClient
       .from("calendar_connections")
-      .select("id, vault_secret_id, token_expires_at")
+      .select("id, access_token_encrypted, refresh_token_encrypted, token_expires_at")
       .eq("user_id", userId)
       .eq("provider", "google")
       .single();
@@ -60,30 +57,21 @@ async function getValidAccessToken(
 
     const conn = connection as CalendarConnection;
 
-    // Get tokens from vault
-    const { data: vaultData, error: vaultError } = await adminClient
-      .from("vault.decrypted_secrets")
-      .select("decrypted_secret")
-      .eq("id", conn.vault_secret_id)
-      .single();
-
-    if (vaultError || !vaultData) {
-      console.error("Failed to get tokens from vault:", vaultError);
+    if (!conn.access_token_encrypted) {
+      console.error("No access token found");
       return null;
     }
 
-    const vault = vaultData as VaultSecret;
-    const tokens = JSON.parse(vault.decrypted_secret);
     const tokenExpiry = new Date(conn.token_expires_at);
     const now = new Date();
 
     // Check if token is still valid (with 5 minute buffer)
     if (tokenExpiry > new Date(now.getTime() + 5 * 60 * 1000)) {
-      return tokens.access_token;
+      return conn.access_token_encrypted;
     }
 
     // Token expired, refresh it
-    if (!tokens.refresh_token) {
+    if (!conn.refresh_token_encrypted) {
       console.error("No refresh token available");
       return null;
     }
@@ -95,7 +83,7 @@ async function getValidAccessToken(
       body: new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID!,
         client_secret: GOOGLE_CLIENT_SECRET!,
-        refresh_token: tokens.refresh_token,
+        refresh_token: conn.refresh_token_encrypted,
         grant_type: "refresh_token",
       }),
     });
@@ -107,24 +95,15 @@ async function getValidAccessToken(
       return null;
     }
 
-    // Update tokens in vault
+    // Update tokens in calendar_connections
     const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000);
     
-    // Update the vault secret
-    await adminClient
-      .from("vault.secrets")
-      .update({
-        secret: JSON.stringify({
-          access_token: refreshData.access_token,
-          refresh_token: tokens.refresh_token, // Keep the old refresh token
-        }),
-      })
-      .eq("id", conn.vault_secret_id);
-
-    // Update the connection expiry
     await adminClient
       .from("calendar_connections")
-      .update({ token_expires_at: newExpiresAt.toISOString() })
+      .update({ 
+        access_token_encrypted: refreshData.access_token,
+        token_expires_at: newExpiresAt.toISOString() 
+      })
       .eq("id", conn.id);
 
     return refreshData.access_token;
