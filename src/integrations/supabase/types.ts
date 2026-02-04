@@ -443,6 +443,7 @@ export type Database = {
           referral_source: string | null
           role: string | null
           team_onboarding_completed: boolean | null
+          timezone: string | null
           updated_at: string
           website_url: string | null
         }
@@ -463,6 +464,7 @@ export type Database = {
           referral_source?: string | null
           role?: string | null
           team_onboarding_completed?: boolean | null
+          timezone?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -483,6 +485,7 @@ export type Database = {
           referral_source?: string | null
           role?: string | null
           team_onboarding_completed?: boolean | null
+          timezone?: string | null
           updated_at?: string
           website_url?: string | null
         }
@@ -609,6 +612,7 @@ export type Database = {
           date: string | null
           due_date: string | null
           due_time: string | null
+          end_time: string | null
           external_calendar_event_id: string | null
           has_ai_assist: boolean
           id: string
@@ -632,6 +636,7 @@ export type Database = {
           date?: string | null
           due_date?: string | null
           due_time?: string | null
+          end_time?: string | null
           external_calendar_event_id?: string | null
           has_ai_assist?: boolean
           id?: string
@@ -655,6 +660,7 @@ export type Database = {
           date?: string | null
           due_date?: string | null
           due_time?: string | null
+          end_time?: string | null
           external_calendar_event_id?: string | null
           has_ai_assist?: boolean
           id?: string
