@@ -55,11 +55,7 @@ export default function AddTaskModal({
 
   // Check if any external calendar is connected
   const hasConnectedCalendar = calendarConnections.some(c => c.syncEnabled);
-  const connectedCalendarName = calendarConnections.find(c => c.syncEnabled)?.provider === "google" 
-    ? "Google Calendar" 
-    : calendarConnections.find(c => c.syncEnabled)?.provider === "apple" 
-      ? "Apple Calendar" 
-      : "connected calendar";
+  const connectedCalendarCount = calendarConnections.filter(c => c.syncEnabled).length;
 
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -383,11 +379,11 @@ export default function AddTaskModal({
                     htmlFor="sync-to-calendar" 
                     className={`cursor-pointer ${hasConnectedCalendar ? 'text-text-heading' : 'text-muted-foreground'}`}
                   >
-                    Sync to connected calendar
+                    Sync to connected calendar{connectedCalendarCount > 1 ? 's' : ''}
                   </Label>
                   <p className="text-xs text-muted-foreground">
                     {hasConnectedCalendar 
-                      ? `Will create an event in your ${connectedCalendarName}` 
+                      ? `Will create an event in your connected calendar${connectedCalendarCount > 1 ? 's' : ''}` 
                       : "Connect a calendar to enable"}
                   </p>
                 </div>

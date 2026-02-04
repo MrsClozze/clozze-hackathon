@@ -218,14 +218,16 @@ async function discoverCalendarUrl(
 
     const principalXml = await principalResponse.text();
     
-    // Parse principal URL from XML (simple regex extraction)
-    const principalMatch = principalXml.match(/<D:href[^>]*>([^<]+)<\/D:href>/i);
+    // Parse principal URL from XML (handle both D:href and href xmlns="DAV:" formats)
+    // First try namespaced format, then plain format
+    const principalMatch = principalXml.match(/<D:href[^>]*>([^<]+)<\/D:href>/i) ||
+                           principalXml.match(/<current-user-principal[^>]*>[\s\S]*?<href[^>]*>([^<]+)<\/href>/i);
     if (!principalMatch) {
       console.error("Could not parse principal URL from:", principalXml.substring(0, 500));
       return null;
     }
     
-    const principalUrl = principalMatch[1];
+    const principalUrl = principalMatch[1].trim();
     console.log("Found principal URL:", principalUrl);
 
     // Step 2: Get calendar home set
@@ -251,13 +253,13 @@ async function discoverCalendarUrl(
 
     const homeXml = await homeResponse.text();
     
-    // Parse calendar home URL
-    const homeMatch = homeXml.match(/<D:href[^>]*>([^<]*calendar[^<]*)<\/D:href>/i) ||
-                      homeXml.match(/<D:href[^>]*>([^<]+)<\/D:href>/g);
+    // Parse calendar home URL - handle both namespaced and plain formats
+    const homeMatch = homeXml.match(/<calendar-home-set[^>]*>[\s\S]*?<href[^>]*>([^<]+)<\/href>/i) ||
+                      homeXml.match(/<D:href[^>]*>([^<]*calendar[^<]*)<\/D:href>/i);
     
     let calendarHomeUrl = principalUrl; // Fallback to principal URL
-    if (homeMatch && typeof homeMatch === "object" && homeMatch[1]) {
-      calendarHomeUrl = homeMatch[1];
+    if (homeMatch && homeMatch[1]) {
+      calendarHomeUrl = homeMatch[1].trim();
     }
     
     console.log("Using calendar home URL:", calendarHomeUrl);
@@ -288,13 +290,14 @@ async function discoverCalendarUrl(
     const calendarsXml = await calendarsResponse.text();
     
     // Find a calendar URL (look for paths containing "calendar")
-    const calendarMatches = calendarsXml.match(/<D:href[^>]*>([^<]+)<\/D:href>/g) || [];
+    // Handle both namespaced (D:href) and plain (href) formats
+    const hrefMatches = calendarsXml.match(/<(?:D:)?href[^>]*>([^<]+)<\/(?:D:)?href>/gi) || [];
     let calendarUrl = calendarHomeUrl;
     
-    for (const match of calendarMatches) {
-      const urlMatch = match.match(/<D:href[^>]*>([^<]+)<\/D:href>/);
+    for (const match of hrefMatches) {
+      const urlMatch = match.match(/<(?:D:)?href[^>]*>([^<]+)<\/(?:D:)?href>/i);
       if (urlMatch && urlMatch[1] && urlMatch[1].includes("/calendars/")) {
-        calendarUrl = urlMatch[1];
+        calendarUrl = urlMatch[1].trim();
         break;
       }
     }
