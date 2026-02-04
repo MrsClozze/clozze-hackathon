@@ -64,7 +64,8 @@ export default function AddTaskModal({
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [dueTime, setDueTime] = useState<string>(""); // Optional time in HH:mm format
+  const [dueTime, setDueTime] = useState<string>(""); // Start time in HH:mm format
+  const [endTime, setEndTime] = useState<string>(""); // End time in HH:mm format
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]); // Changed to array
@@ -117,7 +118,8 @@ export default function AddTaskModal({
         title: title.trim(),
         notes: notes.trim(),
         dueDate: format(dueDate, "yyyy-MM-dd"),
-        dueTime: dueTime || undefined, // Optional time
+        dueTime: dueTime || undefined, // Start time
+        endTime: endTime || undefined, // End time
         priority,
         status: "pending",
         date: format(dueDate, "MMM d, yyyy"),
@@ -153,6 +155,7 @@ export default function AddTaskModal({
     setNotes("");
     setDueDate(undefined);
     setDueTime("");
+    setEndTime("");
     setPriority("medium");
     setSelectedContactId("");
     setSelectedAssigneeIds([]);
@@ -284,24 +287,53 @@ export default function AddTaskModal({
                   />
                 </PopoverContent>
               </Popover>
-              
-              {/* Time Picker */}
-              <div className="relative w-[140px]">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="time"
-                  value={dueTime}
-                  onChange={(e) => setDueTime(e.target.value)}
-                  className="pl-9 bg-background-elevated border-primary/25"
-                  placeholder="Time"
-                />
-              </div>
             </div>
             {dueDateError && (
               <p className="text-sm text-destructive">Due date is required</p>
             )}
+          </div>
+
+          {/* Start Time & End Time */}
+          <div className="space-y-2">
+            <Label className="text-text-heading">Event Time (Optional)</Label>
+            <div className="flex items-center gap-2">
+              {/* Start Time */}
+              <div className="relative flex-1">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => {
+                    setDueTime(e.target.value);
+                    // Auto-set end time to 1 hour after start if end time is empty or before start
+                    if (e.target.value && (!endTime || endTime <= e.target.value)) {
+                      const [hours, minutes] = e.target.value.split(':').map(Number);
+                      const endHours = (hours + 1) % 24;
+                      setEndTime(`${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
+                    }
+                  }}
+                  className="pl-9 bg-background-elevated border-primary/25"
+                  placeholder="Start"
+                />
+              </div>
+              
+              <span className="text-muted-foreground">to</span>
+              
+              {/* End Time */}
+              <div className="relative flex-1">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="pl-9 bg-background-elevated border-primary/25"
+                  placeholder="End"
+                  disabled={!dueTime}
+                />
+              </div>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Time is optional. Leave blank for all-day tasks.
+              Leave blank for all-day tasks. Setting a time enables event scheduling in Google Calendar.
             </p>
           </div>
 

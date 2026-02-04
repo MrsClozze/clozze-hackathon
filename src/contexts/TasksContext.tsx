@@ -5,6 +5,9 @@ import { useAuth } from "./AuthContext";
 import { useAccountState } from "./AccountStateContext";
 import { DEMO_TASKS, isDemoId } from "@/data/demoData";
 
+// Helper to get browser timezone
+const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export interface TaskAssignee {
   userId: string;
   name?: string;
@@ -22,7 +25,8 @@ export interface Task {
   notes: string;
   status?: "pending" | "in-progress" | "completed";
   dueDate?: string;
-  dueTime?: string; // Optional time in HH:mm format
+  dueTime?: string; // Start time in HH:mm format
+  endTime?: string; // End time in HH:mm format
   buyerId?: string;
   listingId?: string;
   userId?: string;
@@ -104,6 +108,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         status: task.status as "pending" | "in-progress" | "completed",
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
         dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined, // Format as HH:mm
+        endTime: task.end_time ? task.end_time.substring(0, 5) : undefined, // Format as HH:mm
         buyerId: task.buyer_id || undefined,
         listingId: task.listing_id || undefined,
         userId: task.user_id,
@@ -173,6 +178,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         status: updates.status,
         due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
         due_time: updates.dueTime !== undefined ? (updates.dueTime || null) : undefined,
+        end_time: updates.endTime !== undefined ? (updates.endTime || null) : undefined,
         buyer_id: updates.buyerId || null,
         listing_id: updates.listingId || null,
         contact_id: updates.contactId || null,
@@ -207,7 +213,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                   notes: updates.notes ?? currentTask.notes,
                   dueDate: updates.dueDate || currentTask.dueDate,
                   dueTime: updates.dueTime ?? currentTask.dueTime,
+                  endTime: updates.endTime ?? currentTask.endTime,
                   address: updates.address ?? currentTask.address,
+                  timezone: getBrowserTimezone(), // Pass browser timezone
                 },
               },
             });
@@ -313,6 +321,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         status: task.status || 'pending',
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
         due_time: task.dueTime || null,
+        end_time: task.endTime || null,
         buyer_id: task.buyerId || null,
         listing_id: task.listingId || null,
         contact_id: task.contactId || null,
@@ -403,7 +412,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
                 notes: task.notes || undefined,
                 dueDate: task.dueDate,
                 dueTime: task.dueTime || undefined,
+                endTime: task.endTime || undefined,
                 address: task.address || undefined,
+                timezone: getBrowserTimezone(), // Pass browser timezone
               },
             },
           });
@@ -441,6 +452,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         status: data.status as "pending" | "in-progress" | "completed",
         dueDate: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
         dueTime: data.due_time ? data.due_time.substring(0, 5) : undefined,
+        endTime: data.end_time ? data.end_time.substring(0, 5) : undefined,
         buyerId: data.buyer_id || undefined,
         listingId: data.listing_id || undefined,
         userId: data.user_id,
