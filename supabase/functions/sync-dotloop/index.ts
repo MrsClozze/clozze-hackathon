@@ -75,7 +75,8 @@ serve(async (req) => {
         break;
 
       case 'get_contacts':
-        result = await getContacts(tokens.access_token);
+        // Contacts are now fetched per-loop as participants, use sync_all instead
+        result = { data: [], message: 'Use sync_all to get contacts from loops' };
         break;
 
       case 'sync_all':
@@ -217,21 +218,30 @@ async function getProfiles(accessToken: string) {
 }
 
 async function getLoops(accessToken: string, profileId?: number, status?: string) {
-  let endpoint = '/loop';
+  // Dotloop API requires profile ID in the path to get loops for that profile
+  if (!profileId) {
+    console.log('[sync-dotloop] No profile ID provided for getLoops');
+    return { data: [] };
+  }
+  
+  let endpoint = `/profile/${profileId}/loop`;
   const params = new URLSearchParams();
   
-  if (profileId) params.set('profile_id', String(profileId));
   if (status) params.set('status', status);
   
   if (params.toString()) {
     endpoint += `?${params.toString()}`;
   }
 
+  console.log('[sync-dotloop] Fetching loops from endpoint:', endpoint);
   return await dotloopFetch(accessToken, endpoint);
 }
 
-async function getContacts(accessToken: string) {
-  return await dotloopFetch(accessToken, '/contact');
+async function getLoopParticipants(accessToken: string, profileId: number, loopId: number) {
+  // Get participants (contacts) from a specific loop
+  const endpoint = `/profile/${profileId}/loop/${loopId}/participant`;
+  console.log('[sync-dotloop] Fetching participants from endpoint:', endpoint);
+  return await dotloopFetch(accessToken, endpoint);
 }
 
 async function syncAll(supabase: any, userId: string, accessToken: string) {
@@ -257,15 +267,22 @@ async function syncAll(supabase: any, userId: string, accessToken: string) {
     const profilesResponse = await getProfiles(accessToken);
     results.profiles = profilesResponse.data || [];
     console.log('[sync-dotloop] Fetched', results.profiles.length, 'profiles');
+    
+    // Log profile details for debugging
+    for (const profile of results.profiles) {
+      console.log('[sync-dotloop] Profile:', profile.id, '-', profile.name || 'Unnamed');
+    }
 
     // Get loops for each profile
     for (const profile of results.profiles) {
       try {
         const loopsResponse = await getLoops(accessToken, profile.id);
         const loops = loopsResponse.data || [];
+        console.log('[sync-dotloop] Profile', profile.id, 'has', loops.length, 'loops');
         results.loops.push(...loops.map((loop: any) => ({ ...loop, profileId: profile.id })));
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[sync-dotloop] Loops fetch error for profile', profile.id, ':', msg);
         results.errors.push(`Loops fetch failed for profile ${profile.id}: ${msg}`);
       }
     }
@@ -276,13 +293,46 @@ async function syncAll(supabase: any, userId: string, accessToken: string) {
   }
 
   try {
-    // Get contacts
-    const contactsResponse = await getContacts(accessToken);
-    results.contacts = contactsResponse.data || [];
-    console.log('[sync-dotloop] Fetched', results.contacts.length, 'contacts');
+    // Get participants (contacts) from each loop
+    for (const loop of results.loops) {
+      try {
+        const participantsResponse = await getLoopParticipants(accessToken, loop.profileId, loop.id);
+        const participants = participantsResponse.data || [];
+        console.log('[sync-dotloop] Loop', loop.id, 'has', participants.length, 'participants');
+        
+        // Map participants to contact format, avoiding duplicates by email
+        for (const participant of participants) {
+          const email = participant.email?.toLowerCase();
+          const existingContact = results.contacts.find(
+            (c: any) => c.email?.toLowerCase() === email && email
+          );
+          
+          if (!existingContact) {
+            results.contacts.push({
+              id: participant.id,
+              firstName: participant.firstName || '',
+              lastName: participant.lastName || '',
+              email: participant.email || '',
+              phone: participant.phone || participant.cellPhone || '',
+              role: participant.role || '',
+              loopId: loop.id,
+              profileId: loop.profileId,
+            });
+          }
+        }
+      } catch (err) {
+        // Participants endpoint might 404 for empty loops - this is okay
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        if (!msg.includes('404')) {
+          console.error('[sync-dotloop] Participants fetch error for loop', loop.id, ':', msg);
+          results.errors.push(`Participants fetch failed for loop ${loop.id}: ${msg}`);
+        }
+      }
+    }
+    console.log('[sync-dotloop] Fetched', results.contacts.length, 'total contacts');
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    results.errors.push(`Contacts fetch failed: ${msg}`);
+    results.errors.push(`Participants iteration failed: ${msg}`);
   }
 
   // Update last sync timestamp

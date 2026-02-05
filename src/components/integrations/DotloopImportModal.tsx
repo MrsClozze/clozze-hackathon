@@ -83,12 +83,8 @@
        const { data } = response.data;
        
        if (importType === "listing") {
-         // Filter loops that look like listings (seller transactions)
-         const listingLoops = (data.loops || []).filter((loop: any) => 
-           loop.transactionType?.toLowerCase().includes("listing") ||
-           loop.transactionType?.toLowerCase().includes("seller")
-         );
-         setLoops(listingLoops.length > 0 ? listingLoops : data.loops || []);
+        // Show all loops - users can select any loop to import
+        setLoops(data.loops || []);
        } else {
          // For buyers, show contacts
          setContacts(data.contacts || []);
