@@ -76,10 +76,29 @@ export function useDotloopConnection() {
         throw new Error('No auth URL returned');
       }
 
-      // Redirect the main window to Dotloop authorization
+      // Open Dotloop authorization in a new tab to avoid iframe restrictions
       // After authorization, Dotloop redirects back to our callback which then
       // redirects to /integrations with a success/error query param
-      window.location.href = authUrl;
+      // Using window.open with _blank works reliably in iframe environments
+      const authWindow = window.open(authUrl, '_blank');
+      
+      if (!authWindow) {
+        // Popup was blocked - fall back to same-window redirect
+        // This may not work in all iframe environments, but is a fallback
+        toast({
+          title: "Opening Dotloop...",
+          description: "If a new tab didn't open, please allow popups and try again.",
+        });
+        window.location.href = authUrl;
+      } else {
+        // New tab opened successfully - user will be redirected back after auth
+        toast({
+          title: "Complete authorization in new tab",
+          description: "Please complete the Dotloop authorization in the new tab. You'll be redirected back automatically.",
+        });
+      }
+      
+      setConnecting(false);
 
     } catch (err) {
       console.error('Error connecting Dotloop:', err);
