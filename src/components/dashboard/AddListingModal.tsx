@@ -14,6 +14,7 @@ import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useDocumentParser } from "@/hooks/useDocumentParser";
 import { useDotloopConnection } from "@/hooks/useDotloopConnection";
+import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 
 interface AddListingModalProps {
   open: boolean;
@@ -77,7 +78,9 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const { addListing } = useListings();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseListingDocument, isParsing } = useDocumentParser();
-  const { connect: connectDotloop, connecting: dotloopConnecting } = useDotloopConnection();
+  const { isConnected: isDotloopConnected } = useDotloopConnection();
+  const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
+
   const handleClose = () => {
     setView("upload");
     setFormData(emptyFormData);
@@ -180,6 +183,23 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     }
   };
 
+  const handleDotloopClick = () => {
+    if (isDotloopConnected) {
+      setIsDotloopImportOpen(true);
+    } else {
+      toast({
+        title: "Dotloop not connected",
+        description: "Please connect Dotloop first in Integrations",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDotloopImport = (data: Partial<FormData>) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setView("manual");
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -221,11 +241,14 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                 <Button
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => connectDotloop()}
-                  disabled={dotloopConnecting}
+                  onClick={handleDotloopClick}
                 >
-                  {dotloopConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
+                  {isDotloopConnected && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
                 </Button>
               </div>
             </div>
@@ -524,6 +547,13 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
             </div>
           </form>
         )}
+
+        <DotloopImportModal
+          open={isDotloopImportOpen}
+          onOpenChange={setIsDotloopImportOpen}
+          importType="listing"
+          onImport={handleDotloopImport}
+        />
       </DialogContent>
     </Dialog>
   );
