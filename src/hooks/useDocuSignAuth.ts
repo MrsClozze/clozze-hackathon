@@ -1,12 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-
-interface DocuSignAuthResult {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
 
 // Get allowed origins for postMessage validation
 const getAllowedOrigins = (): string[] => {
@@ -23,75 +18,56 @@ const getAllowedOrigins = (): string[] => {
 };
 
 export const useDocuSignAuth = () => {
+  const { user } = useAuth();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const handleMessage = useCallback(async (
-    event: MessageEvent, 
-    resolve: (value: DocuSignAuthResult | null) => void, 
-    reject: (error: Error) => void
-  ) => {
-    // SECURITY: Validate the origin of the postMessage
-    const allowedOrigins = getAllowedOrigins();
-    if (!allowedOrigins.includes(event.origin)) {
-      console.warn('Rejected postMessage from unauthorized origin:', event.origin);
+  const checkConnection = useCallback(async () => {
+    if (!user) {
+      setIsConnected(false);
+      setLoading(false);
       return;
     }
 
-    if (event.data.type === 'docusign-success') {
-      try {
-        // Securely store tokens in Supabase Vault
-        const { error: storeError } = await supabase.functions.invoke('store-oauth-tokens', {
-          body: {
-            serviceName: 'docusign',
-            accessToken: event.data.accessToken,
-            refreshToken: event.data.refreshToken,
-            expiresIn: event.data.expiresIn,
-          },
-        });
+    try {
+      const { data, error } = await supabase
+        .from('service_integrations')
+        .select('is_connected')
+        .eq('user_id', user.id)
+        .eq('service_name', 'docusign')
+        .maybeSingle();
 
-        if (storeError) throw storeError;
-
-        toast({
-          title: "DocuSign Connected",
-          description: "Successfully authenticated with DocuSign",
-        });
-
-        resolve({
-          accessToken: event.data.accessToken,
-          refreshToken: event.data.refreshToken,
-          expiresIn: event.data.expiresIn,
-        });
-      } catch (error) {
-        console.error('Failed to store DocuSign tokens:', error);
-        toast({
-          title: "Storage Error",
-          description: "Authentication successful but failed to securely store credentials",
-          variant: "destructive",
-        });
-        reject(new Error('Failed to store tokens'));
-      }
-    } else if (event.data.type === 'docusign-error') {
-      toast({
-        title: "Authentication Failed",
-        description: event.data.error || "Failed to authenticate with DocuSign",
-        variant: "destructive",
-      });
-      reject(new Error(event.data.error || 'Authentication failed'));
+      if (error) throw error;
+      setIsConnected(data?.is_connected ?? false);
+    } catch (err) {
+      console.error('Error checking DocuSign connection:', err);
+      setIsConnected(false);
+    } finally {
+      setLoading(false);
     }
-  }, [toast]);
+  }, [user]);
 
-  const authenticate = useCallback(async (): Promise<DocuSignAuthResult | null> => {
+  useEffect(() => {
+    checkConnection();
+  }, [checkConnection]);
+
+  const authenticate = useCallback(async (): Promise<boolean> => {
     setIsAuthenticating(true);
 
     try {
-      // Get authorization URL from edge function
-      const { data, error } = await supabase.functions.invoke('docusign-auth');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('docusign-auth', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
 
       if (error) throw error;
       if (!data?.authUrl) throw new Error('No authorization URL received');
 
-      // Open popup window for OAuth
+      // Open popup
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -107,23 +83,40 @@ export const useDocuSignAuth = () => {
         throw new Error('Popup blocked. Please allow popups for this site.');
       }
 
-      // Wait for OAuth callback
-      return new Promise<DocuSignAuthResult | null>((resolve, reject) => {
+      return new Promise<boolean>((resolve) => {
         const messageHandler = (event: MessageEvent) => {
-          handleMessage(event, resolve, reject);
-          window.removeEventListener('message', messageHandler);
-          setIsAuthenticating(false);
+          const allowedOrigins = getAllowedOrigins();
+          if (!allowedOrigins.includes(event.origin)) return;
+
+          if (event.data.type === 'docusign-success') {
+            window.removeEventListener('message', messageHandler);
+            setIsAuthenticating(false);
+            setIsConnected(true);
+            toast({
+              title: "DocuSign Connected",
+              description: "Successfully authenticated with DocuSign",
+            });
+            resolve(true);
+          } else if (event.data.type === 'docusign-error') {
+            window.removeEventListener('message', messageHandler);
+            setIsAuthenticating(false);
+            toast({
+              title: "Authentication Failed",
+              description: event.data.error || "Failed to authenticate with DocuSign",
+              variant: "destructive",
+            });
+            resolve(false);
+          }
         };
 
         window.addEventListener('message', messageHandler);
 
-        // Check if popup was closed without completing auth
         const checkClosed = setInterval(() => {
           if (popup.closed) {
             clearInterval(checkClosed);
             window.removeEventListener('message', messageHandler);
             setIsAuthenticating(false);
-            resolve(null);
+            resolve(false);
           }
         }, 1000);
       });
@@ -135,12 +128,34 @@ export const useDocuSignAuth = () => {
         variant: "destructive",
       });
       setIsAuthenticating(false);
-      return null;
+      return false;
     }
-  }, [handleMessage, toast]);
+  }, [toast]);
+
+  const disconnect = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('service_integrations')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('service_name', 'docusign');
+
+      if (error) throw error;
+      setIsConnected(false);
+      toast({ title: "DocuSign disconnected" });
+    } catch (err) {
+      console.error('Error disconnecting DocuSign:', err);
+      toast({ title: "Error", description: "Failed to disconnect", variant: "destructive" });
+    }
+  }, [user, toast]);
 
   return {
     authenticate,
     isAuthenticating,
+    isConnected,
+    loading,
+    disconnect,
+    refresh: checkConnection,
   };
 };
