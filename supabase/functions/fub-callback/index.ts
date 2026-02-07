@@ -64,18 +64,18 @@ serve(async (req) => {
 
     const redirectUri = `${SUPABASE_URL}/functions/v1/fub-callback`;
 
-    // Exchange auth_code for tokens
+    // Exchange auth_code for tokens using Basic Auth + authorization_code grant
+    const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
     const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
+        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
-        client_id: FUB_CLIENT_ID,
-        client_secret: FUB_CLIENT_SECRET,
       }).toString(),
     });
 
