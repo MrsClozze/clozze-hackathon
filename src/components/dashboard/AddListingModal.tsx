@@ -182,7 +182,10 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   };
 
   const handleDocuSignClick = () => {
-    setIsDocuSignImportOpen(true);
+    toast({
+      title: "Coming Soon",
+      description: "DocuSign integration is coming soon! We're finalizing production access.",
+    });
   };
 
   const handleDocuSignImport = (data: Partial<FormData>) => {
