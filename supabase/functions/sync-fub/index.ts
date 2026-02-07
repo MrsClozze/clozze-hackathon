@@ -22,11 +22,13 @@ async function fubFetch(token: string, isOAuth: boolean, endpoint: string, param
     headers['Authorization'] = `Bearer ${token}`;
   } else {
     headers['Authorization'] = `Basic ${btoa(token + ':')}`;
-    const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
-    const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
-    if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
-    if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
   }
+
+  // Always include system headers
+  const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
+  const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
+  if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
+  if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
 
   const response = await fetch(url.toString(), { headers });
 
@@ -34,12 +36,75 @@ async function fubFetch(token: string, isOAuth: boolean, endpoint: string, param
     const errorText = await response.text();
     console.error(`[sync-fub] API error ${response.status} for ${endpoint}:`, errorText);
     if (response.status === 401) {
+      // Check if it's an expired token error
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.errorCode === 'expired-access-token') {
+          throw new Error('TOKEN_EXPIRED');
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message === 'TOKEN_EXPIRED') throw e;
+      }
       throw new Error('Invalid Follow Up Boss credentials. Please reconnect.');
     }
     throw new Error(`FUB API error ${response.status}: ${errorText}`);
   }
 
   return response.json();
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; refresh_token?: string; expires_in?: number } | null> {
+  const FUB_CLIENT_ID = Deno.env.get('FUB_CLIENT_ID');
+  const FUB_CLIENT_SECRET = Deno.env.get('FUB_CLIENT_SECRET');
+  
+  if (!FUB_CLIENT_ID || !FUB_CLIENT_SECRET) {
+    console.error('[sync-fub] Missing FUB_CLIENT_ID or FUB_CLIENT_SECRET for token refresh');
+    return null;
+  }
+
+  const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+
+  const headers: Record<string, string> = {
+    'Authorization': `Basic ${basicAuth}`,
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+
+  const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
+  const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
+  if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
+  if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
+
+  // Try app.followupboss.com first (per FUB docs)
+  for (const domain of ['https://app.followupboss.com', 'https://api.followupboss.com']) {
+    try {
+      console.log(`[sync-fub] Attempting token refresh via ${domain}`);
+      const resp = await fetch(`${domain}/oauth/token`, {
+        method: 'POST',
+        headers,
+        body: body.toString(),
+      });
+
+      const text = await resp.text();
+      console.log(`[sync-fub] Refresh response from ${domain}: ${resp.status}`);
+
+      if (resp.ok) {
+        const data = JSON.parse(text);
+        if (data.access_token) {
+          console.log('[sync-fub] Token refresh successful');
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn(`[sync-fub] Refresh attempt via ${domain} failed:`, e);
+    }
+  }
+
+  console.error('[sync-fub] All token refresh attempts failed');
+  return null;
 }
 
 serve(async (req) => {
@@ -79,7 +144,7 @@ serve(async (req) => {
     // Get FUB credentials from service_integrations
     const { data: integration, error: intError } = await supabaseAdmin
       .from('service_integrations')
-      .select('access_token_encrypted, refresh_token_encrypted')
+      .select('access_token_encrypted, refresh_token_encrypted, token_expires_at')
       .eq('user_id', user.id)
       .eq('service_name', 'follow_up_boss')
       .eq('is_connected', true)
@@ -92,23 +157,87 @@ serve(async (req) => {
       );
     }
 
-    const accessToken = integration.access_token_encrypted;
+    let accessToken = integration.access_token_encrypted;
     const refreshToken = integration.refresh_token_encrypted;
-    // Determine auth mode: if refresh_token exists, it's OAuth (Bearer); otherwise API key (Basic)
     const isOAuth = !!refreshToken;
+
+    // Check if token is expired and proactively refresh
+    if (isOAuth && integration.token_expires_at) {
+      const expiresAt = new Date(integration.token_expires_at);
+      const now = new Date();
+      if (now >= expiresAt) {
+        console.log('[sync-fub] Token expired, attempting refresh...');
+        const newTokens = await refreshAccessToken(refreshToken);
+        if (newTokens) {
+          accessToken = newTokens.access_token;
+          // Store updated tokens
+          const expiresAtNew = newTokens.expires_in
+            ? new Date(Date.now() + (newTokens.expires_in * 1000)).toISOString()
+            : null;
+          await supabaseAdmin
+            .from('service_integrations')
+            .update({
+              access_token_encrypted: newTokens.access_token,
+              refresh_token_encrypted: newTokens.refresh_token || refreshToken,
+              token_expires_at: expiresAtNew,
+            })
+            .eq('user_id', user.id)
+            .eq('service_name', 'follow_up_boss');
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'Follow Up Boss session expired. Please reconnect.' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
 
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'fetch_people';
 
+    // Helper: attempt a fetch, and if TOKEN_EXPIRED, refresh and retry once
+    const fetchWithRefresh = async (endpoint: string, params?: Record<string, string>) => {
+      try {
+        return await fubFetch(accessToken, isOAuth, endpoint, params);
+      } catch (e) {
+        if (e instanceof Error && e.message === 'TOKEN_EXPIRED' && isOAuth && refreshToken) {
+          console.log('[sync-fub] Got TOKEN_EXPIRED during request, refreshing...');
+          const newTokens = await refreshAccessToken(refreshToken);
+          if (newTokens) {
+            accessToken = newTokens.access_token;
+            const expiresAtNew = newTokens.expires_in
+              ? new Date(Date.now() + (newTokens.expires_in * 1000)).toISOString()
+              : null;
+            await supabaseAdmin
+              .from('service_integrations')
+              .update({
+                access_token_encrypted: newTokens.access_token,
+                refresh_token_encrypted: newTokens.refresh_token || refreshToken,
+                token_expires_at: expiresAtNew,
+              })
+              .eq('user_id', user.id)
+              .eq('service_name', 'follow_up_boss');
+            return await fubFetch(newTokens.access_token, isOAuth, endpoint, params);
+          }
+          throw new Error('Follow Up Boss session expired. Please reconnect.');
+        }
+        throw e;
+      }
+    };
+
     let responseData: any = {};
 
     if (action === 'fetch_people' || action === 'sync_all') {
-      const peopleResponse = await fubFetch(accessToken, isOAuth, '/people', {
+      const peopleResponse = await fetchWithRefresh('/people', {
         limit: '100',
         fields: 'id,firstName,lastName,emails,phones,tags,stage,created,addresses',
       });
 
-      const people = (peopleResponse.people || []).map((p: any) => ({
+      const rawPeople = Array.isArray(peopleResponse?.people) ? peopleResponse.people
+        : Array.isArray(peopleResponse) ? peopleResponse
+        : [];
+
+      const people = rawPeople.map((p: any) => ({
         id: p.id,
         firstName: p.firstName || '',
         lastName: p.lastName || '',
@@ -126,9 +255,13 @@ serve(async (req) => {
 
     if (action === 'fetch_deals' || action === 'sync_all') {
       try {
-        const dealsResponse = await fubFetch(accessToken, isOAuth, '/deals', { limit: '100' });
+        const dealsResponse = await fetchWithRefresh('/deals', { limit: '100' });
 
-        const deals = (dealsResponse.deals || []).map((d: any) => ({
+        const rawDeals = Array.isArray(dealsResponse?.deals) ? dealsResponse.deals
+          : Array.isArray(dealsResponse) ? dealsResponse
+          : [];
+
+        const deals = rawDeals.map((d: any) => ({
           id: d.id,
           name: d.name || '',
           stage: d.stage || '',
