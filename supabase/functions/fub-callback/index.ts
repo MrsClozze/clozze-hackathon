@@ -64,6 +64,14 @@ serve(async (req) => {
 
     const redirectUri = `${SUPABASE_URL}/functions/v1/fub-callback`;
 
+    console.log('[fub-callback] Attempting token exchange with:', {
+      redirectUri,
+      codeLength: code?.length,
+      hasClientId: !!FUB_CLIENT_ID,
+      hasClientSecret: !!FUB_CLIENT_SECRET,
+      clientIdLength: FUB_CLIENT_ID?.length,
+    });
+
     // Exchange auth_code for tokens using Basic Auth + authorization_code grant
     const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
     const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
@@ -74,7 +82,7 @@ serve(async (req) => {
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: code!,
         redirect_uri: redirectUri,
       }).toString(),
     });
