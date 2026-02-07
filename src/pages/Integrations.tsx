@@ -358,7 +358,10 @@ export default function Integrations() {
     }
 
     if (integrationId === "docusign") {
-      await authenticate();
+      toast({
+        title: "Coming Soon",
+        description: "DocuSign integration is coming soon! We're finalizing production access.",
+      });
       return;
     }
 
