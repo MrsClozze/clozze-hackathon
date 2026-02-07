@@ -8,22 +8,25 @@ const corsHeaders = {
 
 const FUB_API_BASE = 'https://api.followupboss.com/v1';
 
-async function fubFetch(apiKey: string, endpoint: string, params?: Record<string, string>) {
+async function fubFetch(token: string, isOAuth: boolean, endpoint: string, params?: Record<string, string>) {
   const url = new URL(`${FUB_API_BASE}${endpoint}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
-  const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
-
   const headers: Record<string, string> = {
-    'Authorization': `Basic ${btoa(apiKey + ':')}`,
     'Accept': 'application/json',
   };
 
-  if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
-  if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
+  if (isOAuth) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else {
+    headers['Authorization'] = `Basic ${btoa(token + ':')}`;
+    const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
+    const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
+    if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
+    if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
+  }
 
   const response = await fetch(url.toString(), { headers });
 
@@ -31,7 +34,7 @@ async function fubFetch(apiKey: string, endpoint: string, params?: Record<string
     const errorText = await response.text();
     console.error(`[sync-fub] API error ${response.status} for ${endpoint}:`, errorText);
     if (response.status === 401) {
-      throw new Error('Invalid Follow Up Boss API key. Please check your key and try again.');
+      throw new Error('Invalid Follow Up Boss credentials. Please reconnect.');
     }
     throw new Error(`FUB API error ${response.status}: ${errorText}`);
   }
@@ -73,10 +76,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get FUB API key from service_integrations
+    // Get FUB credentials from service_integrations
     const { data: integration, error: intError } = await supabaseAdmin
       .from('service_integrations')
-      .select('access_token_encrypted')
+      .select('access_token_encrypted, refresh_token_encrypted')
       .eq('user_id', user.id)
       .eq('service_name', 'follow_up_boss')
       .eq('is_connected', true)
@@ -89,14 +92,18 @@ serve(async (req) => {
       );
     }
 
-    const apiKey = integration.access_token_encrypted;
+    const accessToken = integration.access_token_encrypted;
+    const refreshToken = integration.refresh_token_encrypted;
+    // Determine auth mode: if refresh_token exists, it's OAuth (Bearer); otherwise API key (Basic)
+    const isOAuth = !!refreshToken;
+
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'fetch_people';
 
     let responseData: any = {};
 
     if (action === 'fetch_people' || action === 'sync_all') {
-      const peopleResponse = await fubFetch(apiKey, '/people', {
+      const peopleResponse = await fubFetch(accessToken, isOAuth, '/people', {
         limit: '100',
         fields: 'id,firstName,lastName,emails,phones,tags,stage,created,addresses',
       });
@@ -119,7 +126,7 @@ serve(async (req) => {
 
     if (action === 'fetch_deals' || action === 'sync_all') {
       try {
-        const dealsResponse = await fubFetch(apiKey, '/deals', { limit: '100' });
+        const dealsResponse = await fubFetch(accessToken, isOAuth, '/deals', { limit: '100' });
 
         const deals = (dealsResponse.deals || []).map((d: any) => ({
           id: d.id,

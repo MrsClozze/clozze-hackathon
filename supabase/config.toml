@@ -71,4 +71,9 @@ verify_jwt = false
 
 [functions.sync-dotloop]
 
+[functions.fub-auth]
+
+[functions.fub-callback]
+verify_jwt = false
+
 [functions.sync-fub]

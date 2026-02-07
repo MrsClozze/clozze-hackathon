@@ -7,6 +7,7 @@ interface FubConnection {
   id: string;
   is_connected: boolean;
   connected_at: string | null;
+  refresh_token_encrypted: string | null;
 }
 
 export function useFollowUpBossConnection() {
@@ -27,7 +28,7 @@ export function useFollowUpBossConnection() {
       setLoading(true);
       const { data, error } = await supabase
         .from('service_integrations')
-        .select('id, is_connected, connected_at')
+        .select('id, is_connected, connected_at, refresh_token_encrypted')
         .eq('user_id', user.id)
         .eq('service_name', 'follow_up_boss')
         .maybeSingle();
@@ -41,7 +42,8 @@ export function useFollowUpBossConnection() {
     }
   }, [user]);
 
-  const connect = useCallback(async (apiKey: string) => {
+  // Connect via API key (Basic Auth)
+  const connectWithApiKey = useCallback(async (apiKey: string) => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -63,17 +65,13 @@ export function useFollowUpBossConnection() {
     try {
       setConnecting(true);
 
-      // Verify the API key works by making a test call
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No active session');
-
-      // Store the API key in service_integrations
       const { error: upsertError } = await supabase
         .from('service_integrations')
         .upsert({
           user_id: user.id,
           service_name: 'follow_up_boss',
           access_token_encrypted: apiKey.trim(),
+          refresh_token_encrypted: null,
           is_connected: true,
           connected_at: new Date().toISOString(),
         }, {
@@ -101,6 +99,47 @@ export function useFollowUpBossConnection() {
       setConnecting(false);
     }
   }, [user, toast, fetchConnection]);
+
+  // Connect via OAuth (redirect to FUB authorize page)
+  const connectWithOAuth = useCallback(async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to connect Follow Up Boss",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setConnecting(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
+
+      const response = await supabase.functions.invoke('fub-auth', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message || 'Failed to start OAuth');
+
+      const { authUrl } = response.data;
+      if (!authUrl) throw new Error('No auth URL returned');
+
+      // Redirect to FUB OAuth page
+      window.location.href = authUrl;
+    } catch (err) {
+      console.error('Error starting FUB OAuth:', err);
+      toast({
+        title: "Connection failed",
+        description: err instanceof Error ? err.message : "Failed to start Follow Up Boss OAuth",
+        variant: "destructive",
+      });
+      setConnecting(false);
+    }
+  }, [user, toast]);
 
   const disconnect = useCallback(async () => {
     if (!user) return;
@@ -136,9 +175,11 @@ export function useFollowUpBossConnection() {
   return {
     connection,
     isConnected: !!connection?.is_connected,
+    isOAuth: !!connection?.refresh_token_encrypted,
     loading,
     connecting,
-    connect,
+    connectWithApiKey,
+    connectWithOAuth,
     disconnect,
     refresh: fetchConnection,
   };

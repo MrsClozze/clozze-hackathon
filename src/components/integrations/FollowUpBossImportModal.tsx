@@ -59,7 +59,7 @@ export function FollowUpBossImportModal({
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { connect: connectFub, connecting: fubConnecting } = useFollowUpBossConnection();
+  const { connecting: fubConnecting } = useFollowUpBossConnection();
 
   useEffect(() => {
     if (open) {

@@ -81,7 +81,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseListingDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
-  const { isConnected: isFubConnected, connect: connectFub, connecting: fubConnecting } = useFollowUpBossConnection();
+  const { isConnected: isFubConnected, connecting: fubConnecting } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
   const [isFubImportOpen, setIsFubImportOpen] = useState(false);
 
