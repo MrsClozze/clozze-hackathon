@@ -104,8 +104,10 @@ export default function Integrations() {
   const {
     isConnected: isFubConnected,
     connecting: fubConnecting,
-    connect: connectFub,
+    connectWithApiKey: connectFubApiKey,
+    connectWithOAuth: connectFubOAuth,
     disconnect: disconnectFub,
+    refresh: refreshFub,
   } = useFollowUpBossConnection();
   const { 
     connections, 
@@ -143,8 +145,34 @@ export default function Integrations() {
   const [isProcessingOAuth, setIsProcessingOAuth] = useState(false);
   const processedCodeRef = React.useRef<string | null>(null);
 
-  // Handle OAuth callback from Google (Calendar or Gmail)
+  // Handle OAuth callback from Google (Calendar or Gmail) or FUB redirect
   useEffect(() => {
+    // Handle FUB OAuth redirect (comes back with ?fub=success/error/denied)
+    const fubStatus = searchParams.get("fub");
+    if (fubStatus) {
+      setSearchParams({}, { replace: true });
+      if (fubStatus === "success") {
+        refreshFub();
+        toast({
+          title: "Follow Up Boss connected",
+          description: "Your FUB account has been linked successfully!",
+        });
+      } else if (fubStatus === "denied") {
+        toast({
+          title: "Connection cancelled",
+          description: "You denied Follow Up Boss access",
+          variant: "destructive",
+        });
+      } else if (fubStatus === "error") {
+        toast({
+          title: "Connection failed",
+          description: `Follow Up Boss connection error: ${searchParams.get("message") || "unknown"}`,
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     const code = searchParams.get("code");
     const scope = searchParams.get("scope");
     const storedCalendarProvider = sessionStorage.getItem("calendar_oauth_provider");
@@ -197,7 +225,7 @@ export default function Integrations() {
         setIsProcessingOAuth(false);
       });
     }
-  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth]);
+  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth, refreshFub]);
 
   const handleGoogleCalendarConnect = async () => {
     if (!user) {
@@ -574,12 +602,41 @@ export default function Integrations() {
         <Dialog open={isFubApiKeyModalOpen} onOpenChange={setIsFubApiKeyModalOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Connect Follow Up Boss</DialogTitle>
+              <div className="flex items-center gap-3 mb-2">
+                <img src={followUpBossLogo} alt="Follow Up Boss" className="w-10 h-10 object-contain" />
+                <DialogTitle>Connect Follow Up Boss</DialogTitle>
+              </div>
               <DialogDescription>
-                Enter your Follow Up Boss API key. You can find it in your FUB account under Admin → API.
+                Choose how you'd like to connect your Follow Up Boss account.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
+              {/* OAuth option */}
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setIsFubApiKeyModalOpen(false);
+                  connectFubOAuth();
+                }}
+                disabled={fubConnecting}
+              >
+                {fubConnecting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</>
+                ) : (
+                  "Sign in with Follow Up Boss"
+                )}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or use API key</span>
+                </div>
+              </div>
+
+              {/* API key option */}
               <Input
                 type="password"
                 placeholder="Paste your API key here..."
@@ -592,15 +649,19 @@ export default function Integrations() {
                 </Button>
                 <Button
                   className="flex-1"
+                  variant="secondary"
                   disabled={!fubApiKey.trim() || fubConnecting}
                   onClick={async () => {
-                    const success = await connectFub(fubApiKey);
+                    const success = await connectFubApiKey(fubApiKey);
                     if (success) setIsFubApiKeyModalOpen(false);
                   }}
                 >
-                  {fubConnecting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : "Connect"}
+                  {fubConnecting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : "Connect with API Key"}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Find your API key in Follow Up Boss under Admin → API.
+              </p>
             </div>
           </DialogContent>
         </Dialog>

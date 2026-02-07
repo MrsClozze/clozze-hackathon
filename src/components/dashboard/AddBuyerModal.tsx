@@ -62,7 +62,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseBuyerDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
-  const { isConnected: isFubConnected, connect: connectFub, connecting: fubConnecting } = useFollowUpBossConnection();
+  const { isConnected: isFubConnected, connecting: fubConnecting } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
   const [isFubImportOpen, setIsFubImportOpen] = useState(false);
 
