@@ -67,14 +67,14 @@ serve(async (req) => {
     // Exchange auth_code for tokens using POST with Basic Auth
     const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
 
-    const tokenResponse = await fetch('https://app.followupboss.com/v1/oauthApps/token', {
+    const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
+        grant_type: 'auth_code',
         code,
         redirect_uri: redirectUri,
       }).toString(),
