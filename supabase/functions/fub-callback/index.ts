@@ -73,17 +73,17 @@ serve(async (req) => {
       clientSecretLength: FUB_CLIENT_SECRET?.length,
     });
 
-    // Exchange auth_code for tokens - include credentials in both header and body
+    // Exchange auth_code for tokens
     const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
-    const bodyParams = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: code!,
-      redirect_uri: redirectUri,
-      client_id: FUB_CLIENT_ID,
-      client_secret: FUB_CLIENT_SECRET,
-    });
+    
+    // Try without .toString() - pass URLSearchParams directly
+    const body = new URLSearchParams();
+    body.set('grant_type', 'authorization_code');
+    body.set('code', code!);
+    body.set('redirect_uri', redirectUri);
 
-    console.log('[fub-callback] Token request body:', bodyParams.toString().replace(/client_secret=[^&]+/, 'client_secret=REDACTED'));
+    console.log('[fub-callback] Sending token request to https://app.followupboss.com/oauth/token');
+    console.log('[fub-callback] Body params:', Array.from(body.keys()));
 
     const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
@@ -91,12 +91,64 @@ serve(async (req) => {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: bodyParams.toString(),
+      body,
     });
 
+    // Log full error details
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('[fub-callback] Token exchange failed:', tokenResponse.status, errorText);
+      console.error('[fub-callback] Response headers:', JSON.stringify(Object.fromEntries(tokenResponse.headers.entries())));
+      
+      // Also try the legacy GET endpoint as fallback
+      console.log('[fub-callback] Trying legacy GET endpoint as fallback...');
+      const legacyUrl = new URL('https://app.followupboss.com/oauth/token');
+      legacyUrl.searchParams.set('grant_type', 'auth_code');
+      legacyUrl.searchParams.set('code', code!);
+      legacyUrl.searchParams.set('redirect_uri', redirectUri);
+      
+      const legacyResponse = await fetch(legacyUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+        },
+      });
+      
+      if (legacyResponse.ok) {
+        const legacyTokens = await legacyResponse.json();
+        console.log('[fub-callback] Legacy GET endpoint succeeded!');
+        
+        // Use legacy tokens
+        const supabaseAdmin = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        );
+        
+        const tokenData = legacyTokens.data || legacyTokens;
+        const expiresAt = tokenData.expires_in
+          ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
+          : null;
+
+        await supabaseAdmin
+          .from('service_integrations')
+          .upsert({
+            user_id: userId,
+            service_name: 'follow_up_boss',
+            access_token_encrypted: tokenData.access_token,
+            refresh_token_encrypted: tokenData.refresh_token || null,
+            token_expires_at: expiresAt,
+            is_connected: true,
+            connected_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,service_name' });
+
+        console.log('[fub-callback] Tokens stored via legacy endpoint for user:', userId);
+        const successUrl = origin ? `${origin}/integrations?fub=success` : '/integrations?fub=success';
+        return new Response(null, { status: 302, headers: { 'Location': successUrl } });
+      } else {
+        const legacyError = await legacyResponse.text();
+        console.error('[fub-callback] Legacy GET also failed:', legacyResponse.status, legacyError);
+      }
+      
       const errorRedirect = origin
         ? `${origin}/integrations?fub=error&message=token_exchange_failed`
         : '/integrations?fub=error&message=token_exchange_failed';
