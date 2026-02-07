@@ -18,6 +18,7 @@ import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
+import { DocuSignImportModal } from "@/components/integrations/DocuSignImportModal";
 
 interface AddBuyerModalProps {
   open: boolean;
@@ -59,12 +60,13 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const { toast } = useToast();
   const { addBuyer } = useBuyers();
-  const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { isConnected: isDocuSignConnected, isAuthenticating } = useDocuSignAuth();
   const { parseBuyerDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
   const { isConnected: isFubConnected, connecting: fubConnecting } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
   const [isFubImportOpen, setIsFubImportOpen] = useState(false);
+  const [isDocuSignImportOpen, setIsDocuSignImportOpen] = useState(false);
 
   const handleClose = () => {
     setView("upload");
@@ -149,12 +151,13 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     }
   };
 
-  const handleDocuSignUpload = async () => {
-    const result = await authenticate();
-    if (result) {
-      // TODO: Fetch documents from DocuSign using the access token
-      console.log('DocuSign authenticated:', result);
-    }
+  const handleDocuSignClick = () => {
+    setIsDocuSignImportOpen(true);
+  };
+
+  const handleDocuSignImport = (data: Partial<FormData>) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setView("manual");
   };
 
   const handleDotloopClick = () => {
@@ -209,8 +212,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                 <Button
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={handleDocuSignUpload}
-                  disabled={isAuthenticating}
+                  onClick={handleDocuSignClick}
                 >
                   <img src={docusignLogo} alt="DocuSign" className="h-10 object-contain" />
                 </Button>
@@ -431,6 +433,13 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
           onOpenChange={setIsFubImportOpen}
           importType="buyer"
           onImport={handleFubImport}
+        />
+
+        <DocuSignImportModal
+          open={isDocuSignImportOpen}
+          onOpenChange={setIsDocuSignImportOpen}
+          importType="buyer"
+          onImport={handleDocuSignImport}
         />
       </DialogContent>
     </Dialog>

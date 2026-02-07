@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -16,12 +17,34 @@ serve(async (req) => {
       throw new Error('DocuSign Integration Key not configured');
     }
 
+    // Verify user is authenticated
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!
+    );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid user session' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
-    // Get the origin from the request to pass through state for secure postMessage
+    // Get the origin from the request for secure postMessage
     const requestOrigin = req.headers.get('origin') || req.headers.get('referer');
-    let allowedOrigin = supabaseUrl; // Default fallback
+    let allowedOrigin = supabaseUrl;
     
     if (requestOrigin) {
       try {
@@ -31,13 +54,13 @@ serve(async (req) => {
       }
     }
 
-    // Encode the allowed origin in the state parameter for secure callback
-    const state = btoa(JSON.stringify({ origin: allowedOrigin }));
+    // Encode origin + user_id in state for callback
+    const state = btoa(JSON.stringify({ origin: allowedOrigin, userId: user.id }));
 
-    // Build DocuSign OAuth authorization URL
-    const authUrl = new URL('https://account-d.docusign.com/oauth/auth');
+    // Production DocuSign URL
+    const authUrl = new URL('https://account.docusign.com/oauth/auth');
     authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('scope', 'signature impersonation');
+    authUrl.searchParams.set('scope', 'signature');
     authUrl.searchParams.set('client_id', integrationKey);
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('state', state);

@@ -17,6 +17,7 @@ import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
+import { DocuSignImportModal } from "@/components/integrations/DocuSignImportModal";
 
 interface AddListingModalProps {
   open: boolean;
@@ -78,12 +79,13 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const { toast } = useToast();
   const { addListing } = useListings();
-  const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { isConnected: isDocuSignConnected, isAuthenticating } = useDocuSignAuth();
   const { parseListingDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
   const { isConnected: isFubConnected, connecting: fubConnecting } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
   const [isFubImportOpen, setIsFubImportOpen] = useState(false);
+  const [isDocuSignImportOpen, setIsDocuSignImportOpen] = useState(false);
 
   const handleClose = () => {
     setView("upload");
@@ -179,12 +181,13 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     }
   };
 
-  const handleDocuSignUpload = async () => {
-    const result = await authenticate();
-    if (result) {
-      // TODO: Fetch documents from DocuSign using the access token
-      console.log('DocuSign authenticated:', result);
-    }
+  const handleDocuSignClick = () => {
+    setIsDocuSignImportOpen(true);
+  };
+
+  const handleDocuSignImport = (data: Partial<FormData>) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setView("manual");
   };
 
   const handleDotloopClick = () => {
@@ -239,8 +242,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                 <Button
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={handleDocuSignUpload}
-                  disabled={isAuthenticating}
+                  onClick={handleDocuSignClick}
                 >
                   <img src={docusignLogo} alt="DocuSign" className="h-10 object-contain" />
                 </Button>
@@ -573,6 +575,13 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
           onOpenChange={setIsFubImportOpen}
           importType="listing"
           onImport={handleFubImport}
+        />
+
+        <DocuSignImportModal
+          open={isDocuSignImportOpen}
+          onOpenChange={setIsDocuSignImportOpen}
+          importType="listing"
+          onImport={handleDocuSignImport}
         />
       </DialogContent>
     </Dialog>
