@@ -42,11 +42,14 @@ serve(async (req) => {
       );
     }
 
+    const body = await req.json().catch(() => ({}));
+    const origin = body.origin || req.headers.get('origin') || req.headers.get('referer') || '';
+
     const state = crypto.randomUUID();
     const stateData = btoa(JSON.stringify({
       userId: user.id,
       nonce: state,
-      origin: req.headers.get('origin') || req.headers.get('referer') || ''
+      origin,
     }));
 
     const redirectUri = `${SUPABASE_URL}/functions/v1/fub-callback`;

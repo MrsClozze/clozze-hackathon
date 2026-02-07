@@ -121,6 +121,7 @@ export function useFollowUpBossConnection() {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: { origin: window.location.origin },
       });
 
       if (response.error) throw new Error(response.error.message || 'Failed to start OAuth');
