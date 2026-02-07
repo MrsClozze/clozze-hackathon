@@ -9,11 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, Home, Check, AlertCircle, ExternalLink, Search, Link } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Loader2, User, Home, Check, AlertCircle, Search, Key, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
+import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 
 interface FollowUpBossImportModalProps {
   open: boolean;
@@ -51,24 +52,34 @@ export function FollowUpBossImportModal({
   importType,
   onImport,
 }: FollowUpBossImportModalProps) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [people, setPeople] = useState<FubPerson[]>([]);
   const [deals, setDeals] = useState<FubDeal[]>([]);
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const { connecting: fubConnecting } = useFollowUpBossConnection();
+  const {
+    isConnected,
+    connecting,
+    connectWithApiKey,
+    connectWithOAuth,
+    refresh,
+  } = useFollowUpBossConnection();
 
   useEffect(() => {
     if (open) {
-      fetchData();
-    } else {
+      if (isConnected) {
+        fetchData();
+      }
       setSearchQuery("");
       setSelectedItem(null);
+      setShowApiKeyForm(false);
+      setApiKeyInput("");
     }
-  }, [open]);
+  }, [open, isConnected]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -96,7 +107,6 @@ export function FollowUpBossImportModal({
 
       if (importType === "listing") {
         setDeals(data.deals || []);
-        // If no deals, fall back to showing people
         if ((!data.deals || data.deals.length === 0) && data.people) {
           setPeople(data.people);
         }
@@ -106,11 +116,7 @@ export function FollowUpBossImportModal({
     } catch (err) {
       console.error("Error fetching FUB data:", err);
       const message = err instanceof Error ? err.message : "Failed to fetch data";
-      if (message.includes("not connected")) {
-        setError("Follow Up Boss is not connected. Please connect it first in Integrations.");
-      } else {
-        setError(message);
-      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -143,7 +149,6 @@ export function FollowUpBossImportModal({
             buyerPhone: person.phone || "",
           });
         } else {
-          // Contact import
           onImport({
             firstName: person.firstName || "",
             lastName: person.lastName || "",
@@ -160,9 +165,17 @@ export function FollowUpBossImportModal({
     }
   };
 
-  const handleGoToIntegrations = () => {
-    onOpenChange(false);
-    navigate("/integrations");
+  const handleConnectWithApiKey = async () => {
+    const success = await connectWithApiKey(apiKeyInput);
+    if (success) {
+      setApiKeyInput("");
+      setShowApiKeyForm(false);
+      // refresh will trigger isConnected change → useEffect fetches data
+    }
+  };
+
+  const handleConnectWithOAuth = async () => {
+    await connectWithOAuth();
   };
 
   // Filter items based on search
@@ -192,6 +205,104 @@ export function FollowUpBossImportModal({
   const hasItems = items.length > 0;
   const totalItems = showPeople ? people.length : deals.length;
 
+  // --- Connection view (not connected) ---
+  if (!isConnected) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Follow Up Boss</DialogTitle>
+            <DialogDescription>
+              Connect your Follow Up Boss account to import{" "}
+              {importType === "listing" ? "deals" : "contacts"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6 space-y-5">
+            <div className="flex justify-center">
+              <img src={followUpBossLogo} alt="Follow Up Boss" className="h-12 object-contain" />
+            </div>
+
+            {!showApiKeyForm ? (
+              <div className="space-y-3">
+                <Button
+                  onClick={handleConnectWithOAuth}
+                  disabled={connecting}
+                  className="w-full"
+                >
+                  {connecting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                  )}
+                  Sign in with Follow Up Boss
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">or</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setShowApiKeyForm(true)}
+                  className="w-full"
+                >
+                  <Key className="h-4 w-4 mr-2" />
+                  Connect with API Key
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="fub-api-key">Follow Up Boss API Key</Label>
+                  <Input
+                    id="fub-api-key"
+                    type="password"
+                    placeholder="Paste your API key here"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Find your API key in Follow Up Boss → Admin → API
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowApiKeyForm(false);
+                      setApiKeyInput("");
+                    }}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleConnectWithApiKey}
+                    disabled={connecting || !apiKeyInput.trim()}
+                    className="flex-1"
+                  >
+                    {connecting ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Connect
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // --- Import view (connected) ---
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -218,17 +329,6 @@ export function FollowUpBossImportModal({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <AlertCircle className="h-10 w-10 text-destructive mb-4" />
               <p className="text-sm text-destructive mb-4">{error}</p>
-              {error.includes("not connected") && (
-                <div className="flex gap-2">
-                  <Button onClick={handleGoToIntegrations} variant="default">
-                    <Link className="h-4 w-4 mr-2" />Connect in Integrations
-                  </Button>
-                  <Button onClick={handleGoToIntegrations} variant="outline">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Go to Integrations
-                  </Button>
-                </div>
-              )}
             </div>
           ) : totalItems === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

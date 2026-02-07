@@ -205,14 +205,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   };
 
   const handleFubClick = () => {
-    if (isFubConnected) {
-      setIsFubImportOpen(true);
-    } else {
-      toast({
-        title: "Follow Up Boss not connected",
-        description: "Please connect Follow Up Boss in the Integrations page first.",
-      });
-    }
+    setIsFubImportOpen(true);
   };
 
   const handleDotloopImport = (data: Partial<FormData>) => {
