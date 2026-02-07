@@ -246,7 +246,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all relative"
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
                   onClick={handleFubClick}
                   disabled={fubConnecting}
                 >
@@ -255,23 +255,13 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
                   ) : (
                     <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
                   )}
-                  {isFubConnected && (
-                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
-                      <span className="text-white text-[10px]">✓</span>
-                    </div>
-                  )}
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all relative"
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
                   onClick={handleDotloopClick}
                 >
                   <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
-                  {isDotloopConnected && (
-                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
-                      <span className="text-white text-[10px]">✓</span>
-                    </div>
-                  )}
                 </Button>
               </div>
             </div>
