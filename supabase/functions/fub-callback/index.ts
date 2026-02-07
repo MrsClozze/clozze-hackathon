@@ -67,6 +67,8 @@ serve(async (req) => {
 
     const FUB_CLIENT_ID = Deno.env.get('FUB_CLIENT_ID');
     const FUB_CLIENT_SECRET = Deno.env.get('FUB_CLIENT_SECRET');
+    const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
+    const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 
     if (!FUB_CLIENT_ID || !FUB_CLIENT_SECRET) {
@@ -77,22 +79,26 @@ serve(async (req) => {
     const redirectUri = `${SUPABASE_URL}/functions/v1/fub-callback`;
     const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
 
-    console.log('[fub-callback] Starting token exchange. Code length:', code.length, 'Redirect URI:', redirectUri);
+    console.log('[fub-callback] Starting token exchange. Code length:', code.length);
+    console.log('[fub-callback] Has X-System:', !!FUB_X_SYSTEM, 'Has X-System-Key:', !!FUB_X_SYSTEM_KEY);
 
-    // Strategy 1: POST to api.followupboss.com with credentials in body (per integration guides)
-    console.log('[fub-callback] Strategy 1: POST api.followupboss.com with body credentials');
-    const strategy1Body = new URLSearchParams({
+    // Strategy 1: POST to app.followupboss.com with Basic Auth + X-System headers (official docs + system headers)
+    console.log('[fub-callback] Strategy 1: POST app.followupboss.com with Basic Auth + X-System headers');
+    const formBody = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
-      client_id: FUB_CLIENT_ID,
-      client_secret: FUB_CLIENT_SECRET,
     });
 
-    const resp1 = await fetch('https://api.followupboss.com/oauth/token', {
+    const resp1 = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: strategy1Body.toString(),
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(FUB_X_SYSTEM ? { 'x-system': FUB_X_SYSTEM } : {}),
+        ...(FUB_X_SYSTEM_KEY ? { 'X-System-Key': FUB_X_SYSTEM_KEY } : {}),
+      },
+      body: formBody.toString(),
     });
 
     if (resp1.ok) {
@@ -105,21 +111,24 @@ serve(async (req) => {
     const err1 = await resp1.text();
     console.error('[fub-callback] Strategy 1 failed:', resp1.status, err1);
 
-    // Strategy 2: POST to app.followupboss.com with Basic Auth (per official docs)
-    console.log('[fub-callback] Strategy 2: POST app.followupboss.com with Basic Auth');
-    const strategy2Body = new URLSearchParams({
+    // Strategy 2: POST to api.followupboss.com with credentials in body + X-System headers
+    console.log('[fub-callback] Strategy 2: POST api.followupboss.com with body credentials + X-System headers');
+    const bodyWithCreds = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
+      client_id: FUB_CLIENT_ID,
+      client_secret: FUB_CLIENT_SECRET,
     });
 
-    const resp2 = await fetch('https://app.followupboss.com/oauth/token', {
+    const resp2 = await fetch('https://api.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
+        ...(FUB_X_SYSTEM ? { 'x-system': FUB_X_SYSTEM } : {}),
+        ...(FUB_X_SYSTEM_KEY ? { 'X-System-Key': FUB_X_SYSTEM_KEY } : {}),
       },
-      body: strategy2Body.toString(),
+      body: bodyWithCreds.toString(),
     });
 
     if (resp2.ok) {
@@ -132,15 +141,17 @@ serve(async (req) => {
     const err2 = await resp2.text();
     console.error('[fub-callback] Strategy 2 failed:', resp2.status, err2);
 
-    // Strategy 3: POST to api.followupboss.com with Basic Auth
-    console.log('[fub-callback] Strategy 3: POST api.followupboss.com with Basic Auth');
+    // Strategy 3: POST to api.followupboss.com with Basic Auth + X-System headers
+    console.log('[fub-callback] Strategy 3: POST api.followupboss.com with Basic Auth + X-System headers');
     const resp3 = await fetch('https://api.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
+        ...(FUB_X_SYSTEM ? { 'x-system': FUB_X_SYSTEM } : {}),
+        ...(FUB_X_SYSTEM_KEY ? { 'X-System-Key': FUB_X_SYSTEM_KEY } : {}),
       },
-      body: strategy2Body.toString(),
+      body: formBody.toString(),
     });
 
     if (resp3.ok) {
@@ -153,8 +164,8 @@ serve(async (req) => {
     const err3 = await resp3.text();
     console.error('[fub-callback] Strategy 3 failed:', resp3.status, err3);
 
-    // Strategy 4: Legacy GET to app.followupboss.com
-    console.log('[fub-callback] Strategy 4: Legacy GET app.followupboss.com');
+    // Strategy 4: Legacy GET to app.followupboss.com with state
+    console.log('[fub-callback] Strategy 4: Legacy GET with state');
     const legacyUrl = new URL('https://app.followupboss.com/oauth/token');
     legacyUrl.searchParams.set('grant_type', 'auth_code');
     legacyUrl.searchParams.set('code', code);
@@ -163,7 +174,11 @@ serve(async (req) => {
 
     const resp4 = await fetch(legacyUrl.toString(), {
       method: 'GET',
-      headers: { 'Authorization': `Basic ${basicAuth}` },
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        ...(FUB_X_SYSTEM ? { 'x-system': FUB_X_SYSTEM } : {}),
+        ...(FUB_X_SYSTEM_KEY ? { 'X-System-Key': FUB_X_SYSTEM_KEY } : {}),
+      },
     });
 
     if (resp4.ok) {
@@ -176,7 +191,6 @@ serve(async (req) => {
     const err4 = await resp4.text();
     console.error('[fub-callback] Strategy 4 failed:', resp4.status, err4);
 
-    // All strategies failed
     console.error('[fub-callback] All token exchange strategies failed');
     return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=error&message=token_exchange_failed') } });
   } catch (error) {
