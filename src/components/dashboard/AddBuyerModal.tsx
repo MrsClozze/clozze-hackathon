@@ -62,7 +62,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseBuyerDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
-  const { isConnected: isFubConnected } = useFollowUpBossConnection();
+  const { isConnected: isFubConnected, connect: connectFub, connecting: fubConnecting } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
   const [isFubImportOpen, setIsFubImportOpen] = useState(false);
 
@@ -174,15 +174,12 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     setView("manual");
   };
 
-  const handleFubClick = () => {
+  const handleFubClick = async () => {
     if (isFubConnected) {
       setIsFubImportOpen(true);
     } else {
-      toast({
-        title: "Follow Up Boss not connected",
-        description: "Please connect Follow Up Boss first in Integrations",
-        variant: "destructive",
-      });
+      // Trigger OAuth connect flow directly
+      await connectFub();
     }
   };
 
@@ -226,8 +223,13 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                   variant="outline"
                   className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all relative"
                   onClick={handleFubClick}
+                  disabled={fubConnecting}
                 >
-                  <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
+                  {fubConnecting ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : (
+                    <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
+                  )}
                   {isFubConnected && (
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
                       <span className="text-white text-xs">✓</span>
