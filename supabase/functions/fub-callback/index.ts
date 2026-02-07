@@ -70,21 +70,28 @@ serve(async (req) => {
       hasClientId: !!FUB_CLIENT_ID,
       hasClientSecret: !!FUB_CLIENT_SECRET,
       clientIdLength: FUB_CLIENT_ID?.length,
+      clientSecretLength: FUB_CLIENT_SECRET?.length,
     });
 
-    // Exchange auth_code for tokens using Basic Auth + authorization_code grant
+    // Exchange auth_code for tokens - include credentials in both header and body
     const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
+    const bodyParams = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code!,
+      redirect_uri: redirectUri,
+      client_id: FUB_CLIENT_ID,
+      client_secret: FUB_CLIENT_SECRET,
+    });
+
+    console.log('[fub-callback] Token request body:', bodyParams.toString().replace(/client_secret=[^&]+/, 'client_secret=REDACTED'));
+
     const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code!,
-        redirect_uri: redirectUri,
-      }).toString(),
+      body: bodyParams.toString(),
     });
 
     if (!tokenResponse.ok) {
