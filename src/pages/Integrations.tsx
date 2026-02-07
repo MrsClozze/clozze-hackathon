@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
@@ -131,6 +133,8 @@ export default function Integrations() {
   const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
   const [pendingAppleCredentials, setPendingAppleCredentials] = useState<{ appleId: string; password: string } | null>(null);
+  const [isFubApiKeyModalOpen, setIsFubApiKeyModalOpen] = useState(false);
+  const [fubApiKey, setFubApiKey] = useState("");
 
   // Count tasks that would need syncing
   const tasksToSync = tasks.filter(t => t.showOnCalendar && !t.syncToExternalCalendar && !t.isDemo);
@@ -350,7 +354,8 @@ export default function Integrations() {
     }
 
     if (integrationId === "follow_up_boss") {
-      await connectFub();
+      setFubApiKey("");
+      setIsFubApiKeyModalOpen(true);
       return;
     }
 
@@ -565,6 +570,40 @@ export default function Integrations() {
           open={isGmailModalOpen}
           onOpenChange={setIsGmailModalOpen}
         />
+
+        <Dialog open={isFubApiKeyModalOpen} onOpenChange={setIsFubApiKeyModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Connect Follow Up Boss</DialogTitle>
+              <DialogDescription>
+                Enter your Follow Up Boss API key. You can find it in your FUB account under Admin → API.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <Input
+                type="password"
+                placeholder="Paste your API key here..."
+                value={fubApiKey}
+                onChange={(e) => setFubApiKey(e.target.value)}
+              />
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setIsFubApiKeyModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!fubApiKey.trim() || fubConnecting}
+                  onClick={async () => {
+                    const success = await connectFub(fubApiKey);
+                    if (success) setIsFubApiKeyModalOpen(false);
+                  }}
+                >
+                  {fubConnecting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : "Connect"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

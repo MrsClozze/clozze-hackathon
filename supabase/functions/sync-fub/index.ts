@@ -8,86 +8,35 @@ const corsHeaders = {
 
 const FUB_API_BASE = 'https://api.followupboss.com/v1';
 
-async function fubFetch(accessToken: string, endpoint: string, params?: Record<string, string>) {
+async function fubFetch(apiKey: string, endpoint: string, params?: Record<string, string>) {
   const url = new URL(`${FUB_API_BASE}${endpoint}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
-    },
-  });
+  const FUB_X_SYSTEM = Deno.env.get('FUB_X_SYSTEM');
+  const FUB_X_SYSTEM_KEY = Deno.env.get('FUB_X_SYSTEM_KEY');
+
+  const headers: Record<string, string> = {
+    'Authorization': `Basic ${btoa(apiKey + ':')}`,
+    'Accept': 'application/json',
+  };
+
+  if (FUB_X_SYSTEM) headers['X-System'] = FUB_X_SYSTEM;
+  if (FUB_X_SYSTEM_KEY) headers['X-System-Key'] = FUB_X_SYSTEM_KEY;
+
+  const response = await fetch(url.toString(), { headers });
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[sync-fub] API error ${response.status} for ${endpoint}:`, errorText);
+    if (response.status === 401) {
+      throw new Error('Invalid Follow Up Boss API key. Please check your key and try again.');
+    }
     throw new Error(`FUB API error ${response.status}: ${errorText}`);
   }
 
   return response.json();
-}
-
-async function refreshTokenIfNeeded(
-  supabaseAdmin: any,
-  userId: string,
-  integration: any
-): Promise<string> {
-  // Check if token is expired or expiring soon (within 5 minutes)
-  const now = Date.now();
-  const expiresAt = integration.token_expires_at ? new Date(integration.token_expires_at).getTime() : 0;
-
-  if (expiresAt > now + 5 * 60 * 1000) {
-    return integration.access_token_encrypted;
-  }
-
-  if (!integration.refresh_token_encrypted) {
-    throw new Error('Token expired and no refresh token available. Please reconnect Follow Up Boss.');
-  }
-
-  const FUB_CLIENT_ID = Deno.env.get('FUB_CLIENT_ID');
-  const FUB_CLIENT_SECRET = Deno.env.get('FUB_CLIENT_SECRET');
-
-  if (!FUB_CLIENT_ID || !FUB_CLIENT_SECRET) {
-    throw new Error('FUB credentials not configured');
-  }
-
-  console.log('[sync-fub] Refreshing expired token for user:', userId);
-
-  const tokenResponse = await fetch(`${FUB_API_BASE}/oauth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'refresh_token',
-      client_id: FUB_CLIENT_ID,
-      client_secret: FUB_CLIENT_SECRET,
-      refresh_token: integration.refresh_token_encrypted,
-    }),
-  });
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    console.error('[sync-fub] Token refresh failed:', errorText);
-    throw new Error('Failed to refresh token. Please reconnect Follow Up Boss.');
-  }
-
-  const tokens = await tokenResponse.json();
-  const expiresIn = tokens.expires_in || 86400;
-  const newExpiresAt = new Date(Date.now() + (expiresIn * 1000)).toISOString();
-
-  await supabaseAdmin
-    .from('service_integrations')
-    .update({
-      access_token_encrypted: tokens.access_token,
-      refresh_token_encrypted: tokens.refresh_token || integration.refresh_token_encrypted,
-      token_expires_at: newExpiresAt,
-    })
-    .eq('user_id', userId)
-    .eq('service_name', 'follow_up_boss');
-
-  return tokens.access_token;
 }
 
 serve(async (req) => {
@@ -124,34 +73,30 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get FUB integration tokens
+    // Get FUB API key from service_integrations
     const { data: integration, error: intError } = await supabaseAdmin
       .from('service_integrations')
-      .select('access_token_encrypted, refresh_token_encrypted, token_expires_at')
+      .select('access_token_encrypted')
       .eq('user_id', user.id)
       .eq('service_name', 'follow_up_boss')
       .eq('is_connected', true)
       .maybeSingle();
 
-    if (intError || !integration) {
+    if (intError || !integration?.access_token_encrypted) {
       return new Response(
-        JSON.stringify({ error: 'Follow Up Boss not connected' }),
+        JSON.stringify({ error: 'Follow Up Boss not connected. Please add your API key in Integrations.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Refresh token if needed
-    const accessToken = await refreshTokenIfNeeded(supabaseAdmin, user.id, integration);
-
+    const apiKey = integration.access_token_encrypted;
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'fetch_people';
 
     let responseData: any = {};
 
     if (action === 'fetch_people' || action === 'sync_all') {
-      // Fetch people (contacts) from FUB
-      // Use tags to identify buyers vs sellers
-      const peopleResponse = await fubFetch(accessToken, '/people', {
+      const peopleResponse = await fubFetch(apiKey, '/people', {
         limit: '100',
         fields: 'id,firstName,lastName,emails,phones,tags,stage,created,addresses',
       });
@@ -164,7 +109,7 @@ serve(async (req) => {
         phone: p.phones?.[0]?.value || '',
         tags: p.tags || [],
         stage: p.stage || '',
-        address: p.addresses?.[0] ? 
+        address: p.addresses?.[0] ?
           `${p.addresses[0].street || ''} ${p.addresses[0].city || ''} ${p.addresses[0].state || ''} ${p.addresses[0].zip || ''}`.trim() : '',
       }));
 
@@ -173,11 +118,8 @@ serve(async (req) => {
     }
 
     if (action === 'fetch_deals' || action === 'sync_all') {
-      // Fetch deals from FUB
       try {
-        const dealsResponse = await fubFetch(accessToken, '/deals', {
-          limit: '100',
-        });
+        const dealsResponse = await fubFetch(apiKey, '/deals', { limit: '100' });
 
         const deals = (dealsResponse.deals || []).map((d: any) => ({
           id: d.id,
@@ -189,16 +131,14 @@ serve(async (req) => {
           state: d.propertyState || '',
           zip: d.propertyZip || '',
           type: d.dealType || '',
-          people: d.people || [],
         }));
 
         responseData.deals = deals;
         console.log(`[sync-fub] Fetched ${deals.length} deals for user ${user.id}`);
       } catch (dealErr) {
-        // Deals endpoint may not be available on all plans
         console.warn('[sync-fub] Could not fetch deals:', dealErr);
         responseData.deals = [];
-        responseData.dealsNote = 'Deals endpoint not available. People were fetched successfully.';
+        responseData.dealsNote = 'Deals endpoint not available.';
       }
     }
 

@@ -220,12 +220,8 @@ export function FollowUpBossImportModal({
               <p className="text-sm text-destructive mb-4">{error}</p>
               {error.includes("not connected") && (
                 <div className="flex gap-2">
-                  <Button onClick={async () => { await connectFub(); }} disabled={fubConnecting} variant="default">
-                    {fubConnecting ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</>
-                    ) : (
-                      <><Link className="h-4 w-4 mr-2" />Connect Now</>
-                    )}
+                  <Button onClick={handleGoToIntegrations} variant="default">
+                    <Link className="h-4 w-4 mr-2" />Connect in Integrations
                   </Button>
                   <Button onClick={handleGoToIntegrations} variant="outline">
                     <ExternalLink className="h-4 w-4 mr-2" />
