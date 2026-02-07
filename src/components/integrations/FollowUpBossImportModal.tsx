@@ -9,10 +9,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, Home, Check, AlertCircle, ExternalLink, Search } from "lucide-react";
+import { Loader2, User, Home, Check, AlertCircle, ExternalLink, Search, Link } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 
 interface FollowUpBossImportModalProps {
   open: boolean;
@@ -58,6 +59,7 @@ export function FollowUpBossImportModal({
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { connect: connectFub, connecting: fubConnecting } = useFollowUpBossConnection();
 
   useEffect(() => {
     if (open) {
@@ -217,10 +219,19 @@ export function FollowUpBossImportModal({
               <AlertCircle className="h-10 w-10 text-destructive mb-4" />
               <p className="text-sm text-destructive mb-4">{error}</p>
               {error.includes("not connected") && (
-                <Button onClick={handleGoToIntegrations} variant="outline">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Go to Integrations
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={async () => { await connectFub(); }} disabled={fubConnecting} variant="default">
+                    {fubConnecting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</>
+                    ) : (
+                      <><Link className="h-4 w-4 mr-2" />Connect Now</>
+                    )}
+                  </Button>
+                  <Button onClick={handleGoToIntegrations} variant="outline">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Go to Integrations
+                  </Button>
+                </div>
               )}
             </div>
           ) : totalItems === 0 ? (
