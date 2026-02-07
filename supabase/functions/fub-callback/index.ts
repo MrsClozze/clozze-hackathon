@@ -1,6 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+async function storeTokens(userId: string, tokenData: any, origin: string) {
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  const expiresAt = tokenData.expires_in
+    ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
+    : null;
+
+  const { error } = await supabaseAdmin
+    .from('service_integrations')
+    .upsert({
+      user_id: userId,
+      service_name: 'follow_up_boss',
+      access_token_encrypted: tokenData.access_token,
+      refresh_token_encrypted: tokenData.refresh_token || null,
+      token_expires_at: expiresAt,
+      is_connected: true,
+      connected_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,service_name' });
+
+  if (error) {
+    console.error('[fub-callback] Failed to store tokens:', error);
+    throw error;
+  }
+  console.log('[fub-callback] Tokens stored successfully for user:', userId);
+}
+
+function buildRedirect(origin: string, params: string) {
+  return origin ? `${origin}/integrations?${params}` : `/integrations?${params}`;
+}
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -12,42 +45,24 @@ serve(async (req) => {
       console.log('[fub-callback] User denied access:', error);
       let origin = '';
       if (state) {
-        try {
-          const stateData = JSON.parse(atob(state));
-          origin = stateData.origin || '';
-        } catch (_e) { /* ignore */ }
+        try { origin = JSON.parse(atob(state)).origin || ''; } catch (_e) { /* */ }
       }
-      const redirectUrl = origin
-        ? `${origin}/integrations?fub=denied`
-        : '/integrations?fub=denied';
-      return new Response(null, { status: 302, headers: { 'Location': redirectUrl } });
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=denied') } });
     }
 
     if (!code || !state) {
       console.error('[fub-callback] Missing code or state');
-      return new Response(null, {
-        status: 302,
-        headers: { 'Location': '/integrations?fub=error&message=missing_params' },
-      });
+      return new Response(null, { status: 302, headers: { 'Location': '/integrations?fub=error&message=missing_params' } });
     }
 
     let stateData;
-    try {
-      stateData = JSON.parse(atob(state));
-    } catch (_e) {
-      console.error('[fub-callback] Invalid state');
-      return new Response(null, {
-        status: 302,
-        headers: { 'Location': '/integrations?fub=error&message=invalid_state' },
-      });
+    try { stateData = JSON.parse(atob(state)); } catch (_e) {
+      return new Response(null, { status: 302, headers: { 'Location': '/integrations?fub=error&message=invalid_state' } });
     }
 
     const { userId, origin } = stateData;
     if (!userId) {
-      return new Response(null, {
-        status: 302,
-        headers: { 'Location': '/integrations?fub=error&message=no_user' },
-      });
+      return new Response(null, { status: 302, headers: { 'Location': '/integrations?fub=error&message=no_user' } });
     }
 
     const FUB_CLIENT_ID = Deno.env.get('FUB_CLIENT_ID');
@@ -56,152 +71,116 @@ serve(async (req) => {
 
     if (!FUB_CLIENT_ID || !FUB_CLIENT_SECRET) {
       console.error('[fub-callback] Missing FUB credentials');
-      const errorRedirect = origin
-        ? `${origin}/integrations?fub=error&message=config_error`
-        : '/integrations?fub=error&message=config_error';
-      return new Response(null, { status: 302, headers: { 'Location': errorRedirect } });
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=error&message=config_error') } });
     }
 
     const redirectUri = `${SUPABASE_URL}/functions/v1/fub-callback`;
+    const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
 
-    console.log('[fub-callback] Attempting token exchange with:', {
-      redirectUri,
-      codeLength: code?.length,
-      hasClientId: !!FUB_CLIENT_ID,
-      hasClientSecret: !!FUB_CLIENT_SECRET,
-      clientIdLength: FUB_CLIENT_ID?.length,
-      clientSecretLength: FUB_CLIENT_SECRET?.length,
+    console.log('[fub-callback] Starting token exchange. Code length:', code.length, 'Redirect URI:', redirectUri);
+
+    // Strategy 1: POST to api.followupboss.com with credentials in body (per integration guides)
+    console.log('[fub-callback] Strategy 1: POST api.followupboss.com with body credentials');
+    const strategy1Body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+      client_id: FUB_CLIENT_ID,
+      client_secret: FUB_CLIENT_SECRET,
     });
 
-    // Exchange auth_code for tokens
-    const basicAuth = btoa(`${FUB_CLIENT_ID}:${FUB_CLIENT_SECRET}`);
-    
-    // Try without .toString() - pass URLSearchParams directly
-    const body = new URLSearchParams();
-    body.set('grant_type', 'authorization_code');
-    body.set('code', code!);
-    body.set('redirect_uri', redirectUri);
+    const resp1 = await fetch('https://api.followupboss.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: strategy1Body.toString(),
+    });
 
-    console.log('[fub-callback] Sending token request to https://app.followupboss.com/oauth/token');
-    console.log('[fub-callback] Body params:', Array.from(body.keys()));
+    if (resp1.ok) {
+      const tokens = await resp1.json();
+      console.log('[fub-callback] Strategy 1 succeeded!');
+      const tokenData = tokens.data || tokens;
+      await storeTokens(userId, tokenData, origin);
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=success') } });
+    }
+    const err1 = await resp1.text();
+    console.error('[fub-callback] Strategy 1 failed:', resp1.status, err1);
 
-    const tokenResponse = await fetch('https://app.followupboss.com/oauth/token', {
+    // Strategy 2: POST to app.followupboss.com with Basic Auth (per official docs)
+    console.log('[fub-callback] Strategy 2: POST app.followupboss.com with Basic Auth');
+    const strategy2Body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    });
+
+    const resp2 = await fetch('https://app.followupboss.com/oauth/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body,
+      body: strategy2Body.toString(),
     });
 
-    // Log full error details
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('[fub-callback] Token exchange failed:', tokenResponse.status, errorText);
-      console.error('[fub-callback] Response headers:', JSON.stringify(Object.fromEntries(tokenResponse.headers.entries())));
-      
-      // Also try the legacy GET endpoint as fallback
-      console.log('[fub-callback] Trying legacy GET endpoint as fallback...');
-      const legacyUrl = new URL('https://app.followupboss.com/oauth/token');
-      legacyUrl.searchParams.set('grant_type', 'auth_code');
-      legacyUrl.searchParams.set('code', code!);
-      legacyUrl.searchParams.set('redirect_uri', redirectUri);
-      
-      const legacyResponse = await fetch(legacyUrl.toString(), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${basicAuth}`,
-        },
-      });
-      
-      if (legacyResponse.ok) {
-        const legacyTokens = await legacyResponse.json();
-        console.log('[fub-callback] Legacy GET endpoint succeeded!');
-        
-        // Use legacy tokens
-        const supabaseAdmin = createClient(
-          Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        );
-        
-        const tokenData = legacyTokens.data || legacyTokens;
-        const expiresAt = tokenData.expires_in
-          ? new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString()
-          : null;
-
-        await supabaseAdmin
-          .from('service_integrations')
-          .upsert({
-            user_id: userId,
-            service_name: 'follow_up_boss',
-            access_token_encrypted: tokenData.access_token,
-            refresh_token_encrypted: tokenData.refresh_token || null,
-            token_expires_at: expiresAt,
-            is_connected: true,
-            connected_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,service_name' });
-
-        console.log('[fub-callback] Tokens stored via legacy endpoint for user:', userId);
-        const successUrl = origin ? `${origin}/integrations?fub=success` : '/integrations?fub=success';
-        return new Response(null, { status: 302, headers: { 'Location': successUrl } });
-      } else {
-        const legacyError = await legacyResponse.text();
-        console.error('[fub-callback] Legacy GET also failed:', legacyResponse.status, legacyError);
-      }
-      
-      const errorRedirect = origin
-        ? `${origin}/integrations?fub=error&message=token_exchange_failed`
-        : '/integrations?fub=error&message=token_exchange_failed';
-      return new Response(null, { status: 302, headers: { 'Location': errorRedirect } });
+    if (resp2.ok) {
+      const tokens = await resp2.json();
+      console.log('[fub-callback] Strategy 2 succeeded!');
+      const tokenData = tokens.data || tokens;
+      await storeTokens(userId, tokenData, origin);
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=success') } });
     }
+    const err2 = await resp2.text();
+    console.error('[fub-callback] Strategy 2 failed:', resp2.status, err2);
 
-    const tokens = await tokenResponse.json();
-    console.log('[fub-callback] Token exchange successful for user:', userId);
+    // Strategy 3: POST to api.followupboss.com with Basic Auth
+    console.log('[fub-callback] Strategy 3: POST api.followupboss.com with Basic Auth');
+    const resp3 = await fetch('https://api.followupboss.com/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: strategy2Body.toString(),
+    });
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const expiresAt = tokens.expires_in
-      ? new Date(Date.now() + (tokens.expires_in * 1000)).toISOString()
-      : null;
-
-    const { error: upsertError } = await supabaseAdmin
-      .from('service_integrations')
-      .upsert({
-        user_id: userId,
-        service_name: 'follow_up_boss',
-        access_token_encrypted: tokens.access_token,
-        refresh_token_encrypted: tokens.refresh_token || null,
-        token_expires_at: expiresAt,
-        is_connected: true,
-        connected_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id,service_name',
-      });
-
-    if (upsertError) {
-      console.error('[fub-callback] Failed to store tokens:', upsertError);
-      const errorRedirect = origin
-        ? `${origin}/integrations?fub=error&message=storage_failed`
-        : '/integrations?fub=error&message=storage_failed';
-      return new Response(null, { status: 302, headers: { 'Location': errorRedirect } });
+    if (resp3.ok) {
+      const tokens = await resp3.json();
+      console.log('[fub-callback] Strategy 3 succeeded!');
+      const tokenData = tokens.data || tokens;
+      await storeTokens(userId, tokenData, origin);
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=success') } });
     }
+    const err3 = await resp3.text();
+    console.error('[fub-callback] Strategy 3 failed:', resp3.status, err3);
 
-    console.log('[fub-callback] Tokens stored successfully for user:', userId);
+    // Strategy 4: Legacy GET to app.followupboss.com
+    console.log('[fub-callback] Strategy 4: Legacy GET app.followupboss.com');
+    const legacyUrl = new URL('https://app.followupboss.com/oauth/token');
+    legacyUrl.searchParams.set('grant_type', 'auth_code');
+    legacyUrl.searchParams.set('code', code);
+    legacyUrl.searchParams.set('redirect_uri', redirectUri);
+    legacyUrl.searchParams.set('state', state);
 
-    const baseUrl = origin || '';
-    const redirectUrl = baseUrl
-      ? `${baseUrl}/integrations?fub=success`
-      : '/integrations?fub=success';
+    const resp4 = await fetch(legacyUrl.toString(), {
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${basicAuth}` },
+    });
 
-    return new Response(null, { status: 302, headers: { 'Location': redirectUrl } });
+    if (resp4.ok) {
+      const tokens = await resp4.json();
+      console.log('[fub-callback] Strategy 4 succeeded!');
+      const tokenData = tokens.data || tokens;
+      await storeTokens(userId, tokenData, origin);
+      return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=success') } });
+    }
+    const err4 = await resp4.text();
+    console.error('[fub-callback] Strategy 4 failed:', resp4.status, err4);
+
+    // All strategies failed
+    console.error('[fub-callback] All token exchange strategies failed');
+    return new Response(null, { status: 302, headers: { 'Location': buildRedirect(origin, 'fub=error&message=token_exchange_failed') } });
   } catch (error) {
     console.error('[fub-callback] Error:', error);
-    return new Response(null, {
-      status: 302,
-      headers: { 'Location': '/integrations?fub=error&message=unknown_error' },
-    });
+    return new Response(null, { status: 302, headers: { 'Location': '/integrations?fub=error&message=unknown_error' } });
   }
 });
