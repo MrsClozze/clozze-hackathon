@@ -15,7 +15,9 @@ import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useDocumentParser } from "@/hooks/useDocumentParser";
 import { useDotloopConnection } from "@/hooks/useDotloopConnection";
+import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
+import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 
 interface AddBuyerModalProps {
   open: boolean;
@@ -60,7 +62,9 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseBuyerDocument, isParsing } = useDocumentParser();
   const { isConnected: isDotloopConnected } = useDotloopConnection();
+  const { isConnected: isFubConnected } = useFollowUpBossConnection();
   const [isDotloopImportOpen, setIsDotloopImportOpen] = useState(false);
+  const [isFubImportOpen, setIsFubImportOpen] = useState(false);
 
   const handleClose = () => {
     setView("upload");
@@ -165,6 +169,23 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     }
   };
 
+  const handleFubImport = (data: Partial<FormData>) => {
+    setFormData((prev) => ({ ...prev, ...data }));
+    setView("manual");
+  };
+
+  const handleFubClick = () => {
+    if (isFubConnected) {
+      setIsFubImportOpen(true);
+    } else {
+      toast({
+        title: "Follow Up Boss not connected",
+        description: "Please connect Follow Up Boss first in Integrations",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDotloopImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
     setView("manual");
@@ -203,10 +224,15 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => toast({ title: "Follow Up Boss", description: "Integration coming soon..." })}
+                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all relative"
+                  onClick={handleFubClick}
                 >
                   <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
+                  {isFubConnected && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
                 </Button>
                 <Button
                   variant="outline"
@@ -411,6 +437,13 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
           onOpenChange={setIsDotloopImportOpen}
           importType="buyer"
           onImport={handleDotloopImport}
+        />
+
+        <FollowUpBossImportModal
+          open={isFubImportOpen}
+          onOpenChange={setIsFubImportOpen}
+          importType="buyer"
+          onImport={handleFubImport}
         />
       </DialogContent>
     </Dialog>

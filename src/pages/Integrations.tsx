@@ -15,6 +15,7 @@ import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { useWhatsAppBusinessConnection } from "@/hooks/useWhatsAppBusinessConnection";
 import { useDotloopConnection } from "@/hooks/useDotloopConnection";
+import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { Check, Loader2 } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
@@ -98,6 +99,12 @@ export default function Integrations() {
     connect: connectDotloop,
     disconnect: disconnectDotloop,
   } = useDotloopConnection();
+  const {
+    isConnected: isFubConnected,
+    connecting: fubConnecting,
+    connect: connectFub,
+    disconnect: disconnectFub,
+  } = useFollowUpBossConnection();
   const { 
     connections, 
     loading: calendarLoading, 
@@ -342,6 +349,11 @@ export default function Integrations() {
       return;
     }
 
+    if (integrationId === "follow_up_boss") {
+      await connectFub();
+      return;
+    }
+
     toast({
       title: "Coming soon",
       description: `${integrationId.replace(/_/g, " ")} integration will be available soon!`,
@@ -385,6 +397,11 @@ export default function Integrations() {
       await disconnectDotloop();
       return;
     }
+
+    if (integrationId === "follow_up_boss") {
+      await disconnectFub();
+      return;
+    }
   };
 
   const handleWhatsAppSuccess = async () => {
@@ -406,6 +423,9 @@ export default function Integrations() {
     }
     if (integrationId === "dotloop") {
       return isDotloopConnected;
+    }
+    if (integrationId === "follow_up_boss") {
+      return isFubConnected;
     }
     return false;
   };
@@ -438,6 +458,9 @@ export default function Integrations() {
     }
     if (integrationId === "dotloop") {
       return dotloopConnecting;
+    }
+    if (integrationId === "follow_up_boss") {
+      return fubConnecting;
     }
     return false;
   };
