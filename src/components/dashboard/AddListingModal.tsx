@@ -204,12 +204,14 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     setView("manual");
   };
 
-  const handleFubClick = async () => {
+  const handleFubClick = () => {
     if (isFubConnected) {
       setIsFubImportOpen(true);
     } else {
-      // Trigger OAuth connect flow directly
-      await connectFub();
+      toast({
+        title: "Follow Up Boss not connected",
+        description: "Please connect Follow Up Boss in the Integrations page first.",
+      });
     }
   };
 
