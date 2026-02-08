@@ -7,11 +7,10 @@ import { useAccountState } from "@/contexts/AccountStateContext";
 import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, MapPin, User, Plus, Info, Users } from "lucide-react";
+import { Clock, MapPin, User, Plus, Info, Users, CalendarRange } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
@@ -22,6 +21,7 @@ type ViewTab = "my-tasks" | "team";
 type TypeFilterState = {
   buyers: boolean;
   listings: boolean;
+  general: boolean;
 };
 
 export default function Tasks() {
@@ -33,8 +33,7 @@ export default function Tasks() {
   const { hasTeamMemberAccess, loading: slotsLoading } = useTeamMemberSlots();
   const [viewTab, setViewTab] = useState<ViewTab>("my-tasks");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  // Default = show both (implicit "All")
-  const [typeFilter, setTypeFilter] = useState<TypeFilterState>({ buyers: true, listings: true });
+  const [typeFilter, setTypeFilter] = useState<TypeFilterState>({ buyers: true, listings: true, general: true });
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
 
   // Check if task is assigned to the current user (via junction table or legacy field)
@@ -48,12 +47,10 @@ export default function Tasks() {
   const hasTeammateAssigned = (task: any) => {
     if (!user) return false;
     const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
-    // Has at least one assignee who is NOT the current user
     if (assigneeIds.some((id) => id && id !== user.id)) return true;
     return Boolean(task.assigneeUserId && task.assigneeUserId !== user.id);
   };
 
-  // Helper to get buyer/listing name for a task
   const getTaskSourceName = (task: any) => {
     if (task.buyerId) {
       const buyer = buyers.find(b => b.id === task.buyerId);
@@ -66,34 +63,22 @@ export default function Tasks() {
     return null;
   };
 
-  // Calculate urgency color based on due date
   const getUrgencyColor = (dueDate: string | undefined) => {
     if (!dueDate) return "bg-muted text-muted-foreground";
-    
     const days = differenceInDays(parseISO(dueDate), new Date());
-    
     if (days < 0) return "bg-destructive/10 border-destructive text-destructive";
     if (days <= 3) return "bg-destructive/10 border-destructive/50 text-destructive";
     if (days <= 7) return "bg-warning/10 border-warning/50 text-warning";
     return "bg-primary/10 border-primary/50 text-primary";
   };
 
-  // Filter tasks based on view tab (my tasks vs teammate's tasks)
   const baseTasks = useMemo(() => {
     if (!user) return [];
-    
     if (viewTab === "team") {
-      // Teammate's Tasks: show tasks where at least one teammate is assigned
-      // This includes tasks where BOTH me and a teammate are assigned
       return tasks.filter(hasTeammateAssigned);
     }
-    
-    // My Tasks: tasks explicitly assigned to me, OR tasks I own with no assignees
     return tasks.filter((task) => {
-      // Check if I'm explicitly assigned
       if (isAssignedToMe(task)) return true;
-      
-      // Fallback: if no assignees exist, show tasks I created/own
       const hasAnyAssignees =
         (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
         Boolean(task.assigneeUserId);
@@ -101,38 +86,35 @@ export default function Tasks() {
     });
   }, [tasks, viewTab, user]);
 
-  // Filter and sort tasks
   const filteredTasks = useMemo(() => {
     let filtered = baseTasks;
 
-    // Filter by status - "active" shows all non-completed tasks
     if (statusFilter === "active") {
       filtered = filtered.filter(task => task.status !== "completed");
     } else if (statusFilter === "completed") {
       filtered = filtered.filter(task => task.status === "completed");
     }
 
-    // Filter by category
     const showBuyers = typeFilter.buyers;
     const showListings = typeFilter.listings;
+    const showGeneral = typeFilter.general;
+    const allSelected = showBuyers && showListings && showGeneral;
 
-    // If both are selected, don't filter by type.
-    // If only one is selected, filter accordingly.
-    if (showBuyers && !showListings) {
-      filtered = filtered.filter(task => task.buyerId);
-    } else if (showListings && !showBuyers) {
-      filtered = filtered.filter(task => task.listingId);
+    if (!allSelected) {
+      filtered = filtered.filter(task => {
+        if (task.buyerId && showBuyers) return true;
+        if (task.listingId && showListings) return true;
+        if (!task.buyerId && !task.listingId && showGeneral) return true;
+        return false;
+      });
     }
 
-    // Sort by due date (earliest first)
     return filtered.sort((a, b) => {
       if (!a.dueDate) return 1;
       if (!b.dueDate) return -1;
       return parseISO(a.dueDate).getTime() - parseISO(b.dueDate).getTime();
     });
   }, [baseTasks, statusFilter, typeFilter]);
-
-  // Note: Removed teammate task count badge as it wasn't useful
 
   const getStatusBadge = (status: string | undefined) => {
     switch (status) {
@@ -187,7 +169,6 @@ export default function Tasks() {
           </Button>
         </div>
 
-        {/* Demo mode hint */}
         {isDemo && (
           <div className="mb-6 p-4 rounded-lg border border-accent-gold/30 bg-accent-gold/5">
             <p className="text-sm text-text-muted">
@@ -196,7 +177,6 @@ export default function Tasks() {
           </div>
         )}
 
-        {/* View Tabs - My Tasks vs Teammate's Tasks (only show if has team add-on) */}
         {hasTeamMemberAccess && (
           <div className="mb-6">
             <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
@@ -226,7 +206,7 @@ export default function Tasks() {
           </div>
         )}
 
-        {/* Secondary filter: Task context (implicit “All” when both are selected) */}
+        {/* Secondary filter: Task context */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-sm text-muted-foreground mr-2">Filter by type</span>
           <Button
@@ -235,8 +215,7 @@ export default function Tasks() {
             onClick={() =>
               setTypeFilter((prev) => {
                 const next = { ...prev, buyers: !prev.buyers };
-                // Prevent invalid state (none selected)
-                if (!next.buyers && !next.listings) return prev;
+                if (!next.buyers && !next.listings && !next.general) return prev;
                 return next;
               })
             }
@@ -249,12 +228,25 @@ export default function Tasks() {
             onClick={() =>
               setTypeFilter((prev) => {
                 const next = { ...prev, listings: !prev.listings };
-                if (!next.buyers && !next.listings) return prev;
+                if (!next.buyers && !next.listings && !next.general) return prev;
                 return next;
               })
             }
           >
             Listings
+          </Button>
+          <Button
+            variant={typeFilter.general ? "default" : "outline"}
+            size="sm"
+            onClick={() =>
+              setTypeFilter((prev) => {
+                const next = { ...prev, general: !prev.general };
+                if (!next.buyers && !next.listings && !next.general) return prev;
+                return next;
+              })
+            }
+          >
+            General
           </Button>
         </div>
 
@@ -335,11 +327,22 @@ export default function Tasks() {
                       )}
                       
                       <div className="space-y-2 text-sm text-text-muted">
-                        {task.dueDate && (
+                        {(task.startDate || task.dueDate) && (
                           <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span>Due: {format(parseISO(task.dueDate), "MMM d, yyyy")}</span>
-                            {differenceInDays(parseISO(task.dueDate), new Date()) < 0 && (
+                            {task.startDate ? (
+                              <>
+                                <CalendarRange className="w-4 h-4" />
+                                <span>
+                                  {format(parseISO(task.startDate), "MMM d")} – {task.dueDate ? format(parseISO(task.dueDate), "MMM d, yyyy") : "No end date"}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="w-4 h-4" />
+                                <span>Due: {format(parseISO(task.dueDate!), "MMM d, yyyy")}</span>
+                              </>
+                            )}
+                            {task.dueDate && differenceInDays(parseISO(task.dueDate), new Date()) < 0 && (
                               <Badge variant="destructive" className="ml-2">Overdue</Badge>
                             )}
                           </div>
