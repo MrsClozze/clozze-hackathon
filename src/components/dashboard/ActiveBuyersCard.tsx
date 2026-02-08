@@ -2,14 +2,24 @@ import { useState } from "react";
 import { Plus, Info } from "lucide-react";
 import AddBuyerModal from "./AddBuyerModal";
 import BuyerDetailsModal from "./BuyerDetailsModal";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { classifyImportIntent, type ImportSource } from "@/lib/importIntent";
 
 export default function ActiveBuyersCard() {
   const { buyers, loading, openBuyerModal, selectedBuyer, isBuyerDetailsModalOpen, closeBuyerModal, updateBuyer } = useBuyers();
   const { isDemo } = useAccountState();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [txnPrompt, setTxnPrompt] = useState<{ open: boolean; recordId: string; recordLabel: string; importSource: ImportSource } | null>(null);
+
+  const handleBuyerCreated = (recordId: string, recordLabel: string, importSource: ImportSource) => {
+    const intent = classifyImportIntent(importSource);
+    if (intent === "high") {
+      setTxnPrompt({ open: true, recordId, recordLabel, importSource });
+    }
+  };
 
   // Filter to show only top 3 Active or Pending buyers (no Closed)
   const dashboardBuyers = buyers
@@ -53,13 +63,23 @@ export default function ActiveBuyersCard() {
         </button>
       </div>
 
-      <AddBuyerModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
+      <AddBuyerModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} onCreated={handleBuyerCreated} />
       <BuyerDetailsModal 
         open={isBuyerDetailsModalOpen} 
         onOpenChange={closeBuyerModal}
         buyer={selectedBuyer}
         onBuyerUpdate={updateBuyer}
       />
+      {txnPrompt && (
+        <TransactionPromptModal
+          open={txnPrompt.open}
+          onOpenChange={(open) => !open && setTxnPrompt(null)}
+          recordType="buyer"
+          recordId={txnPrompt.recordId}
+          recordLabel={txnPrompt.recordLabel}
+          importSource={txnPrompt.importSource}
+        />
+      )}
       
       {dashboardBuyers.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-border rounded-lg">

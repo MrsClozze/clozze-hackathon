@@ -18,10 +18,12 @@ import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 import { DocuSignImportModal } from "@/components/integrations/DocuSignImportModal";
+import { type ImportSource } from "@/lib/importIntent";
 
 interface AddListingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (recordId: string, recordLabel: string, importSource: ImportSource) => void;
 }
 
 type ModalView = "upload" | "processing" | "manual";
@@ -72,11 +74,12 @@ const emptyFormData: FormData = {
   commissionPercentage: "",
 };
 
-export default function AddListingModal({ open, onOpenChange }: AddListingModalProps) {
+export default function AddListingModal({ open, onOpenChange, onCreated }: AddListingModalProps) {
   const [view, setView] = useState<ModalView>("upload");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(emptyFormData);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [importSource, setImportSource] = useState<ImportSource>("manual");
   const { toast } = useToast();
   const { addListing } = useListings();
   const { isConnected: isDocuSignConnected, isAuthenticating } = useDocuSignAuth();
@@ -91,6 +94,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
     setView("upload");
     setFormData(emptyFormData);
     setUploadedFileName("");
+    setImportSource("manual");
     onOpenChange(false);
   };
 
@@ -148,7 +152,14 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
       // 1. Saving to database
       // 2. Activating account (switching from demo to live)
       // 3. Refetching listings
-      await addListing(listingData);
+      const result = await addListing(listingData);
+
+      // Notify parent about the created record with its import source
+      const createdId = (result as any)?.id || "";
+      const createdLabel = listingData.address || "New Listing";
+      if (onCreated && createdId) {
+        onCreated(createdId, createdLabel, importSource);
+      }
 
       handleClose();
     } catch (error) {
@@ -162,6 +173,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
   const handleFileUpload = async (file: File) => {
     console.log("Uploading file for AI parsing:", file.name);
     setUploadedFileName(file.name);
+    setImportSource("file_upload");
     setView("processing");
 
     const result = await parseListingDocument(file);
@@ -178,6 +190,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
       // On error, go back to upload view
       setView("upload");
       setUploadedFileName("");
+      setImportSource("manual");
     }
   };
 
@@ -190,6 +203,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
 
   const handleDocuSignImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("docusign_completed");
     setView("manual");
   };
 
@@ -207,6 +221,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
 
   const handleFubImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("fub_deal");
     setView("manual");
   };
 
@@ -216,6 +231,7 @@ export default function AddListingModal({ open, onOpenChange }: AddListingModalP
 
   const handleDotloopImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("dotloop_loop");
     setView("manual");
   };
 

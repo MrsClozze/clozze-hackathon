@@ -35,7 +35,7 @@ interface BuyersContextType {
   loading: boolean;
   updateBuyer: (updatedBuyer: BuyerData) => Promise<void>;
   deleteBuyer: (id: string) => Promise<void>;
-  addBuyer: (buyer: Omit<BuyerData, 'id' | 'name' | 'isDemo'>) => Promise<void>;
+  addBuyer: (buyer: Omit<BuyerData, 'id' | 'name' | 'isDemo'>) => Promise<any>;
   selectedBuyer: BuyerData | null;
   isBuyerDetailsModalOpen: boolean;
   openBuyerModal: (buyer: BuyerData) => void;
@@ -173,6 +173,8 @@ export function BuyersProvider({ children }: { children: ReactNode }) {
         title: "Success",
         description: "Buyer created successfully.",
       });
+
+      return data;
     } catch (error: any) {
       console.error('Error adding buyer:', error);
       toast({

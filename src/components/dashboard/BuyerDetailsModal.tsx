@@ -20,6 +20,8 @@ import TaskDetailsModal from "./TaskDetailsModal";
 import AddTaskModal from "./AddTaskModal";
 import { useToast } from "@/hooks/use-toast";
 import { BuyerData } from "@/contexts/BuyersContext";
+import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 
 
 interface BuyerDetailsModalProps {
@@ -37,6 +39,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
   const [currentImage, setCurrentImage] = useState<string>("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
   const { toast } = useToast();
@@ -252,6 +255,13 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
                 })}
               </div>
             </div>
+
+            {/* Medium-confidence guidance banner */}
+            <TransactionGuidanceBanner
+              recordType="buyer"
+              recordId={buyer.id}
+              onStartTransaction={() => setIsTxnPromptOpen(true)}
+            />
 
             <h3 className="text-lg font-semibold text-text-heading">Buyer Information</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -536,6 +546,16 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         />
       </DialogContent>
       <TaskDetailsModal />
+
+      {/* Transaction prompt from guidance banner */}
+      <TransactionPromptModal
+        open={isTxnPromptOpen}
+        onOpenChange={setIsTxnPromptOpen}
+        recordType="buyer"
+        recordId={buyer.id}
+        recordLabel={buyer.name}
+        importSource="manual"
+      />
 
       {/* Closed confirmation dialog */}
       <AlertDialog open={!!pendingStatus} onOpenChange={(open) => !open && setPendingStatus(null)}>

@@ -9,6 +9,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton";
 import AddListingModal from "@/components/dashboard/AddListingModal";
 import ListingDetailsModal from "@/components/dashboard/ListingDetailsModal";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
+import { classifyImportIntent, type ImportSource } from "@/lib/importIntent";
 
 export default function Listings() {
   const { listings, loading, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
@@ -17,6 +19,14 @@ export default function Listings() {
   const [isActiveOpen, setIsActiveOpen] = useState(true);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isClosedOpen, setIsClosedOpen] = useState(false);
+  const [txnPrompt, setTxnPrompt] = useState<{ open: boolean; recordId: string; recordLabel: string; importSource: ImportSource } | null>(null);
+
+  const handleListingCreated = (recordId: string, recordLabel: string, importSource: ImportSource) => {
+    const intent = classifyImportIntent(importSource);
+    if (intent === "high") {
+      setTxnPrompt({ open: true, recordId, recordLabel, importSource });
+    }
+  };
 
   // Organize listings by status and sort by newest first (by listingStartDate)
   const sortByNewest = (a: typeof listings[0], b: typeof listings[0]) => 
@@ -254,13 +264,23 @@ export default function Listings() {
           </Collapsible>
         </div>
 
-        <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
+        <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} onCreated={handleListingCreated} />
         <ListingDetailsModal
           open={isListingDetailsModalOpen}
           onOpenChange={closeListingModal}
           listing={selectedListing}
           onListingUpdate={updateListing}
         />
+        {txnPrompt && (
+          <TransactionPromptModal
+            open={txnPrompt.open}
+            onOpenChange={(open) => !open && setTxnPrompt(null)}
+            recordType="listing"
+            recordId={txnPrompt.recordId}
+            recordLabel={txnPrompt.recordLabel}
+            importSource={txnPrompt.importSource}
+          />
+        )}
       </div>
     </Layout>
   );

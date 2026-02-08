@@ -45,7 +45,7 @@ interface ListingsContextType {
   loading: boolean;
   updateListing: (updatedListing: ListingData) => Promise<void>;
   deleteListing: (id: string) => Promise<void>;
-  addListing: (listing: Omit<ListingData, 'id' | 'isDemo'>) => Promise<void>;
+  addListing: (listing: Omit<ListingData, 'id' | 'isDemo'>) => Promise<any>;
   selectedListing: ListingData | null;
   isListingDetailsModalOpen: boolean;
   openListingModal: (listing: ListingData) => void;
@@ -192,6 +192,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         title: "Success",
         description: "Listing created successfully.",
       });
+
+      return data;
     } catch (error: any) {
       console.error('Error adding listing:', error);
       toast({

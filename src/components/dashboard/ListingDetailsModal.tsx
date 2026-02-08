@@ -14,6 +14,8 @@ import AddTaskModal from "./AddTaskModal";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { ListingData } from "@/contexts/ListingsContext";
+import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 
 const LISTING_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -37,6 +39,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [currentImage, setCurrentImage] = useState<string>("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
   const { toast } = useToast();
@@ -226,6 +229,14 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
                 })}
               </div>
             </div>
+
+            {/* Medium-confidence guidance banner */}
+            <TransactionGuidanceBanner
+              recordType="listing"
+              recordId={listing.id}
+              onStartTransaction={() => setIsTxnPromptOpen(true)}
+            />
+
             <div>
               <h3 className="text-2xl font-bold text-text-heading">{currentListing.address}</h3>
               <p className="text-lg text-text-muted">{currentListing.city}</p>
@@ -668,6 +679,16 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         />
       </DialogContent>
       <TaskDetailsModal />
+
+      {/* Transaction prompt from guidance banner */}
+      <TransactionPromptModal
+        open={isTxnPromptOpen}
+        onOpenChange={setIsTxnPromptOpen}
+        recordType="listing"
+        recordId={listing.id}
+        recordLabel={listing.address}
+        importSource="manual"
+      />
 
       {/* Confirmation dialog for closing a listing */}
       <AlertDialog open={!!pendingStatus} onOpenChange={(open) => !open && setPendingStatus(null)}>
