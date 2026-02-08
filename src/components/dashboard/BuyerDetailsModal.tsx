@@ -1,11 +1,18 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+const BUYER_STATUSES = [
+  { value: "Active", label: "Active", color: "bg-success" },
+  { value: "Pending", label: "Pending", color: "bg-warning" },
+  { value: "Closed", label: "Closed", color: "bg-secondary" },
+  { value: "Off-Market", label: "Off-Market", color: "bg-muted-foreground" },
+] as const;
 import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
@@ -29,11 +36,31 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
   const { toast } = useToast();
 
   if (!buyer) return null;
+
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === "Closed") {
+      setPendingStatus(newStatus);
+      return;
+    }
+    applyStatusChange(newStatus);
+  };
+
+  const applyStatusChange = (newStatus: string) => {
+    if (onBuyerUpdate && buyer) {
+      const updated = { ...(editedBuyer || buyer), status: newStatus };
+      onBuyerUpdate(updated);
+      if (isEditing && editedBuyer) {
+        setEditedBuyer(updated);
+      }
+    }
+    setPendingStatus(null);
+  };
 
   const currentBuyer = isEditing && editedBuyer ? editedBuyer : buyer;
   const displayImage = currentImage || currentBuyer.image;
@@ -203,26 +230,27 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
               </div>
             </div>
 
-            {/* Status Management Field */}
+            {/* Always-accessible Status Control */}
             <div>
-              <Label className="text-sm font-medium text-text-muted">Status</Label>
-              {isEditing ? (
-                <Select
-                  value={currentBuyer.status}
-                  onValueChange={(value) => updateField('status', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-base mt-1 font-medium">{currentBuyer.status}</p>
-              )}
+              <Label className="text-sm font-medium text-text-muted mb-2 block">Buyer Status</Label>
+              <div className="flex gap-2 flex-wrap">
+                {BUYER_STATUSES.map((s) => {
+                  const isActive = currentBuyer.status === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      onClick={() => handleStatusChange(s.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                        isActive
+                          ? `${s.color} text-white border-transparent shadow-sm`
+                          : 'bg-card-elevated text-text-muted border-card-border hover:border-accent-gold/30'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <h3 className="text-lg font-semibold text-text-heading">Buyer Information</h3>
@@ -508,6 +536,24 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         />
       </DialogContent>
       <TaskDetailsModal />
+
+      {/* Closed confirmation dialog */}
+      <AlertDialog open={!!pendingStatus} onOpenChange={(open) => !open && setPendingStatus(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark buyer as Closed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This means the buyer has successfully purchased a home. You can change the status back at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => applyStatusChange(pendingStatus!)}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
