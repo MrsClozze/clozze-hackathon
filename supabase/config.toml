@@ -77,3 +77,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-fub]
+
+[functions.generate-recurring-tasks]
+verify_jwt = false

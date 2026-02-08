@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus, Clock } from "lucide-react";
+import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus, Clock, Repeat } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/contexts/TasksContext";
@@ -74,6 +74,8 @@ export default function AddTaskModal({
   const [dueDateError, setDueDateError] = useState(false);
   const [showOnCalendar, setShowOnCalendar] = useState(true); // Default ON
   const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<string>("");
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | undefined>(undefined);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
@@ -116,21 +118,23 @@ export default function AddTaskModal({
         notes: notes.trim(),
         startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
         dueDate: format(dueDate, "yyyy-MM-dd"),
-        dueTime: dueTime || undefined, // Start time
-        endTime: endTime || undefined, // End time
+        dueTime: dueTime || undefined,
+        endTime: endTime || undefined,
         priority,
         status: "pending",
         date: format(dueDate, "MMM d, yyyy"),
         address: taskAddress,
-        assignee: assigneeNames, // Legacy field with comma-separated names
+        assignee: assigneeNames,
         hasAIAssist: false,
         contactId: selectedContactId || undefined,
-        assigneeUserId: selectedAssigneeIds[0] || undefined, // Keep first for backward compat
-        assigneeUserIds: selectedAssigneeIds, // New: array of all assignees
+        assigneeUserId: selectedAssigneeIds[0] || undefined,
+        assigneeUserIds: selectedAssigneeIds,
         buyerId: selectedBuyerId && selectedBuyerId !== "none" ? selectedBuyerId : undefined,
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
         showOnCalendar,
         syncToExternalCalendar: hasConnectedCalendar ? syncToExternalCalendar : false,
+        recurrencePattern: recurrencePattern || undefined,
+        recurrenceEndDate: recurrenceEndDate ? format(recurrenceEndDate, "yyyy-MM-dd") : undefined,
       });
 
       // TODO: Handle file attachments - for now just log them
@@ -164,6 +168,8 @@ export default function AddTaskModal({
     setDueDateError(false);
     setShowOnCalendar(true);
     setSyncToExternalCalendar(false);
+    setRecurrencePattern("");
+    setRecurrenceEndDate(undefined);
   };
 
   const handleAddAssignee = (userId: string) => {
@@ -388,6 +394,59 @@ export default function AddTaskModal({
                 <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Recurrence */}
+          <div className="space-y-3">
+            <Label className="text-text-heading flex items-center gap-2">
+              <Repeat className="h-4 w-4" />
+              Repeat
+            </Label>
+            <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+              <SelectTrigger className="bg-background-elevated border-primary/25">
+                <SelectValue placeholder="Does not repeat" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="none">Does not repeat</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {recurrencePattern && recurrencePattern !== "none" && (
+              <div className="space-y-2">
+                <Label className="text-text-heading text-sm">End date (optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-background-elevated border-primary/25",
+                        !recurrenceEndDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {recurrenceEndDate ? format(recurrenceEndDate, "MMM d, yyyy") : "Repeats indefinitely"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={recurrenceEndDate}
+                      onSelect={setRecurrenceEndDate}
+                      disabled={(date) => date < (dueDate || new Date())}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  3 upcoming instances will be generated automatically. New ones appear as you complete them.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Calendar Toggles */}
