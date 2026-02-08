@@ -94,6 +94,8 @@ export default function ActiveListingsCard() {
                       ? 'bg-success text-white' 
                       : listing.status === 'Pending'
                       ? 'bg-warning text-white'
+                      : listing.status === 'Off-Market'
+                      ? 'bg-muted-foreground text-white'
                       : 'bg-secondary text-white'
                   }`}>
                     {listing.status.toUpperCase()}
