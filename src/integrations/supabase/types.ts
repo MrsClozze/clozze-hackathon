@@ -985,6 +985,213 @@ export type Database = {
         }
         Relationships: []
       }
+      transaction_state_history: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          from_state: string | null
+          id: string
+          note: string | null
+          to_state: string
+          transaction_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          from_state?: string | null
+          id?: string
+          note?: string | null
+          to_state: string
+          transaction_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          from_state?: string | null
+          id?: string
+          note?: string | null
+          to_state?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_state_history_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_suggested_tasks: {
+        Row: {
+          accepted_task_id: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          rule_snapshot: Json
+          status: string
+          template_id: string
+          title: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_task_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          rule_snapshot?: Json
+          status?: string
+          template_id: string
+          title: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_task_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          rule_snapshot?: Json
+          status?: string
+          template_id?: string
+          title?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_suggested_tasks_accepted_task_id_fkey"
+            columns: ["accepted_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_suggested_tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_task_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_suggested_tasks_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_task_templates: {
+        Row: {
+          conditions: Json
+          created_at: string
+          description: string | null
+          due_anchor: string
+          due_offset_days: number
+          id: string
+          is_active: boolean
+          priority: string
+          sort_order: number
+          title: string
+          trigger_state: string
+        }
+        Insert: {
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          due_anchor?: string
+          due_offset_days?: number
+          id?: string
+          is_active?: boolean
+          priority?: string
+          sort_order?: number
+          title: string
+          trigger_state: string
+        }
+        Update: {
+          conditions?: Json
+          created_at?: string
+          description?: string | null
+          due_anchor?: string
+          due_offset_days?: number
+          id?: string
+          is_active?: boolean
+          priority?: string
+          sort_order?: number
+          title?: string
+          trigger_state?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          buyer_id: string | null
+          created_at: string
+          financing_type: string | null
+          has_hoa: boolean | null
+          id: string
+          listing_id: string | null
+          notes: string | null
+          property_type: string | null
+          state: string
+          target_close_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buyer_id?: string | null
+          created_at?: string
+          financing_type?: string | null
+          has_hoa?: boolean | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          property_type?: string | null
+          state?: string
+          target_close_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buyer_id?: string | null
+          created_at?: string
+          financing_type?: string | null
+          has_hoa?: boolean | null
+          id?: string
+          listing_id?: string | null
+          notes?: string | null
+          property_type?: string | null
+          state?: string
+          target_close_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
