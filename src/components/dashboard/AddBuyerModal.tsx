@@ -19,10 +19,12 @@ import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 import { DocuSignImportModal } from "@/components/integrations/DocuSignImportModal";
+import { type ImportSource } from "@/lib/importIntent";
 
 interface AddBuyerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (recordId: string, recordLabel: string, importSource: ImportSource) => void;
 }
 
 type ModalView = "upload" | "processing" | "manual";
@@ -53,11 +55,12 @@ const emptyFormData: FormData = {
   commissionPercentage: "",
 };
 
-export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps) {
+export default function AddBuyerModal({ open, onOpenChange, onCreated }: AddBuyerModalProps) {
   const [view, setView] = useState<ModalView>("upload");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(emptyFormData);
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [importSource, setImportSource] = useState<ImportSource>("manual");
   const { toast } = useToast();
   const { addBuyer } = useBuyers();
   const { isConnected: isDocuSignConnected, isAuthenticating } = useDocuSignAuth();
@@ -72,6 +75,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
     setView("upload");
     setFormData(emptyFormData);
     setUploadedFileName("");
+    setImportSource("manual");
     onOpenChange(false);
   };
 
@@ -114,11 +118,15 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
         brokerageCommission,
       };
 
-      // Call the addBuyer function from context - this handles:
-      // 1. Saving to database
-      // 2. Activating account (switching from demo to live)
-      // 3. Refetching buyers
-      await addBuyer(buyerData);
+      // Call the addBuyer function from context
+      const result = await addBuyer(buyerData);
+
+      // Notify parent about the created record with its import source
+      const createdId = (result as any)?.id || "";
+      const createdLabel = `${buyerData.firstName} ${buyerData.lastName}`;
+      if (onCreated && createdId) {
+        onCreated(createdId, createdLabel, importSource);
+      }
 
       handleClose();
     } catch (error) {
@@ -132,6 +140,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
   const handleFileUpload = async (file: File) => {
     console.log("Uploading file for AI parsing:", file.name);
     setUploadedFileName(file.name);
+    setImportSource("file_upload");
     setView("processing");
 
     const result = await parseBuyerDocument(file);
@@ -145,9 +154,9 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
         description: "Please review and confirm the extracted details below.",
       });
     } else {
-      // On error, go back to upload view
       setView("upload");
       setUploadedFileName("");
+      setImportSource("manual");
     }
   };
 
@@ -160,6 +169,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
 
   const handleDocuSignImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("docusign_completed");
     setView("manual");
   };
 
@@ -177,6 +187,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
 
   const handleFubImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("fub_contact");
     setView("manual");
   };
 
@@ -186,6 +197,7 @@ export default function AddBuyerModal({ open, onOpenChange }: AddBuyerModalProps
 
   const handleDotloopImport = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }));
+    setImportSource("dotloop_loop");
     setView("manual");
   };
 

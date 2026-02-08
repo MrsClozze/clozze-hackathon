@@ -2,14 +2,24 @@ import { useState } from "react";
 import { Plus, Info } from "lucide-react";
 import AddListingModal from "./AddListingModal";
 import ListingDetailsModal from "./ListingDetailsModal";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 import { useListings } from "@/contexts/ListingsContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { classifyImportIntent, type ImportSource } from "@/lib/importIntent";
 
 export default function ActiveListingsCard() {
   const { listings, loading, openListingModal, selectedListing, isListingDetailsModalOpen, closeListingModal, updateListing } = useListings();
   const { isDemo } = useAccountState();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [txnPrompt, setTxnPrompt] = useState<{ open: boolean; recordId: string; recordLabel: string; importSource: ImportSource } | null>(null);
+
+  const handleListingCreated = (recordId: string, recordLabel: string, importSource: ImportSource) => {
+    const intent = classifyImportIntent(importSource);
+    if (intent === "high") {
+      setTxnPrompt({ open: true, recordId, recordLabel, importSource });
+    }
+  };
 
   // Filter to show only top 3 Active or Pending listings (no Closed)
   const dashboardListings = listings
@@ -53,13 +63,23 @@ export default function ActiveListingsCard() {
         </button>
       </div>
 
-      <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
+      <AddListingModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} onCreated={handleListingCreated} />
       <ListingDetailsModal
         open={isListingDetailsModalOpen}
         onOpenChange={closeListingModal}
         listing={selectedListing}
         onListingUpdate={updateListing}
       />
+      {txnPrompt && (
+        <TransactionPromptModal
+          open={txnPrompt.open}
+          onOpenChange={(open) => !open && setTxnPrompt(null)}
+          recordType="listing"
+          recordId={txnPrompt.recordId}
+          recordLabel={txnPrompt.recordLabel}
+          importSource={txnPrompt.importSource}
+        />
+      )}
       
       {dashboardListings.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-border rounded-lg">

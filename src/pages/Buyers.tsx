@@ -9,6 +9,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Skeleton } from "@/components/ui/skeleton";
 import AddBuyerModal from "@/components/dashboard/AddBuyerModal";
 import BuyerDetailsModal from "@/components/dashboard/BuyerDetailsModal";
+import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
+import { classifyImportIntent, type ImportSource } from "@/lib/importIntent";
 
 export default function Buyers() {
   const { buyers, loading, openBuyerModal, selectedBuyer, isBuyerDetailsModalOpen, closeBuyerModal, updateBuyer } = useBuyers();
@@ -17,6 +19,14 @@ export default function Buyers() {
   const [isActiveOpen, setIsActiveOpen] = useState(true);
   const [isPendingOpen, setIsPendingOpen] = useState(true);
   const [isClosedOpen, setIsClosedOpen] = useState(false);
+  const [txnPrompt, setTxnPrompt] = useState<{ open: boolean; recordId: string; recordLabel: string; importSource: ImportSource } | null>(null);
+
+  const handleBuyerCreated = (recordId: string, recordLabel: string, importSource: ImportSource) => {
+    const intent = classifyImportIntent(importSource);
+    if (intent === "high") {
+      setTxnPrompt({ open: true, recordId, recordLabel, importSource });
+    }
+  };
 
   // Organize buyers by status
   const activeBuyers = buyers.filter(b => b.status === 'Active');
@@ -248,13 +258,23 @@ export default function Buyers() {
           </Collapsible>
         </div>
 
-        <AddBuyerModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} />
+        <AddBuyerModal open={isAddModalOpen} onOpenChange={setIsAddModalOpen} onCreated={handleBuyerCreated} />
         <BuyerDetailsModal
           open={isBuyerDetailsModalOpen}
           onOpenChange={closeBuyerModal}
           buyer={selectedBuyer}
           onBuyerUpdate={updateBuyer}
         />
+        {txnPrompt && (
+          <TransactionPromptModal
+            open={txnPrompt.open}
+            onOpenChange={(open) => !open && setTxnPrompt(null)}
+            recordType="buyer"
+            recordId={txnPrompt.recordId}
+            recordLabel={txnPrompt.recordLabel}
+            importSource={txnPrompt.importSource}
+          />
+        )}
       </div>
     </Layout>
   );
