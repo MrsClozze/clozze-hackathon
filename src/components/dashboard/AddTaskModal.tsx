@@ -76,6 +76,7 @@ export default function AddTaskModal({
   const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | undefined>(undefined);
+  const [includeWeekends, setIncludeWeekends] = useState(false);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function AddTaskModal({
         syncToExternalCalendar: hasConnectedCalendar ? syncToExternalCalendar : false,
         recurrencePattern: recurrencePattern && recurrencePattern !== "none" ? recurrencePattern : undefined,
         recurrenceEndDate: recurrenceEndDate ? format(recurrenceEndDate, "yyyy-MM-dd") : undefined,
+        includeWeekends: recurrencePattern === "daily" ? includeWeekends : undefined,
       });
 
       // TODO: Handle file attachments - for now just log them
@@ -170,6 +172,7 @@ export default function AddTaskModal({
     setSyncToExternalCalendar(false);
     setRecurrencePattern("");
     setRecurrenceEndDate(undefined);
+    setIncludeWeekends(false);
   };
 
   const handleAddAssignee = (userId: string) => {
@@ -414,6 +417,24 @@ export default function AddTaskModal({
                 <SelectItem value="monthly">Monthly</SelectItem>
               </SelectContent>
             </Select>
+
+            {recurrencePattern === "daily" && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="include-weekends" className="text-text-heading text-sm cursor-pointer">
+                    Include weekends
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {includeWeekends ? "Tasks generated Mon–Sun" : "Weekdays only (Mon–Fri)"}
+                  </p>
+                </div>
+                <Switch
+                  id="include-weekends"
+                  checked={includeWeekends}
+                  onCheckedChange={setIncludeWeekends}
+                />
+              </div>
+            )}
 
             {recurrencePattern && recurrencePattern !== "none" && (
               <div className="space-y-2">

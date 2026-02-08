@@ -41,6 +41,7 @@ export interface Task {
   recurrenceEndDate?: string;
   parentTaskId?: string;
   recurrenceIndex?: number;
+  includeWeekends?: boolean;
   isDemo?: boolean;
 }
 
@@ -127,6 +128,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         recurrenceEndDate: task.recurrence_end_date || undefined,
         parentTaskId: task.parent_task_id || undefined,
         recurrenceIndex: task.recurrence_index ?? undefined,
+        includeWeekends: task.include_weekends ?? undefined,
         isDemo: false,
       }));
 
