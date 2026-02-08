@@ -19,24 +19,28 @@ export interface Task {
   title: string;
   date: string;
   address: string;
-  assignee: string; // Legacy single assignee name (for display)
+  assignee: string;
   hasAIAssist: boolean;
   priority: "high" | "medium" | "low";
   notes: string;
   status?: "pending" | "in-progress" | "completed";
-  startDate?: string; // Optional start date for date ranges (YYYY-MM-DD)
+  startDate?: string;
   dueDate?: string;
-  dueTime?: string; // Start time in HH:mm format
-  endTime?: string; // End time in HH:mm format
+  dueTime?: string;
+  endTime?: string;
   buyerId?: string;
   listingId?: string;
   userId?: string;
   contactId?: string;
-  assigneeUserId?: string; // Legacy single assignee (kept for backward compatibility)
-  assigneeUserIds?: string[]; // New: multiple assignees
-  assignees?: TaskAssignee[]; // New: assignee details with names
-  showOnCalendar?: boolean; // Whether task appears on dashboard calendar
-  syncToExternalCalendar?: boolean; // Whether to sync to connected calendar (Google/Apple)
+  assigneeUserId?: string;
+  assigneeUserIds?: string[];
+  assignees?: TaskAssignee[];
+  showOnCalendar?: boolean;
+  syncToExternalCalendar?: boolean;
+  recurrencePattern?: string;
+  recurrenceEndDate?: string;
+  parentTaskId?: string;
+  recurrenceIndex?: number;
   isDemo?: boolean;
 }
 
@@ -119,6 +123,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
         showOnCalendar: task.show_on_calendar || false,
         syncToExternalCalendar: task.sync_to_external_calendar || false,
+        recurrencePattern: task.recurrence_pattern || undefined,
+        recurrenceEndDate: task.recurrence_end_date || undefined,
+        parentTaskId: task.parent_task_id || undefined,
+        recurrenceIndex: task.recurrence_index ?? undefined,
         isDemo: false,
       }));
 
@@ -255,6 +263,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         setSelectedTask((prev) => (prev ? { ...prev, ...updates, isDemo: false } : null));
       }
 
+      // If marking a recurring task as completed, trigger generation of next instances
+      const currentTask = tasks.find(t => t.id === taskId);
+      if (updates.status === 'completed' && currentTask?.parentTaskId) {
+        void supabase.functions.invoke('generate-recurring-tasks', {
+          body: { parentTaskId: currentTask.parentTaskId, userId: user?.id },
+        }).then(() => fetchTasks()).catch((err) => {
+          console.warn('[TasksContext] Recurrence generation on completion failed:', err);
+        });
+      }
+
       toast({
         title: "Success",
         description: "Task updated successfully.",
@@ -349,6 +367,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignee_user_id: task.assigneeUserId || null,
         show_on_calendar: task.showOnCalendar ?? false,
         sync_to_external_calendar: task.syncToExternalCalendar ?? false,
+        recurrence_pattern: task.recurrencePattern || null,
+        recurrence_end_date: task.recurrenceEndDate || null,
       };
 
       console.log('[TasksContext] Creating task:', newTask);
@@ -505,16 +525,34 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserIds: assigneeIds,
         showOnCalendar: data.show_on_calendar || false,
         syncToExternalCalendar: data.sync_to_external_calendar || false,
+        recurrencePattern: data.recurrence_pattern || undefined,
+        recurrenceEndDate: data.recurrence_end_date || undefined,
+        parentTaskId: data.parent_task_id || undefined,
+        recurrenceIndex: data.recurrence_index ?? undefined,
         isDemo: false,
       };
 
       setTasks((prevTasks) => [...prevTasks, mappedTask]);
 
+      // If this is a recurring task, generate initial instances
+      if (task.recurrencePattern) {
+        void supabase.functions.invoke('generate-recurring-tasks', {
+          body: { parentTaskId: data.id, userId: user.id },
+        }).then(() => {
+          // Refetch to pick up generated instances
+          fetchTasks();
+        }).catch((err) => {
+          console.warn('[TasksContext] Recurrence generation failed:', err);
+        });
+      }
+
       toast({
         title: "Success",
-        description: task.showOnCalendar 
-          ? "Task created and added to calendar." 
-          : "Task created successfully.",
+        description: task.recurrencePattern 
+          ? "Recurring task created. Upcoming instances will be generated automatically."
+          : task.showOnCalendar 
+            ? "Task created and added to calendar." 
+            : "Task created successfully.",
       });
     } catch (error: any) {
       console.error('[TasksContext] Error adding task:', error);

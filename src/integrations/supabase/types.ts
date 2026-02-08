@@ -759,7 +759,11 @@ export type Database = {
           id: string
           listing_id: string | null
           notes: string | null
+          parent_task_id: string | null
           priority: string
+          recurrence_end_date: string | null
+          recurrence_index: number | null
+          recurrence_pattern: string | null
           show_on_calendar: boolean
           start_date: string | null
           status: string
@@ -784,7 +788,11 @@ export type Database = {
           id?: string
           listing_id?: string | null
           notes?: string | null
+          parent_task_id?: string | null
           priority?: string
+          recurrence_end_date?: string | null
+          recurrence_index?: number | null
+          recurrence_pattern?: string | null
           show_on_calendar?: boolean
           start_date?: string | null
           status?: string
@@ -809,7 +817,11 @@ export type Database = {
           id?: string
           listing_id?: string | null
           notes?: string | null
+          parent_task_id?: string | null
           priority?: string
+          recurrence_end_date?: string | null
+          recurrence_index?: number | null
+          recurrence_pattern?: string | null
           show_on_calendar?: boolean
           start_date?: string | null
           status?: string
@@ -838,6 +850,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
