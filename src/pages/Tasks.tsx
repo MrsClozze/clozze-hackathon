@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, MapPin, User, Plus, Info, Users, CalendarRange } from "lucide-react";
+import { Clock, MapPin, User, Plus, Info, Users, CalendarRange, Repeat } from "lucide-react";
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
@@ -308,7 +308,13 @@ export default function Tasks() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-text-heading">{task.title}</h3>
+                         <h3 className="text-lg font-semibold text-text-heading">{task.title}</h3>
+                        {task.recurrencePattern && (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Repeat className="h-3 w-3" />
+                            {task.recurrencePattern === 'daily' ? 'Daily' : task.recurrencePattern === 'weekly' ? 'Weekly' : task.recurrencePattern === 'biweekly' ? 'Biweekly' : 'Monthly'}
+                          </Badge>
+                        )}
                         {getStatusBadge(task.status)}
                         {task.priority && (
                           <Badge variant="outline" className="capitalize">

@@ -133,7 +133,7 @@ export default function AddTaskModal({
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
         showOnCalendar,
         syncToExternalCalendar: hasConnectedCalendar ? syncToExternalCalendar : false,
-        recurrencePattern: recurrencePattern || undefined,
+        recurrencePattern: recurrencePattern && recurrencePattern !== "none" ? recurrencePattern : undefined,
         recurrenceEndDate: recurrenceEndDate ? format(recurrenceEndDate, "yyyy-MM-dd") : undefined,
       });
 
