@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { ListingData } from "@/contexts/ListingsContext";
 
+const LISTING_STATUSES = [
+  { value: "Active", label: "Active", color: "bg-success" },
+  { value: "Pending", label: "Pending", color: "bg-warning" },
+  { value: "Closed", label: "Closed", color: "bg-secondary" },
+  { value: "Off-Market", label: "Off-Market", color: "bg-muted-foreground" },
+] as const;
+
 interface ListingDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,9 +36,29 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [isCompletedOpen, setIsCompletedOpen] = useState(false);
   const [currentImage, setCurrentImage] = useState<string>("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
   const { toast } = useToast();
+
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === "Closed") {
+      setPendingStatus(newStatus);
+      return;
+    }
+    applyStatusChange(newStatus);
+  };
+
+  const applyStatusChange = (newStatus: string) => {
+    if (onListingUpdate && listing) {
+      const updated = { ...(editedListing || listing), status: newStatus };
+      onListingUpdate(updated);
+      if (isEditing && editedListing) {
+        setEditedListing(updated);
+      }
+    }
+    setPendingStatus(null);
+  };
 
   if (!listing) return null;
 
@@ -174,39 +202,29 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <div className="absolute top-3 right-3">
-                <Badge className={
-                  currentListing.status === 'Active' 
-                    ? 'bg-success text-white' 
-                    : currentListing.status === 'Pending'
-                    ? 'bg-warning text-white'
-                    : 'bg-secondary text-white'
-                }>
-                  {currentListing.status.toUpperCase()}
-                </Badge>
-              </div>
             </div>
             
-            {/* Status Management Field */}
+            {/* Always-accessible Status Control */}
             <div>
-              <Label className="text-sm font-medium text-text-muted">Status</Label>
-              {isEditing ? (
-                <Select
-                  value={currentListing.status}
-                  onValueChange={(value) => updateField('status', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-base mt-1 font-medium">{currentListing.status}</p>
-              )}
+              <Label className="text-sm font-medium text-text-muted mb-2 block">Listing Status</Label>
+              <div className="flex gap-2 flex-wrap">
+                {LISTING_STATUSES.map((s) => {
+                  const isActive = currentListing.status === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      onClick={() => handleStatusChange(s.value)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                        isActive
+                          ? `${s.color} text-white border-transparent shadow-sm`
+                          : 'bg-card-elevated text-text-muted border-card-border hover:border-accent-gold/30'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <h3 className="text-2xl font-bold text-text-heading">{currentListing.address}</h3>
@@ -650,6 +668,24 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         />
       </DialogContent>
       <TaskDetailsModal />
+
+      {/* Confirmation dialog for closing a listing */}
+      <AlertDialog open={!!pendingStatus} onOpenChange={(open) => !open && setPendingStatus(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark listing as Closed?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark the listing as sold/closed. You can change the status again later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingStatus && applyStatusChange(pendingStatus)}>
+              Yes, mark as Closed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
