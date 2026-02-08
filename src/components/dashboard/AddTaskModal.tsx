@@ -59,6 +59,7 @@ export default function AddTaskModal({
 
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [dueTime, setDueTime] = useState<string>(""); // Start time in HH:mm format
   const [endTime, setEndTime] = useState<string>(""); // End time in HH:mm format
@@ -113,6 +114,7 @@ export default function AddTaskModal({
       await addTask({
         title: title.trim(),
         notes: notes.trim(),
+        startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
         dueDate: format(dueDate, "yyyy-MM-dd"),
         dueTime: dueTime || undefined, // Start time
         endTime: endTime || undefined, // End time
@@ -149,6 +151,7 @@ export default function AddTaskModal({
   const resetForm = () => {
     setTitle("");
     setNotes("");
+    setStartDate(undefined);
     setDueDate(undefined);
     setDueTime("");
     setEndTime("");
@@ -252,13 +255,46 @@ export default function AddTaskModal({
             />
           </div>
 
-          {/* Due Date & Time */}
+          {/* Date Range: Start Date + Due Date */}
           <div className="space-y-2">
             <Label className="text-text-heading">
-              Due Date <span className="text-destructive">*</span>
+              Dates <span className="text-destructive">*</span>
             </Label>
             <div className="flex gap-2">
-              {/* Date Picker */}
+              {/* Start Date (Optional) */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "flex-1 justify-start text-left font-normal bg-background-elevated border-primary/25",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "MMM d") : <span>Start date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(date) => {
+                      setStartDate(date);
+                      // Auto-set due date if start date is after current due date
+                      if (date && dueDate && date > dueDate) {
+                        setDueDate(undefined);
+                      }
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <span className="self-center text-muted-foreground text-sm">→</span>
+
+              {/* Due Date (Required) */}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -270,7 +306,7 @@ export default function AddTaskModal({
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                    {dueDate ? format(dueDate, "MMM d") : <span>Due date *</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
@@ -278,6 +314,7 @@ export default function AddTaskModal({
                     mode="single"
                     selected={dueDate}
                     onSelect={handleDueDateSelect}
+                    disabled={startDate ? (date) => date < startDate : undefined}
                     initialFocus
                     className="pointer-events-auto"
                   />
@@ -287,11 +324,14 @@ export default function AddTaskModal({
             {dueDateError && (
               <p className="text-sm text-destructive">Due date is required</p>
             )}
+            <p className="text-xs text-muted-foreground">
+              Start date is optional. Use it for tasks that span multiple days (e.g., inspection windows).
+            </p>
           </div>
 
           {/* Start Time & End Time */}
           <div className="space-y-2">
-            <Label className="text-text-heading">Event Time (Optional)</Label>
+            <Label className="text-text-heading">Time (Optional)</Label>
             <div className="flex items-center gap-2">
               {/* Start Time */}
               <div className="relative flex-1">
@@ -329,7 +369,9 @@ export default function AddTaskModal({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Leave blank for all-day tasks. Setting a time enables event scheduling in Google Calendar.
+              {hasConnectedCalendar
+                ? "Tasks with a time will sync as timed events to your connected calendar. Without a time, they appear as all-day tasks."
+                : "Leave blank for all-day tasks."}
             </p>
           </div>
 
@@ -397,109 +439,99 @@ export default function AddTaskModal({
             </div>
           </div>
 
-          {/* Assign to Buyer - Only show if not pre-filled */}
+          {/* Assign to Buyer (Optional) - Only show if not pre-filled */}
           {!initialBuyerId && (
             <div className="space-y-2">
               <Label className="text-text-heading flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Assign to Buyer
+                Buyer
+                <span className="text-xs font-normal text-muted-foreground">(optional)</span>
               </Label>
-              {hasNoLiveData ? (
-                <p className="text-sm text-muted-foreground py-2">
-                  Add your first listing or buyer to start assigning tasks.
-                </p>
-              ) : (
-                <Select 
-                  value={selectedBuyerId} 
-                  onValueChange={(value) => {
-                    setSelectedBuyerId(value);
-                    // Clear listing if buyer is selected (task can only be linked to one)
-                    if (value && value !== "none") {
-                      setSelectedListingId("");
-                    }
-                  }}
-                >
-                  <SelectTrigger className="bg-background-elevated border-primary/25">
-                    <SelectValue
-                      placeholder={
-                        buyers.length === 0 
-                          ? "No buyers available" 
-                          : "Select a buyer..."
-                      } 
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50 max-h-[200px]">
-                    {buyers.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground text-center">
-                        <User className="h-4 w-4 inline mr-2" />
-                        Add a buyer to assign tasks
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="none">None</SelectItem>
-                        {buyers.map((buyer) => (
-                          <SelectItem key={buyer.id} value={buyer.id}>
-                            {buyer.firstName} {buyer.lastName}
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select 
+                value={selectedBuyerId} 
+                onValueChange={(value) => {
+                  setSelectedBuyerId(value);
+                  // Clear listing if buyer is selected (task can only be linked to one)
+                  if (value && value !== "none") {
+                    setSelectedListingId("");
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background-elevated border-primary/25">
+                  <SelectValue
+                    placeholder={
+                      buyers.length === 0 
+                        ? "No buyers available" 
+                        : "None — standalone task"
+                    } 
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[200px]">
+                  {buyers.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">
+                      <User className="h-4 w-4 inline mr-2" />
+                      No buyers yet
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="none">None — standalone task</SelectItem>
+                      {buyers.map((buyer) => (
+                        <SelectItem key={buyer.id} value={buyer.id}>
+                          {buyer.firstName} {buyer.lastName}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
-          {/* Assign to Listing - Only show if not pre-filled */}
+          {/* Assign to Listing (Optional) - Only show if not pre-filled */}
           {!initialListingId && (
             <div className="space-y-2">
               <Label className="text-text-heading flex items-center gap-2">
                 <Home className="h-4 w-4" />
-                Assign to Listing
+                Listing
+                <span className="text-xs font-normal text-muted-foreground">(optional)</span>
               </Label>
-              {hasNoLiveData ? (
-                <p className="text-sm text-muted-foreground py-2">
-                  Add your first listing or buyer to start assigning tasks.
-                </p>
-              ) : (
-                <Select 
-                  value={selectedListingId} 
-                  onValueChange={(value) => {
-                    setSelectedListingId(value);
-                    // Clear buyer if listing is selected (task can only be linked to one)
-                    if (value && value !== "none") {
-                      setSelectedBuyerId("");
-                    }
-                  }}
-                >
-                  <SelectTrigger className="bg-background-elevated border-primary/25">
-                    <SelectValue
-                      placeholder={
-                        listings.length === 0 
-                          ? "No listings available" 
-                          : "Select a listing..."
-                      } 
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50 max-h-[200px]">
-                    {listings.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground text-center">
-                        <Home className="h-4 w-4 inline mr-2" />
-                        Add a listing to assign tasks
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="none">None</SelectItem>
-                        {listings.map((listing) => (
-                          <SelectItem key={listing.id} value={listing.id}>
-                            {listing.address}, {listing.city}
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select 
+                value={selectedListingId} 
+                onValueChange={(value) => {
+                  setSelectedListingId(value);
+                  // Clear buyer if listing is selected (task can only be linked to one)
+                  if (value && value !== "none") {
+                    setSelectedBuyerId("");
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background-elevated border-primary/25">
+                  <SelectValue
+                    placeholder={
+                      listings.length === 0 
+                        ? "No listings available" 
+                        : "None — standalone task"
+                    } 
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50 max-h-[200px]">
+                  {listings.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">
+                      <Home className="h-4 w-4 inline mr-2" />
+                      No listings yet
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="none">None — standalone task</SelectItem>
+                      {listings.map((listing) => (
+                        <SelectItem key={listing.id} value={listing.id}>
+                          {listing.address}, {listing.city}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

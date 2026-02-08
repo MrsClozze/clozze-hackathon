@@ -45,6 +45,7 @@ export default function TaskDetailsModal() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | undefined>(undefined);
   const [editedTime, setEditedTime] = useState<string>("");
   const [showPartnerChoice, setShowPartnerChoice] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -57,18 +58,20 @@ export default function TaskDetailsModal() {
   // Initialize state when entering edit mode
   useEffect(() => {
     if (isEditing && selectedTask) {
-      // Populate assignees from task
       const assignees = selectedTask.assigneeUserIds || 
         (selectedTask.assigneeUserId ? [selectedTask.assigneeUserId] : []);
       setSelectedAssigneeIds(assignees);
-      
-      // Populate contact
       setSelectedContactId(selectedTask.contactId || "");
-      
-      // Initialize time from task
       setEditedTime(selectedTask.dueTime || "");
       
-      // Initialize selected date from task date string
+      // Initialize start date
+      if (selectedTask.startDate) {
+        const parsedStart = new Date(selectedTask.startDate);
+        if (!isNaN(parsedStart.getTime())) {
+          setSelectedStartDate(parsedStart);
+        }
+      }
+      
       if (selectedTask.date) {
         const parsedDate = new Date(selectedTask.date);
         if (!isNaN(parsedDate.getTime())) {
@@ -105,6 +108,7 @@ export default function TaskDetailsModal() {
 
       await updateTask(selectedTask.id, {
         ...editedTask,
+        startDate: selectedStartDate ? format(selectedStartDate, "yyyy-MM-dd") : undefined,
         dueTime: editedTime || undefined,
         assignee: assigneeNames || undefined,
         assigneeUserId: selectedAssigneeIds[0] || undefined,
@@ -121,6 +125,7 @@ export default function TaskDetailsModal() {
     setSelectedContactId("");
     setEditedTime("");
     setSelectedDate(undefined);
+    setSelectedStartDate(undefined);
     setIsEditing(false);
   };
 
@@ -139,6 +144,7 @@ export default function TaskDetailsModal() {
       setSelectedContactId("");
       setEditedTime("");
       setSelectedDate(undefined);
+      setSelectedStartDate(undefined);
     }
   };
 

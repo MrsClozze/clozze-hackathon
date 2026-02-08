@@ -761,6 +761,7 @@ export type Database = {
           notes: string | null
           priority: string
           show_on_calendar: boolean
+          start_date: string | null
           status: string
           sync_to_external_calendar: boolean
           title: string
@@ -785,6 +786,7 @@ export type Database = {
           notes?: string | null
           priority?: string
           show_on_calendar?: boolean
+          start_date?: string | null
           status?: string
           sync_to_external_calendar?: boolean
           title: string
@@ -809,6 +811,7 @@ export type Database = {
           notes?: string | null
           priority?: string
           show_on_calendar?: boolean
+          start_date?: string | null
           status?: string
           sync_to_external_calendar?: boolean
           title?: string

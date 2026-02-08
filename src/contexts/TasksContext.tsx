@@ -24,6 +24,7 @@ export interface Task {
   priority: "high" | "medium" | "low";
   notes: string;
   status?: "pending" | "in-progress" | "completed";
+  startDate?: string; // Optional start date for date ranges (YYYY-MM-DD)
   dueDate?: string;
   dueTime?: string; // Start time in HH:mm format
   endTime?: string; // End time in HH:mm format
@@ -106,9 +107,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         priority: task.priority as "high" | "medium" | "low",
         notes: task.notes || '',
         status: task.status as "pending" | "in-progress" | "completed",
+        startDate: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : undefined,
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
-        dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined, // Format as HH:mm
-        endTime: task.end_time ? task.end_time.substring(0, 5) : undefined, // Format as HH:mm
+        dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined,
+        endTime: task.end_time ? task.end_time.substring(0, 5) : undefined,
         buyerId: task.buyer_id || undefined,
         listingId: task.listing_id || undefined,
         userId: task.user_id,
@@ -176,6 +178,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         priority: updates.priority,
         notes: updates.notes,
         status: updates.status,
+        start_date: updates.startDate !== undefined ? (updates.startDate ? new Date(updates.startDate).toISOString() : null) : undefined,
         due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
         due_time: updates.dueTime !== undefined ? (updates.dueTime || null) : undefined,
         end_time: updates.endTime !== undefined ? (updates.endTime || null) : undefined,
@@ -336,6 +339,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         priority: task.priority || 'medium',
         notes: task.notes || null,
         status: task.status || 'pending',
+        start_date: task.startDate ? new Date(task.startDate).toISOString() : null,
         due_date: task.dueDate ? new Date(task.dueDate).toISOString() : null,
         due_time: task.dueTime || null,
         end_time: task.endTime || null,
@@ -489,6 +493,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         priority: data.priority as "high" | "medium" | "low",
         notes: data.notes || '',
         status: data.status as "pending" | "in-progress" | "completed",
+        startDate: data.start_date ? new Date(data.start_date).toISOString().split('T')[0] : undefined,
         dueDate: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
         dueTime: data.due_time ? data.due_time.substring(0, 5) : undefined,
         endTime: data.end_time ? data.end_time.substring(0, 5) : undefined,
