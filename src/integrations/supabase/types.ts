@@ -757,6 +757,7 @@ export type Database = {
           external_calendar_event_id: string | null
           has_ai_assist: boolean
           id: string
+          include_weekends: boolean
           listing_id: string | null
           notes: string | null
           parent_task_id: string | null
@@ -786,6 +787,7 @@ export type Database = {
           external_calendar_event_id?: string | null
           has_ai_assist?: boolean
           id?: string
+          include_weekends?: boolean
           listing_id?: string | null
           notes?: string | null
           parent_task_id?: string | null
@@ -815,6 +817,7 @@ export type Database = {
           external_calendar_event_id?: string | null
           has_ai_assist?: boolean
           id?: string
+          include_weekends?: boolean
           listing_id?: string | null
           notes?: string | null
           parent_task_id?: string | null

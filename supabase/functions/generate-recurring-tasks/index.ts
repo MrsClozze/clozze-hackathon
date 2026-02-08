@@ -12,12 +12,19 @@ interface RecurrencePattern {
   pattern: string; // daily | weekly | biweekly | monthly
 }
 
-function getNextDueDate(currentDueDate: string, pattern: string, offset: number): string {
+function getNextDueDate(currentDueDate: string, pattern: string, offset: number, includeWeekends = true): string {
   const date = new Date(currentDueDate);
-  for (let i = 0; i < offset; i++) {
+  let count = 0;
+  while (count < offset) {
     switch (pattern) {
       case "daily":
         date.setDate(date.getDate() + 1);
+        // Skip weekends if not included
+        if (!includeWeekends) {
+          while (date.getDay() === 0 || date.getDay() === 6) {
+            date.setDate(date.getDate() + 1);
+          }
+        }
         break;
       case "weekly":
         date.setDate(date.getDate() + 7);
@@ -29,6 +36,7 @@ function getNextDueDate(currentDueDate: string, pattern: string, offset: number)
         date.setMonth(date.getMonth() + 1);
         break;
     }
+    count++;
   }
   return date.toISOString();
 }
@@ -118,9 +126,10 @@ Deno.serve(async (req) => {
         lastIndex = latestInstances[0].recurrence_index || 0;
       }
 
+      const includeWeekends = parent.include_weekends !== false;
       const newTasks = [];
       for (let i = 1; i <= toGenerate; i++) {
-        const nextDue = getNextDueDate(lastDueDate, parent.recurrence_pattern, i);
+        const nextDue = getNextDueDate(lastDueDate, parent.recurrence_pattern, i, includeWeekends);
         const nextStart = getNextStartDate(parent.start_date, lastDueDate, nextDue);
         const nextIndex = lastIndex + i;
 
@@ -154,6 +163,7 @@ Deno.serve(async (req) => {
           parent_task_id: parent.id,
           recurrence_pattern: parent.recurrence_pattern,
           recurrence_index: nextIndex,
+          include_weekends: parent.include_weekends,
         });
       }
 

@@ -1,0 +1,2 @@
+ALTER TABLE public.tasks ADD COLUMN include_weekends boolean NOT NULL DEFAULT true;
+COMMENT ON COLUMN public.tasks.include_weekends IS 'For daily recurrence: false = weekdays only (Mon-Fri), true = every day (Mon-Sun).';

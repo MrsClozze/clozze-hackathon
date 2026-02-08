@@ -371,6 +371,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         sync_to_external_calendar: task.syncToExternalCalendar ?? false,
         recurrence_pattern: task.recurrencePattern || null,
         recurrence_end_date: task.recurrenceEndDate || null,
+        include_weekends: task.recurrencePattern === 'daily' ? (task.includeWeekends ?? false) : true,
       };
 
       console.log('[TasksContext] Creating task:', newTask);
@@ -531,6 +532,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         recurrenceEndDate: data.recurrence_end_date || undefined,
         parentTaskId: data.parent_task_id || undefined,
         recurrenceIndex: data.recurrence_index ?? undefined,
+        includeWeekends: data.include_weekends ?? undefined,
         isDemo: false,
       };
 
