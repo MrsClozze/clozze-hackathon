@@ -30,11 +30,11 @@ export default function MessageActionModal({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  const { isPhoneConnected, isEmailConnected, isWhatsAppConnected } = useIntegrations();
+  const { isPhoneConnected, isEmailConnected } = useIntegrations();
   const navigate = useNavigate();
 
   // Check if integration is connected when modal opens
-  const isConnected = messageType === "text" ? (isPhoneConnected || isWhatsAppConnected) : isEmailConnected;
+  const isConnected = messageType === "text" ? isPhoneConnected : isEmailConnected;
 
   const handleAIAssist = async () => {
     if (!isConnected) {

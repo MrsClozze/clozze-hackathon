@@ -34,7 +34,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
-  const { isPhoneConnected, isWhatsAppBusinessConnected } = useIntegrations();
+  const { isPhoneConnected } = useIntegrations();
   const { 
     actionRequiredEmails,
     allAnalyzedEmails,
@@ -46,14 +46,14 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   } = useSyncedEmails();
 
   const {
-    whatsappMessages,
+    messages: allSyncedMessages,
     actionRequiredMessages: actionRequiredTextMessages,
     allVisibleMessages: allTextMessages,
     loading: messagesLoading,
     ignoreMessage,
   } = useSyncedMessages();
 
-  const isTextConnected = isPhoneConnected || isWhatsAppBusinessConnected;
+  const isTextConnected = isPhoneConnected;
 
   // Auto-sync when Gmail is connected and we have no emails
   useEffect(() => {
@@ -71,13 +71,13 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const displayedActionEmails = limit ? filteredActionEmails.slice(0, limit) : filteredActionEmails;
   const displayedAllEmails = limit ? allAnalyzedEmails.slice(0, limit) : allAnalyzedEmails;
   
-  // Filter WhatsApp messages for text section
-  const textActionRequired = isTextConnected ? actionRequiredTextMessages.filter(m => m.source === 'whatsapp') : [];
-  const textAllMessages = isTextConnected ? whatsappMessages.filter(m => !m.ai_ignored) : [];
+  // Filter text messages for text section
+  const textActionRequired = isTextConnected ? actionRequiredTextMessages : [];
+  const textAllMessages = isTextConnected ? allTextMessages : [];
   const displayedActionTexts = limit ? textActionRequired.slice(0, limit) : textActionRequired;
   const displayedAllTexts = limit ? textAllMessages.slice(0, limit) : textAllMessages;
 
-  const handleTextAction = (message: typeof whatsappMessages[0]) => {
+  const handleTextAction = (message: typeof allSyncedMessages[0]) => {
     setSelectedMessage({
       type: "text",
       sender: message.sender_name || message.sender_phone || "Unknown",
@@ -104,7 +104,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
       <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-50" />
       <p className="font-medium mb-1">Text messaging not connected</p>
-      <p className="text-xs mb-3">Connect WhatsApp Business to sync messages</p>
+      <p className="text-xs mb-3">Connect a messaging service to sync messages</p>
       <Button
         variant="outline"
         size="sm"
@@ -115,7 +115,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     </div>
   );
 
-  const renderTextMessages = (messages: typeof whatsappMessages, showIgnore: boolean = true) => (
+  const renderTextMessages = (messages: typeof allSyncedMessages, showIgnore: boolean = true) => (
     <div className="space-y-4">
       {messagesLoading ? (
         <div className="flex items-center justify-center py-12 bg-secondary rounded-lg border border-border">
