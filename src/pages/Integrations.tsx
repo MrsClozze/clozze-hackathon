@@ -9,13 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
-import { WhatsAppBusinessModal } from "@/components/integrations/WhatsAppBusinessModal";
+
 import { AppleCalendarModal } from "@/components/integrations/AppleCalendarModal";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
 import { useTasks } from "@/contexts/TasksContext";
 import { useCalendarSync } from "@/hooks/useCalendarSync";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
-import { useWhatsAppBusinessConnection } from "@/hooks/useWhatsAppBusinessConnection";
+
 import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
 import { Check, Loader2 } from "lucide-react";
@@ -24,7 +24,7 @@ import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 import gmailLogo from "@/assets/gmail-logo.webp";
-import whatsappLogo from "@/assets/whatsapp-logo.webp";
+
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
@@ -60,14 +60,6 @@ const integrations = [
     isImage: true,
   },
   {
-    id: "whatsapp",
-    name: "WhatsApp Business",
-    description: "Connect your WhatsApp Business API account",
-    icon: whatsappLogo,
-    isImage: true,
-    note: "Requires a Meta Business account",
-  },
-  {
     id: "dotloop",
     name: "Dotloop",
     description: "Sync transactions, loops, and contacts",
@@ -89,12 +81,6 @@ export default function Integrations() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { refreshGmailStatus } = useIntegrations();
-  const { 
-    isConnected: isWhatsAppBusinessConnected,
-    businessPhone: whatsAppBusinessPhone,
-    disconnect: disconnectWhatsAppBusiness,
-    refresh: refreshWhatsAppBusiness,
-  } = useWhatsAppBusinessConnection();
   const {
     isConnected: isDotloopConnected,
     connecting: dotloopConnecting,
@@ -130,7 +116,7 @@ export default function Integrations() {
   const { tasks, bulkEnableExternalSync } = useTasks();
   const { pullAppleEvents } = useCalendarSync();
   
-  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
   const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
@@ -365,10 +351,6 @@ export default function Integrations() {
       return;
     }
 
-    if (integrationId === "whatsapp") {
-      setIsWhatsAppModalOpen(true);
-      return;
-    }
 
     if (integrationId === "gmail") {
       if (isGmailConnected) {
@@ -407,22 +389,6 @@ export default function Integrations() {
       return;
     }
 
-    if (integrationId === "whatsapp") {
-      try {
-        await disconnectWhatsAppBusiness();
-        toast({
-          title: "WhatsApp Business disconnected",
-          description: "Your WhatsApp Business account has been unlinked",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to disconnect WhatsApp Business",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
 
     if (integrationId === "gmail") {
       await disconnectGmail();
@@ -440,9 +406,6 @@ export default function Integrations() {
     }
   };
 
-  const handleWhatsAppSuccess = async () => {
-    await refreshWhatsAppBusiness();
-  };
 
   const getConnectionStatus = (integrationId: string) => {
     if (integrationId === "google_calendar") {
@@ -450,9 +413,6 @@ export default function Integrations() {
     }
     if (integrationId === "apple_calendar") {
       return isCalendarConnected("apple");
-    }
-    if (integrationId === "whatsapp") {
-      return isWhatsAppBusinessConnected;
     }
     if (integrationId === "gmail") {
       return isGmailConnected;
@@ -472,9 +432,6 @@ export default function Integrations() {
     }
     if (integrationId === "apple_calendar") {
       return getConnection("apple")?.providerEmail || null;
-    }
-    if (integrationId === "whatsapp") {
-      return whatsAppBusinessPhone;
     }
     return null;
   };
@@ -577,11 +534,6 @@ export default function Integrations() {
           })}
         </div>
         
-        <WhatsAppBusinessModal
-          open={isWhatsAppModalOpen}
-          onOpenChange={setIsWhatsAppModalOpen}
-          onSuccess={handleWhatsAppSuccess}
-        />
 
         <AppleCalendarModal
           isOpen={isAppleModalOpen}

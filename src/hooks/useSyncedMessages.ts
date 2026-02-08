@@ -100,8 +100,6 @@ export function useSyncedMessages() {
     fetchMessages();
   }, [fetchMessages]);
 
-  // Filter messages by source
-  const whatsappMessages = messages.filter(m => m.source === 'whatsapp');
   
   // Needs attention: analyzed, not ignored, and has priority/action/requires_action
   const actionRequiredMessages = messages.filter(
@@ -119,7 +117,6 @@ export function useSyncedMessages() {
 
   return {
     messages,
-    whatsappMessages,
     actionRequiredMessages,
     allVisibleMessages,
     ignoredMessages,
