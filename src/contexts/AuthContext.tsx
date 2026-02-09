@@ -46,38 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return sessionStorage.getItem(PASSWORD_RESET_FLAG) === 'true';
   };
 
-  // Identify user in UserGuiding with extended retry for SDK readiness
-  const identifyUserGuiding = (userId: string, email?: string, createdAt?: string) => {
-    const doIdentify = () => {
-      const ug = (window as any).userGuiding;
-      if (ug && typeof ug.identify === 'function') {
-        console.log('[UserGuiding] Identifying user:', userId);
-        ug.identify(userId, {
-          email: email,
-          created_at: createdAt ? new Date(createdAt).getTime() : undefined,
-        });
-        return true;
-      }
-      return false;
-    };
-
-    // Try immediately
-    if (doIdentify()) return;
-
-    // Extended retry - UserGuiding can take a while to initialize
-    let attempts = 0;
-    const maxAttempts = 30; // 30 attempts = up to 15 seconds
-    const interval = setInterval(() => {
-      attempts++;
-      if (doIdentify()) {
-        console.log('[UserGuiding] Identified after', attempts, 'attempts');
-        clearInterval(interval);
-      } else if (attempts >= maxAttempts) {
-        console.warn('[UserGuiding] Failed to identify after', maxAttempts, 'attempts');
-        clearInterval(interval);
-      }
-    }, 500); // 500ms between retries
-  };
 
   const checkSubscription = async (currentSession: Session | null) => {
     if (!currentSession) {
@@ -205,14 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
-        // Identify user in UserGuiding for onboarding guides
-        if (currentSession?.user) {
-          identifyUserGuiding(
-            currentSession.user.id,
-            currentSession.user.email,
-            currentSession.user.created_at
-          );
-        }
 
         if (currentSession) {
           // Handles deleted users (clears session) but won't block on transient errors.
@@ -248,13 +208,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Fetch subscription BEFORE setting loading false
         if (currentSession?.user) {
-          // Identify with UserGuiding during initial load
-          identifyUserGuiding(
-            currentSession.user.id,
-            currentSession.user.email,
-            currentSession.user.created_at
-          );
-          
           try {
             await withTimeout(checkSubscription(currentSession), 8000, 'checkSubscription');
           } catch (e) {
