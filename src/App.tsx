@@ -23,6 +23,7 @@ import Pricing from "./pages/Pricing";
 import Checkout from "./pages/Checkout";
 import Integrations from "./pages/Integrations";
 import Settings from "./pages/Settings";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
       { path: "/checkout", element: <Checkout /> },
       { path: "/integrations", element: <Integrations /> },
       { path: "/settings", element: <Settings /> },
+      { path: "/support", element: <Support /> },
       { path: "*", element: <NotFound /> },
     ],
   },
