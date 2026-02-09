@@ -16,6 +16,17 @@ export function RootLayout() {
   const location = useLocation();
   const hasLaunchedChecklist = useRef(false);
 
+  // Load Zendesk widget globally on mount
+  useEffect(() => {
+    if (!document.getElementById('ze-snippet')) {
+      const script = document.createElement('script');
+      script.id = 'ze-snippet';
+      script.src = 'https://static.zdassets.com/ekr/snippet.js?key=94614987-dc1f-4600-b492-211a2a24c813';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   // Track page views and launch checklist on dashboard with extended retry
   useEffect(() => {
     const trackAndLaunch = () => {
