@@ -110,7 +110,6 @@ export function useCalendarConnections() {
       const redirectUri = `${window.location.origin}/integrations`;
       
       const scopes = [
-        "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/userinfo.email",
       ];
