@@ -36,6 +36,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
   const { isPhoneConnected } = useIntegrations();
   const { 
+    emails,
     actionRequiredEmails,
     allAnalyzedEmails,
     loading: emailsLoading, 
@@ -55,12 +56,13 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   const isTextConnected = isPhoneConnected;
 
-  // Auto-sync when Gmail is connected and we have no emails
+  // Auto-sync when Gmail is connected and we truly have no emails (including ignored ones)
+  const hasAnyEmails = emails.length > 0;
   useEffect(() => {
-    if (isGmailConnected && !emailsLoading && actionRequiredEmails.length === 0 && allAnalyzedEmails.length === 0 && !syncing && !analyzing) {
+    if (isGmailConnected && !emailsLoading && !hasAnyEmails && !syncing && !analyzing) {
       syncAndAnalyze();
     }
-  }, [isGmailConnected, emailsLoading, actionRequiredEmails.length, allAnalyzedEmails.length, syncing, analyzing, syncAndAnalyze]);
+  }, [isGmailConnected, emailsLoading, hasAnyEmails, syncing, analyzing, syncAndAnalyze]);
 
   // Filter emails based on settings
   const filteredActionEmails = actionRequiredEmails.filter(email => 
