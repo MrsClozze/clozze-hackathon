@@ -5,6 +5,7 @@ import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
 import { useTeamMemberSlots } from "@/hooks/useTeamMemberSlots";
+import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,6 @@ import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
 type StatusFilter = "all" | "active" | "completed";
-type ViewTab = "my-tasks" | "all" | "team";
 
 type TypeFilterState = {
   buyers: boolean;
@@ -31,10 +31,17 @@ export default function Tasks() {
   const { isDemo } = useAccountState();
   const { user } = useAuth();
   const { hasTeamMemberAccess, loading: slotsLoading } = useTeamMemberSlots();
-  const [viewTab, setViewTab] = useState<ViewTab>("my-tasks");
+  const { teamMembers, loading: teamLoading } = useTeamMembers();
+  const [viewTab, setViewTab] = useState<string>("my-tasks");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilterState>({ buyers: true, listings: true, general: true });
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+
+  // Teammates = team members excluding the current user
+  const teammates = useMemo(() => {
+    if (!user) return [];
+    return teamMembers.filter(m => m.userId !== user.id);
+  }, [teamMembers, user]);
 
   // Check if task is assigned to the current user (via junction table or legacy field)
   const isAssignedToMe = (task: any) => {
@@ -43,12 +50,15 @@ export default function Tasks() {
     return assigneeIds.includes(user.id) || task.assigneeUserId === user.id;
   };
 
-  // Check if task has ANY teammate assigned (someone other than current user)
-  const hasTeammateAssigned = (task: any) => {
-    if (!user) return false;
+  // Check if task is associated with a specific user (owner or assignee)
+  const isTaskForUser = (task: any, userId: string) => {
     const assigneeIds: string[] = Array.isArray(task.assigneeUserIds) ? task.assigneeUserIds : [];
-    if (assigneeIds.some((id) => id && id !== user.id)) return true;
-    return Boolean(task.assigneeUserId && task.assigneeUserId !== user.id);
+    if (assigneeIds.includes(userId)) return true;
+    if (task.assigneeUserId === userId) return true;
+    // Also show tasks the user owns with no other assignees
+    const hasAnyAssignees =
+      (assigneeIds.length > 0) || Boolean(task.assigneeUserId);
+    return !hasAnyAssignees && task.userId === userId;
   };
 
   const getTaskSourceName = (task: any) => {
@@ -74,19 +84,17 @@ export default function Tasks() {
 
   const baseTasks = useMemo(() => {
     if (!user) return [];
-    if (viewTab === "all") {
-      return tasks; // Show all workspace tasks
+    if (viewTab === "my-tasks") {
+      return tasks.filter((task) => {
+        if (isAssignedToMe(task)) return true;
+        const hasAnyAssignees =
+          (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
+          Boolean(task.assigneeUserId);
+        return !hasAnyAssignees && task.userId === user.id;
+      });
     }
-    if (viewTab === "team") {
-      return tasks.filter(hasTeammateAssigned);
-    }
-    return tasks.filter((task) => {
-      if (isAssignedToMe(task)) return true;
-      const hasAnyAssignees =
-        (Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0) ||
-        Boolean(task.assigneeUserId);
-      return !hasAnyAssignees && task.userId === user.id;
-    });
+    // viewTab is a teammate userId
+    return tasks.filter((task) => isTaskForUser(task, viewTab));
   }, [tasks, viewTab, user]);
 
   const filteredTasks = useMemo(() => {
@@ -132,7 +140,7 @@ export default function Tasks() {
     }
   };
 
-  if (loading || slotsLoading) {
+  if (loading || slotsLoading || teamLoading) {
     return (
       <Layout>
         <div className="p-8">
@@ -180,9 +188,9 @@ export default function Tasks() {
           </div>
         )}
 
-        {hasTeamMemberAccess && (
+        {hasTeamMemberAccess && teammates.length > 0 && (
           <div className="mb-6">
-            <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+            <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground flex-wrap gap-1">
               <button
                 onClick={() => setViewTab("my-tasks")}
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
@@ -194,27 +202,19 @@ export default function Tasks() {
                 <User className="h-4 w-4" />
                 My Tasks
               </button>
-              <button
-                onClick={() => setViewTab("all")}
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
-                  viewTab === "all"
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "hover:bg-muted-foreground/10"
-                }`}
-              >
-                All Tasks
-              </button>
-              <button
-                onClick={() => setViewTab("team")}
-                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
-                  viewTab === "team"
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "hover:bg-muted-foreground/10"
-                }`}
-              >
-                <Users className="h-4 w-4" />
-                Teammate's Tasks
-              </button>
+              {teammates.map((member) => (
+                <button
+                  key={member.userId}
+                  onClick={() => setViewTab(member.userId)}
+                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
+                    viewTab === member.userId
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "hover:bg-muted-foreground/10"
+                  }`}
+                >
+                  {member.name}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -304,8 +304,8 @@ export default function Tasks() {
           {filteredTasks.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
-                {viewTab === "team" 
-                  ? "No tasks from teammates assigned to you yet."
+                {viewTab !== "my-tasks"
+                  ? `No tasks found for this teammate.`
                   : "No tasks found matching your filters."
                 }
               </CardContent>
