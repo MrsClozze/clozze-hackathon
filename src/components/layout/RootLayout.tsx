@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { AccountStateProvider } from '@/contexts/AccountStateContext';
 import { IntegrationsProvider } from '@/contexts/IntegrationsContext';
 import { UserProvider } from '@/contexts/UserContext';
@@ -13,6 +13,8 @@ import { TasksProvider } from '@/contexts/TasksContext';
  * and data providers that depend on AccountStateContext
  */
 export function RootLayout() {
+  const location = useLocation();
+
   // Load Zendesk widget globally on mount
   useEffect(() => {
     if (!document.getElementById('ze-snippet')) {
@@ -23,6 +25,16 @@ export function RootLayout() {
       document.body.appendChild(script);
     }
   }, []);
+
+  // Hide Zendesk widget on auth page
+  useEffect(() => {
+    const hide = location.pathname === '/auth';
+    if (hide) {
+      (window as any).zE?.('messenger', 'hide');
+    } else {
+      (window as any).zE?.('messenger', 'show');
+    }
+  }, [location.pathname]);
 
   return (
     <AccountStateProvider>
