@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PersonalStats {
@@ -69,6 +69,11 @@ export function usePersonalData(period: string = "ytd") {
   const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refetchKey, setRefetchKey] = useState(0);
+
+  const refetch = useCallback(() => {
+    setRefetchKey((k) => k + 1);
+  }, []);
 
   // Fetch all data once
   useEffect(() => {
@@ -108,7 +113,7 @@ export function usePersonalData(period: string = "ytd") {
     }
 
     fetchPersonalData();
-  }, []);
+  }, [refetchKey]);
 
   // Compute stats based on period filter
   const stats = useMemo<PersonalStats>(() => {
@@ -195,5 +200,5 @@ export function usePersonalData(period: string = "ytd") {
     };
   }, [listings, buyers, period]);
 
-  return { stats, loading, error };
+  return { stats, loading, error, refetch };
 }

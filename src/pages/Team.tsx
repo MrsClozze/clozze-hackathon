@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Layout from "@/components/layout/Layout";
 import TeamStatsOverview from "@/components/team/TeamStatsOverview";
 import LockedTeamKPIs from "@/components/team/LockedTeamKPIs";
@@ -29,7 +29,7 @@ export default function Team() {
   const { subscription, user, refreshSubscription, loading: authLoading } = useAuth();
   const { refreshUser } = useUser();
   const [selectedPeriod, setSelectedPeriod] = useState("ytd");
-  const { stats: personalStats, loading: personalLoading } = usePersonalData(selectedPeriod);
+  const { stats: personalStats, loading: personalLoading, refetch: refetchPersonalData } = usePersonalData(selectedPeriod);
   const { stats: teamStats, loading: teamLoading } = useTeamData();
   const { hasTeamMemberAccess, totalSlots, loading: slotsLoading, refetch: refetchSlots } = useTeamMemberSlots();
   const { isTeamOwner, isTeamMember, teamOwnerId, loading: roleLoading } = useTeamRole();
@@ -123,6 +123,13 @@ export default function Team() {
       console.error('Error processing pending invitation:', error);
     }
   };
+
+  // Refetch personal stats when page gains focus (e.g., after editing a listing on another page)
+  useEffect(() => {
+    const handleFocus = () => refetchPersonalData();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refetchPersonalData]);
 
   // Refresh subscription + slots + user profile when returning from checkout
   useEffect(() => {
