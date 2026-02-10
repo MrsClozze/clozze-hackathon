@@ -9,6 +9,8 @@ export interface CalendarConnection {
   syncEnabled: boolean;
   lastSyncedAt: string | null;
   createdAt: string;
+  userId: string;
+  isOwned: boolean; // true if the current user owns this connection
 }
 
 export function useCalendarConnections() {
@@ -40,6 +42,8 @@ export function useCalendarConnections() {
         syncEnabled: conn.sync_enabled,
         lastSyncedAt: conn.last_synced_at,
         createdAt: conn.created_at,
+        userId: conn.user_id,
+        isOwned: conn.user_id === user.id,
       }));
 
       setConnections(mapped);
