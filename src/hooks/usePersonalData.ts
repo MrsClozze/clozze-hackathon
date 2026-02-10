@@ -11,6 +11,8 @@ export interface PersonalStats {
   totalSalesVolume: number;
   totalCommission: number;
   avgCommission: number;
+  projectedSalesVolume: number;
+  projectedCommission: number;
 }
 
 interface DateRange {
@@ -136,6 +138,15 @@ export function usePersonalData(period: string = "ytd") {
       0
     );
 
+    // Projected sales volume: Active + Pending listings
+    const pipelineListings = filteredListings.filter(
+      (l) => l.status === "Active" || l.status === "Pending"
+    );
+    const projectedSalesVolume = pipelineListings.reduce(
+      (sum, l) => sum + Number(l.price || 0),
+      0
+    );
+
     // Calculate listing commissions from stored agent_commission
     const listingCommissions = filteredListings.reduce(
       (sum, l) => sum + Number(l.agent_commission || 0),
@@ -143,17 +154,28 @@ export function usePersonalData(period: string = "ytd") {
     );
 
     // Calculate buyer commissions dynamically using 50/50 split logic
-    // Total commission = pre_approved_amount * (commission_percentage / 100)
-    // Agent commission = Total commission * 0.5 (50/50 split)
     const buyerCommissions = filteredBuyers.reduce((sum, b) => {
       const preApproved = Number(b.pre_approved_amount || 0);
       const commPct = Number(b.commission_percentage || 0);
       const totalComm = preApproved * (commPct / 100);
-      const agentComm = totalComm * 0.5; // 50/50 split
+      const agentComm = totalComm * 0.5;
       return sum + agentComm;
     }, 0);
 
     const totalCommission = listingCommissions + buyerCommissions;
+
+    // Projected commission: pipeline listing commissions + active buyer commissions
+    const pipelineListingCommissions = pipelineListings.reduce(
+      (sum, l) => sum + Number(l.agent_commission || 0),
+      0
+    );
+    const activeBuyerCommissions = activeBuyers.reduce((sum, b) => {
+      const preApproved = Number(b.pre_approved_amount || 0);
+      const commPct = Number(b.commission_percentage || 0);
+      const totalComm = preApproved * (commPct / 100);
+      return sum + totalComm * 0.5;
+    }, 0);
+    const projectedCommission = pipelineListingCommissions + activeBuyerCommissions;
 
     const totalItems = filteredListings.length + filteredBuyers.length;
     const avgCommission = totalItems > 0 ? totalCommission / totalItems : 0;
@@ -168,6 +190,8 @@ export function usePersonalData(period: string = "ytd") {
       totalSalesVolume,
       totalCommission,
       avgCommission,
+      projectedSalesVolume,
+      projectedCommission,
     };
   }, [listings, buyers, period]);
 
