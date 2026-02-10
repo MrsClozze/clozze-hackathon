@@ -1,5 +1,5 @@
 import React from "react";
-import { Building, Users, DollarSign, TrendingUp } from "lucide-react";
+import { Building, Users, DollarSign, TrendingUp, Target, PiggyBank } from "lucide-react";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { TeamStats } from "@/hooks/useTeamData";
 
@@ -33,14 +33,28 @@ export default function TeamStatsOverview({ stats }: TeamStatsOverviewProps) {
       color: "text-warning",
     },
     {
-      label: "Total Sales Volume",
+      label: "Closed Sales Volume",
       value: formatCurrency(stats.totalSalesVolume),
       change: `${stats.closedListings} closed deals`,
       icon: TrendingUp,
       color: "text-accent-gold",
     },
     {
-      label: "Total Commission",
+      label: "Projected Sales Volume",
+      value: formatCurrency(stats.projectedSalesVolume),
+      change: `${stats.activeListings + stats.pendingListings} pipeline deals`,
+      icon: Target,
+      color: "text-primary",
+    },
+    {
+      label: "Projected Commission",
+      value: formatCurrency(stats.projectedCommission),
+      change: "Active + Pending",
+      icon: PiggyBank,
+      color: "text-warning",
+    },
+    {
+      label: "Closed Commission",
       value: formatCurrency(stats.totalCommission),
       change: formatCurrency(stats.avgCommission) + " avg",
       icon: DollarSign,
@@ -49,7 +63,7 @@ export default function TeamStatsOverview({ stats }: TeamStatsOverviewProps) {
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-bento">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-bento">
       {statCards.map((stat, index) => (
         <BentoCard key={index}>
           <div className="flex items-center justify-between">

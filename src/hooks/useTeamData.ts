@@ -11,6 +11,8 @@ export interface TeamStats {
   totalSalesVolume: number;
   totalCommission: number;
   avgCommission: number;
+  projectedSalesVolume: number;
+  projectedCommission: number;
 }
 
 export function useTeamData() {
@@ -24,6 +26,8 @@ export function useTeamData() {
     totalSalesVolume: 0,
     totalCommission: 0,
     avgCommission: 0,
+    projectedSalesVolume: 0,
+    projectedCommission: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +104,8 @@ export function useTeamData() {
           totalSalesVolume,
           totalCommission,
           avgCommission,
+          projectedSalesVolume: 0,
+          projectedCommission: 0,
         });
       } catch (err) {
         console.error("Error fetching team data:", err);
