@@ -26,14 +26,21 @@ export function RootLayout() {
     }
   }, []);
 
-  // Hide Zendesk widget on auth page
+  // Hide Zendesk widget on auth page (with retry for async script load)
   useEffect(() => {
     const hide = location.pathname === '/auth';
-    if (hide) {
-      (window as any).zE?.('messenger', 'hide');
-    } else {
-      (window as any).zE?.('messenger', 'show');
-    }
+    const apply = () => {
+      const zE = (window as any).zE;
+      if (!zE) return false;
+      zE('messenger', hide ? 'hide' : 'show');
+      return true;
+    };
+    if (apply()) return;
+    // Retry until the script has loaded
+    const interval = setInterval(() => {
+      if (apply()) clearInterval(interval);
+    }, 300);
+    return () => clearInterval(interval);
   }, [location.pathname]);
 
   return (
