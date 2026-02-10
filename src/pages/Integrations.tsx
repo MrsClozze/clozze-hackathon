@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { useTeamRole } from "@/hooks/useTeamRole";
 
 import { AppleCalendarModal } from "@/components/integrations/AppleCalendarModal";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
@@ -18,7 +19,7 @@ import { useGmailConnection } from "@/hooks/useGmailConnection";
 
 import { useDotloopConnection } from "@/hooks/useDotloopConnection";
 import { useFollowUpBossConnection } from "@/hooks/useFollowUpBossConnection";
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, ShieldAlert } from "lucide-react";
 
 import googleCalendarLogo from "@/assets/google-calendar-logo.png";
 import appleCalendarLogo from "@/assets/apple-calendar-logo.png";
@@ -115,6 +116,7 @@ export default function Integrations() {
   } = useGmailConnection();
   const { tasks, bulkEnableExternalSync } = useTasks();
   const { pullAppleEvents } = useCalendarSync();
+  const { isTeamOwner, isTeamMember } = useTeamRole();
   
   
   const [isAppleModalOpen, setIsAppleModalOpen] = useState(false);
@@ -123,6 +125,14 @@ export default function Integrations() {
   const [pendingAppleCredentials, setPendingAppleCredentials] = useState<{ appleId: string; password: string } | null>(null);
   const [isFubApiKeyModalOpen, setIsFubApiKeyModalOpen] = useState(false);
   const [fubApiKey, setFubApiKey] = useState("");
+
+  // Check if a calendar provider has a team-owned connection (not by this user)
+  const isCalendarOwnedByAdmin = (integrationId: string): boolean => {
+    if (integrationId !== "google_calendar" && integrationId !== "apple_calendar") return false;
+    const provider = integrationId === "google_calendar" ? "google" : "apple";
+    const conn = connections.find(c => c.provider === provider);
+    return !!conn && !conn.isOwned;
+  };
 
   // Count tasks that would need syncing
   const tasksToSync = tasks.filter(t => t.showOnCalendar && !t.syncToExternalCalendar && !t.isDemo);
@@ -473,6 +483,7 @@ export default function Integrations() {
             const isConnected = getConnectionStatus(integration.id);
             const connectionDetails = getConnectionDetails(integration.id);
             const connecting = isConnectingIntegration(integration.id);
+            const adminOwned = isCalendarOwnedByAdmin(integration.id);
 
             return (
               <Card key={integration.id} className="p-6 flex flex-col">
@@ -503,9 +514,21 @@ export default function Integrations() {
                     {isConnected && connectionDetails && (
                       <p className="text-xs text-primary mt-1">{connectionDetails}</p>
                     )}
+                    {adminOwned && (
+                      <p className="text-xs text-accent-gold mt-1 flex items-center gap-1">
+                        <ShieldAlert className="h-3 w-3" />
+                        Admin-managed
+                      </p>
+                    )}
                   </div>
                 </div>
-                {isConnected ? (
+                {adminOwned ? (
+                  <div className="mt-auto p-3 rounded-lg bg-muted/50 border border-card-border text-center">
+                    <p className="text-sm text-text-muted">
+                      A calendar is already connected by your admin. To make changes, please contact your admin.
+                    </p>
+                  </div>
+                ) : isConnected ? (
                   <Button
                     variant="outline"
                     onClick={() => handleDisconnect(integration.id)}
