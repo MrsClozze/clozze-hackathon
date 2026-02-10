@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -142,6 +143,7 @@ function AppleCalendarModal({
 }
 
 export default function CalendarView() {
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialEvents);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
@@ -209,16 +211,22 @@ export default function CalendarView() {
   // Convert tasks with showOnCalendar to calendar events
   const taskEvents = useMemo(() => {
     return tasks
-      .filter(task => task.showOnCalendar && task.dueDate)
+      .filter(task => {
+        if (!task.showOnCalendar || !task.dueDate) return false;
+        if (!user) return false;
+        // Only show tasks the current user owns or is assigned to
+        const isOwner = task.userId === user.id;
+        const isAssigned = task.assigneeUserIds?.includes(user.id) ?? false;
+        const hasNoAssignees = !task.assigneeUserIds || task.assigneeUserIds.length === 0;
+        return isOwner || isAssigned || (hasNoAssignees && isOwner);
+      })
       .map(task => {
-        // Parse date string as local date to avoid timezone shift
-        // dueDate is in YYYY-MM-DD format, parse components directly
         const [year, month, day] = task.dueDate!.split('-').map(Number);
         return {
           id: `task-${task.id}`,
-          taskId: task.id, // Store the actual task ID for click handling
+          taskId: task.id,
           date: day,
-          month: month - 1, // JavaScript months are 0-indexed
+          month: month - 1,
           year: year,
           title: task.title,
           time: task.dueTime || undefined,
@@ -228,7 +236,7 @@ export default function CalendarView() {
           isTask: true,
         };
       });
-  }, [tasks]);
+  }, [tasks, user]);
 
   // Combine manual events with task events
   const allEvents = useMemo(() => {

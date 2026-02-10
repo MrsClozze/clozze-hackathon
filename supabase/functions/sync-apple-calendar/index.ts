@@ -40,6 +40,8 @@ interface RequestBody {
   eventId?: string;
   taskId?: string;
   taskIds?: string[];
+  targetUserIds?: string[];
+  syncMode?: "all" | "selected";
 }
 
 interface AppleCalendarCredentials {
@@ -619,7 +621,7 @@ serve(async (req) => {
     }
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { action, task, eventId, taskId } = await req.json() as RequestBody;
+    const { action, task, eventId, taskId, targetUserIds, syncMode } = await req.json() as RequestBody;
 
     // Get Apple Calendar credentials
     const credentials = await getAppleCredentials(adminClient, user.id);
@@ -645,39 +647,86 @@ serve(async (req) => {
     }
 
     if (action === "sync_task" && task) {
-      const result = await syncTaskToAppleCalendar(credentials, discovery.calendarUrl, task);
+      // Determine which users' calendars to sync to
+      let userIdsToSync: string[] = [user.id];
       
-      // Store the Apple Calendar event ID in the task
-      if (result.success && result.eventId && task.id) {
-        // Use a separate field or append to existing external_calendar_event_id
-        // For simplicity, we'll use a JSON format: {"google": "...", "apple": "..."}
-        const { data: existingTask } = await adminClient
-          .from("tasks")
-          .select("external_calendar_event_id")
-          .eq("id", task.id)
-          .single();
-        
-        let eventIds: Record<string, string> = {};
-        if (existingTask?.external_calendar_event_id) {
-          try {
-            eventIds = JSON.parse(existingTask.external_calendar_event_id);
-          } catch {
-            // If it's not JSON (old format from Google), preserve it
-            eventIds = { google: existingTask.external_calendar_event_id };
-          }
-        }
-        eventIds.apple = result.eventId;
-        
-        await adminClient
-          .from("tasks")
-          .update({ external_calendar_event_id: JSON.stringify(eventIds) })
-          .eq("id", task.id);
+      if (syncMode === "all" || syncMode === "selected") {
+        if (syncMode === "all") {
+          const { data: teamConnections } = await adminClient
+            .from("calendar_connections")
+            .select("user_id")
+            .eq("provider", "apple");
           
-        console.log("Stored Apple Calendar event ID in task:", task.id, result.eventId);
+          if (teamConnections) {
+            const { data: callerTeam } = await adminClient
+              .from("team_members")
+              .select("team_id")
+              .eq("user_id", user.id)
+              .eq("status", "active")
+              .limit(1);
+            
+            if (callerTeam && callerTeam.length > 0) {
+              const { data: teamMemberIds } = await adminClient
+                .from("team_members")
+                .select("user_id")
+                .eq("team_id", callerTeam[0].team_id)
+                .eq("status", "active");
+              
+              const teamUserIds = new Set((teamMemberIds || []).map((m: { user_id: string }) => m.user_id));
+              userIdsToSync = teamConnections
+                .map(c => c.user_id)
+                .filter(uid => teamUserIds.has(uid));
+            }
+          }
+        } else if (targetUserIds && targetUserIds.length > 0) {
+          userIdsToSync = targetUserIds;
+        }
+      }
+      
+      const results = [];
+      for (const targetUserId of userIdsToSync) {
+        const targetCredentials = await getAppleCredentials(adminClient, targetUserId);
+        if (!targetCredentials) {
+          results.push({ userId: targetUserId, success: false, error: "No credentials" });
+          continue;
+        }
+        
+        const targetDiscovery = await discoverCalendarUrl(targetCredentials);
+        if (!targetDiscovery) {
+          results.push({ userId: targetUserId, success: false, error: "Discovery failed" });
+          continue;
+        }
+        
+        const result = await syncTaskToAppleCalendar(targetCredentials, targetDiscovery.calendarUrl, task);
+        results.push({ userId: targetUserId, ...result });
+        
+        // Store event ID only for task creator
+        if (result.success && result.eventId && task.id && targetUserId === user.id) {
+          const { data: existingTask } = await adminClient
+            .from("tasks")
+            .select("external_calendar_event_id")
+            .eq("id", task.id)
+            .single();
+          
+          let eventIds: Record<string, string> = {};
+          if (existingTask?.external_calendar_event_id) {
+            try {
+              eventIds = JSON.parse(existingTask.external_calendar_event_id);
+            } catch {
+              eventIds = { google: existingTask.external_calendar_event_id };
+            }
+          }
+          eventIds.apple = result.eventId;
+          
+          await adminClient
+            .from("tasks")
+            .update({ external_calendar_event_id: JSON.stringify(eventIds) })
+            .eq("id", task.id);
+        }
       }
       
       return new Response(
-        JSON.stringify(result),
+        JSON.stringify({ success: true, results }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

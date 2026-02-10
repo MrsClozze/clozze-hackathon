@@ -8,15 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, Users, Contact, Upload, X, FileIcon, Home, User, CalendarPlus, Clock, Repeat } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useTasks } from "@/contexts/TasksContext";
+import { useTasks, CalendarSyncTargets } from "@/contexts/TasksContext";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { useTeamRole } from "@/hooks/useTeamRole";
 import { isDemoId } from "@/data/demoData";
 
 interface AddTaskModalProps {
@@ -47,6 +49,7 @@ export default function AddTaskModal({
   const { listings: allListings } = useListings();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
   const { connections: calendarConnections } = useCalendarConnections();
+  const { isTeamOwner } = useTeamRole();
 
   // Filter out demo data - only show real buyers and listings
   const buyers = allBuyers.filter(b => !isDemoId(b.id));
@@ -74,6 +77,8 @@ export default function AddTaskModal({
   const [dueDateError, setDueDateError] = useState(false);
   const [showOnCalendar, setShowOnCalendar] = useState(true); // Default ON
   const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
+  const [syncTargetMode, setSyncTargetMode] = useState<"mine" | "all" | "selected">("mine");
+  const [selectedSyncUserIds, setSelectedSyncUserIds] = useState<string[]>([]);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | undefined>(undefined);
   const [includeWeekends, setIncludeWeekends] = useState(false);
@@ -114,6 +119,15 @@ export default function AddTaskModal({
       const selectedListing = listings.find(l => l.id === selectedListingId);
       const taskAddress = selectedListing?.address || defaultAddress;
 
+      // Build calendar sync targets for admin users
+      const calendarSyncTargets: CalendarSyncTargets | undefined = 
+        syncToExternalCalendar && isTeamOwner && syncTargetMode !== "mine"
+          ? {
+              mode: syncTargetMode,
+              userIds: syncTargetMode === "selected" ? selectedSyncUserIds : undefined,
+            }
+          : undefined;
+
       await addTask({
         title: title.trim(),
         notes: notes.trim(),
@@ -134,6 +148,7 @@ export default function AddTaskModal({
         listingId: selectedListingId && selectedListingId !== "none" ? selectedListingId : undefined,
         showOnCalendar,
         syncToExternalCalendar: hasConnectedCalendar ? syncToExternalCalendar : false,
+        calendarSyncTargets,
         recurrencePattern: recurrencePattern && recurrencePattern !== "none" ? recurrencePattern : undefined,
         recurrenceEndDate: recurrenceEndDate ? format(recurrenceEndDate, "yyyy-MM-dd") : undefined,
         includeWeekends: recurrencePattern === "daily" ? includeWeekends : undefined,
@@ -170,6 +185,8 @@ export default function AddTaskModal({
     setDueDateError(false);
     setShowOnCalendar(true);
     setSyncToExternalCalendar(false);
+    setSyncTargetMode("mine");
+    setSelectedSyncUserIds([]);
     setRecurrencePattern("");
     setRecurrenceEndDate(undefined);
     setIncludeWeekends(false);
@@ -517,6 +534,64 @@ export default function AddTaskModal({
                 disabled={!hasConnectedCalendar}
               />
             </div>
+
+            {/* Admin Sync Target Selector - only when sync is enabled and user is admin */}
+            {syncToExternalCalendar && isTeamOwner && teamMembers.length > 1 && (
+              <div className="ml-6 space-y-3 p-3 rounded-lg bg-muted/30 border border-border/50">
+                <Label className="text-sm font-medium text-text-heading">Sync to:</Label>
+                <RadioGroup 
+                  value={syncTargetMode} 
+                  onValueChange={(v) => setSyncTargetMode(v as "mine" | "all" | "selected")}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="mine" id="sync-mine" />
+                    <Label htmlFor="sync-mine" className="text-sm cursor-pointer">My calendar only</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="all" id="sync-all" />
+                    <Label htmlFor="sync-all" className="text-sm cursor-pointer">All team member calendars</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="selected" id="sync-selected" />
+                    <Label htmlFor="sync-selected" className="text-sm cursor-pointer">Selected team member calendars</Label>
+                  </div>
+                </RadioGroup>
+
+                {syncTargetMode === "selected" && (
+                  <div className="space-y-2">
+                    {selectedSyncUserIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedSyncUserIds.map(uid => {
+                          const member = teamMembers.find(m => m.userId === uid);
+                          if (!member) return null;
+                          return (
+                            <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs">
+                              {member.name}
+                              <button type="button" onClick={() => setSelectedSyncUserIds(prev => prev.filter(id => id !== uid))} className="hover:bg-primary/20 rounded-full p-0.5">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <Select value="" onValueChange={(uid) => { if (uid && !selectedSyncUserIds.includes(uid)) setSelectedSyncUserIds(prev => [...prev, uid]); }}>
+                      <SelectTrigger className="bg-background-elevated border-primary/25 h-8 text-xs">
+                        <SelectValue placeholder="Select team members..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {teamMembers
+                          .filter(m => !selectedSyncUserIds.includes(m.userId))
+                          .map(m => (
+                            <SelectItem key={m.userId} value={m.userId}>{m.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Assign to Buyer (Optional) - Only show if not pre-filled */}

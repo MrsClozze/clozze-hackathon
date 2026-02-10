@@ -14,6 +14,11 @@ export interface TaskAssignee {
   assignedAt?: string;
 }
 
+export interface CalendarSyncTargets {
+  mode: "mine" | "all" | "selected";
+  userIds?: string[];
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -37,6 +42,7 @@ export interface Task {
   assignees?: TaskAssignee[];
   showOnCalendar?: boolean;
   syncToExternalCalendar?: boolean;
+  calendarSyncTargets?: CalendarSyncTargets;
   recurrencePattern?: string;
   recurrenceEndDate?: string;
   parentTaskId?: string;
@@ -124,6 +130,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
         showOnCalendar: task.show_on_calendar || false,
         syncToExternalCalendar: task.sync_to_external_calendar || false,
+        calendarSyncTargets: task.calendar_sync_targets ? (typeof task.calendar_sync_targets === 'string' ? JSON.parse(task.calendar_sync_targets) : task.calendar_sync_targets) : undefined,
         recurrencePattern: task.recurrence_pattern || undefined,
         recurrenceEndDate: task.recurrence_end_date || undefined,
         parentTaskId: task.parent_task_id || undefined,
@@ -198,6 +205,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignee_user_id: updates.assigneeUserId || null,
         show_on_calendar: updates.showOnCalendar,
         sync_to_external_calendar: updates.syncToExternalCalendar,
+        calendar_sync_targets: updates.calendarSyncTargets !== undefined 
+          ? (updates.calendarSyncTargets ? JSON.stringify(updates.calendarSyncTargets) : null) 
+          : undefined,
       };
 
       // Remove undefined values
@@ -369,6 +379,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assignee_user_id: task.assigneeUserId || null,
         show_on_calendar: task.showOnCalendar ?? false,
         sync_to_external_calendar: task.syncToExternalCalendar ?? false,
+        calendar_sync_targets: task.calendarSyncTargets ? JSON.stringify(task.calendarSyncTargets) : null,
         recurrence_pattern: task.recurrencePattern || null,
         recurrence_end_date: task.recurrenceEndDate || null,
         include_weekends: task.recurrencePattern === 'daily' ? (task.includeWeekends ?? false) : true,
@@ -437,13 +448,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If syncToExternalCalendar is true, sync to all connected calendars
+      // If syncToExternalCalendar is true, sync to connected calendars
       if (task.syncToExternalCalendar && task.dueDate) {
         console.log('[TasksContext] Syncing task to connected calendars:', {
           taskId: data.id,
           title: task.title,
           dueDate: task.dueDate,
           dueTime: task.dueTime,
+          calendarSyncTargets: task.calendarSyncTargets,
         });
         
         const taskPayload = {
@@ -457,47 +469,67 @@ export function TasksProvider({ children }: { children: ReactNode }) {
           timezone: getBrowserTimezone(),
         };
         
-        // IMPORTANT: Do not let Apple sync latency block Google sync.
-        // We await Google (primary) and kick off Apple with a short timeout.
-        const googlePromise = supabase.functions.invoke('sync-google-calendar', {
-          body: { action: 'sync_task', task: taskPayload },
-        });
-
-        const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
-          new Promise((resolve, reject) => {
-            const t = setTimeout(() => reject(new Error(`timeout_${ms}ms`)), ms);
-            p.then((v) => {
-              clearTimeout(t);
-              resolve(v);
-            }).catch((e) => {
-              clearTimeout(t);
-              reject(e);
-            });
-          });
-
-        // Fire Apple sync (best effort) without slowing the UI.
-        void withTimeout(
-          supabase.functions.invoke('sync-apple-calendar', {
-            body: { action: 'sync_task', task: taskPayload },
-          }),
-          6000
-        ).catch((err) => {
-          console.warn('[TasksContext] Apple calendar sync failed (non-blocking):', err);
-        });
-
-        const googleResult = await googlePromise;
-
-        const googleHasError = Boolean((googleResult as any)?.error || (googleResult as any)?.data?.error);
-
-        if (googleHasError) {
-          console.error('[TasksContext] Google calendar sync failed:', googleResult);
-          toast({
-            title: "Task created",
-            description: "Google calendar sync failed. Please check your calendar connection.",
-            variant: "destructive",
-          });
+        const syncTargets = task.calendarSyncTargets;
+        
+        // Determine target user IDs for multi-target sync
+        if (syncTargets && syncTargets.mode !== "mine") {
+          // Admin multi-target sync
+          const targetUserIds = syncTargets.mode === "all" 
+            ? undefined  // Edge function will handle "all"
+            : syncTargets.userIds || [];
+          
+          const syncBody = { 
+            action: 'sync_task', 
+            task: taskPayload, 
+            targetUserIds,
+            syncMode: syncTargets.mode,
+          };
+          
+          await Promise.allSettled([
+            supabase.functions.invoke('sync-google-calendar', { body: syncBody }),
+            supabase.functions.invoke('sync-apple-calendar', { body: syncBody }),
+          ]);
         } else {
-          console.log('[TasksContext] Task synced to connected calendars');
+          // Default: sync to creator's calendar only
+          const googlePromise = supabase.functions.invoke('sync-google-calendar', {
+            body: { action: 'sync_task', task: taskPayload },
+          });
+
+          const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+            new Promise((resolve, reject) => {
+              const t = setTimeout(() => reject(new Error(`timeout_${ms}ms`)), ms);
+              p.then((v) => {
+                clearTimeout(t);
+                resolve(v);
+              }).catch((e) => {
+                clearTimeout(t);
+                reject(e);
+              });
+            });
+
+          void withTimeout(
+            supabase.functions.invoke('sync-apple-calendar', {
+              body: { action: 'sync_task', task: taskPayload },
+            }),
+            6000
+          ).catch((err) => {
+            console.warn('[TasksContext] Apple calendar sync failed (non-blocking):', err);
+          });
+
+          const googleResult = await googlePromise;
+
+          const googleHasError = Boolean((googleResult as any)?.error || (googleResult as any)?.data?.error);
+
+          if (googleHasError) {
+            console.error('[TasksContext] Google calendar sync failed:', googleResult);
+            toast({
+              title: "Task created",
+              description: "Google calendar sync failed. Please check your calendar connection.",
+              variant: "destructive",
+            });
+          } else {
+            console.log('[TasksContext] Task synced to connected calendars');
+          }
         }
       } else {
         console.log('[TasksContext] Task not synced to external calendar:', {

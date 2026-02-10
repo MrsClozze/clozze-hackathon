@@ -748,6 +748,7 @@ export type Database = {
           assignee: string | null
           assignee_user_id: string | null
           buyer_id: string | null
+          calendar_sync_targets: Json | null
           contact_id: string | null
           created_at: string
           date: string | null
@@ -778,6 +779,7 @@ export type Database = {
           assignee?: string | null
           assignee_user_id?: string | null
           buyer_id?: string | null
+          calendar_sync_targets?: Json | null
           contact_id?: string | null
           created_at?: string
           date?: string | null
@@ -808,6 +810,7 @@ export type Database = {
           assignee?: string | null
           assignee_user_id?: string | null
           buyer_id?: string | null
+          calendar_sync_targets?: Json | null
           contact_id?: string | null
           created_at?: string
           date?: string | null

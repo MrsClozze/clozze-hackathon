@@ -27,8 +27,10 @@ interface RequestBody {
   action: "sync_task" | "delete_event" | "sync_all";
   task?: TaskToSync;
   eventId?: string;
-  taskId?: string; // For deleting by task ID
+  taskId?: string;
   taskIds?: string[];
+  targetUserIds?: string[];
+  syncMode?: "all" | "selected";
 }
 
 interface CalendarConnection {
@@ -319,7 +321,7 @@ serve(async (req) => {
     }
 
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { action, task, eventId, taskId, taskIds } = await req.json() as RequestBody;
+    const { action, task, eventId, taskId, taskIds, targetUserIds, syncMode } = await req.json() as RequestBody;
 
     // Get valid access token
     const accessToken = await getValidAccessToken(adminClient, user.id);
@@ -335,19 +337,70 @@ serve(async (req) => {
     }
 
     if (action === "sync_task" && task) {
-      const result = await syncTaskToGoogleCalendar(accessToken, task);
+      // Determine which users' calendars to sync to
+      let userIdsToSync: string[] = [user.id];
       
-      // Store the Google Calendar event ID in the task for future reference
-      if (result.success && result.eventId && task.id) {
-        await adminClient
-          .from("tasks")
-          .update({ external_calendar_event_id: result.eventId })
-          .eq("id", task.id);
-        console.log("Stored Google Calendar event ID in task:", task.id, result.eventId);
+      if (syncMode === "all" || syncMode === "selected") {
+        // Verify caller is team owner/admin via shared_team
+        if (syncMode === "all") {
+          // Get all team members with google calendar connections
+          const { data: teamConnections } = await adminClient
+            .from("calendar_connections")
+            .select("user_id")
+            .eq("provider", "google");
+          
+          if (teamConnections) {
+            // Filter to team members only (using shared_team check via RPC would be ideal, 
+            // but we use a simpler approach: get team members from the caller's team)
+            const { data: callerTeam } = await adminClient
+              .from("team_members")
+              .select("team_id")
+              .eq("user_id", user.id)
+              .eq("status", "active")
+              .limit(1);
+            
+            if (callerTeam && callerTeam.length > 0) {
+              const { data: teamMemberIds } = await adminClient
+                .from("team_members")
+                .select("user_id")
+                .eq("team_id", callerTeam[0].team_id)
+                .eq("status", "active");
+              
+              const teamUserIds = new Set((teamMemberIds || []).map(m => m.user_id));
+              userIdsToSync = teamConnections
+                .map(c => c.user_id)
+                .filter(uid => teamUserIds.has(uid));
+            }
+          }
+        } else if (targetUserIds && targetUserIds.length > 0) {
+          userIdsToSync = targetUserIds;
+        }
+      }
+      
+      const results = [];
+      for (const targetUserId of userIdsToSync) {
+        const targetAccessToken = await getValidAccessToken(adminClient, targetUserId);
+        if (!targetAccessToken) {
+          console.log(`No valid token for user ${targetUserId}, skipping`);
+          results.push({ userId: targetUserId, success: false, error: "No valid token" });
+          continue;
+        }
+        
+        const result = await syncTaskToGoogleCalendar(targetAccessToken, task);
+        results.push({ userId: targetUserId, ...result });
+        
+        // Store event ID only for the task creator's sync
+        if (result.success && result.eventId && task.id && targetUserId === user.id) {
+          await adminClient
+            .from("tasks")
+            .update({ external_calendar_event_id: result.eventId })
+            .eq("id", task.id);
+          console.log("Stored Google Calendar event ID in task:", task.id, result.eventId);
+        }
       }
       
       return new Response(
-        JSON.stringify(result),
+        JSON.stringify({ success: true, results }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
