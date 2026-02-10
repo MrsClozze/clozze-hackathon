@@ -389,6 +389,15 @@ export default function Integrations() {
   };
 
   const handleDisconnect = async (integrationId: string) => {
+    // Block disconnect for admin-managed calendars
+    if (isCalendarOwnedByAdmin(integrationId)) {
+      toast({
+        title: "Admin-managed calendar",
+        description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
+      });
+      return;
+    }
+
     if (integrationId === "google_calendar") {
       await disconnectCalendar("google");
       return;

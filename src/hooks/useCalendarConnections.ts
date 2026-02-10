@@ -184,6 +184,16 @@ export function useCalendarConnections() {
   };
 
   const disconnect = async (provider: "google" | "apple") => {
+    // Check ownership before attempting disconnect
+    const conn = getConnection(provider);
+    if (conn && !conn.isOwned) {
+      toast({
+        title: "Admin-managed calendar",
+        description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
+      });
+      return;
+    }
+
     try {
       const functionName = `${provider}-calendar-auth`;
       
