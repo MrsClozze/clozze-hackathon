@@ -1,25 +1,18 @@
 
-
-## Remove `calendar.readonly` Scope from Google OAuth
+## Hide Zendesk Chat Widget on the Sign-In Page
 
 ### Problem
-Google's verification team flagged that `calendar.readonly` is showing on the OAuth consent screen but is **not** listed in your Cloud Console submission. Since `calendar.events` already includes full read + write access to calendars, the `calendar.readonly` scope is redundant and must be removed.
+The Zendesk chat widget currently appears on every page, including the sign-in (`/auth`) page where it's unnecessary and potentially distracting.
 
-### Changes Required
+### Approach
+Since the Zendesk widget is loaded globally in `RootLayout.tsx`, we'll add route-awareness to hide it on the `/auth` page (and optionally `/reset-password` and `/onboarding` pages too).
 
-**1. Frontend - `src/hooks/useCalendarConnections.ts`**
-Remove `calendar.readonly` from the scopes array (line 113). The remaining scopes will be:
-- `calendar.events` (read + write calendar access)
-- `userinfo.email` (identify the Google account)
+### Changes
 
-**2. Backend - `supabase/functions/google-calendar-auth/index.ts`**
-Remove `calendar.readonly` from the scopes array (line 82). Same two scopes remain.
+**1. `src/components/layout/RootLayout.tsx`**
+- Import `useLocation` from `react-router-dom`
+- After the Zendesk script loads, use a second `useEffect` that watches the current route
+- When on `/auth`, call the Zendesk API to hide the widget: `window.zE?.('messenger', 'hide')`
+- On all other routes, show it again: `window.zE?.('messenger', 'show')`
 
-### Why This Is Safe
-- `calendar.events` provides full read and write access, so removing `calendar.readonly` does not reduce any functionality
-- All existing sync features (reading events, creating events) will continue to work exactly as before
-- This aligns the codebase with the three scopes submitted in Google Cloud Console: `calendar.events`, `gmail.readonly`, and `gmail.send`
-
-### Technical Details
-Both edits are single-line removals. No database changes, no new dependencies, no user-facing behavior changes.
-
+This is a single-file change with no impact on other functionality. The widget will simply be hidden when the user is on the sign-in page and automatically reappear on all other pages.
