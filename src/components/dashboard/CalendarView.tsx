@@ -381,8 +381,20 @@ export default function CalendarView() {
   // Count tasks that would need syncing
   const tasksToSync = tasks.filter(t => t.showOnCalendar && !t.syncToExternalCalendar);
   
+  const isCalendarAdminManaged = (provider: "google" | "apple") => {
+    const conn = getConnection(provider);
+    return !!conn && !conn.isOwned;
+  };
+
   const handleGoogleConnect = async () => {
     if (isConnected("google")) {
+      if (isCalendarAdminManaged("google")) {
+        toast({
+          title: "Admin-managed calendar",
+          description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
+        });
+        return;
+      }
       await disconnect("google");
     } else {
       // Check if there are existing calendar tasks - show confirmation dialog
@@ -396,6 +408,13 @@ export default function CalendarView() {
 
   const handleAppleConnect = () => {
     if (isConnected("apple")) {
+      if (isCalendarAdminManaged("apple")) {
+        toast({
+          title: "Admin-managed calendar",
+          description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
+        });
+        return;
+      }
       disconnect("apple");
     } else {
       setIsAppleModalOpen(true);
@@ -491,7 +510,7 @@ export default function CalendarView() {
                     isConnected("google") 
                       ? "border-success/50 bg-success/5" 
                       : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
-                  }`}
+                  } ${isCalendarAdminManaged("google") ? "cursor-default" : ""}`}
                   onClick={handleGoogleConnect}
                   disabled={connecting === "google"}
                 >
@@ -505,6 +524,9 @@ export default function CalendarView() {
                         ? `Connected: ${getConnection("google")?.providerEmail || ""}` 
                         : "Sync with your Google account"}
                     </p>
+                    {isCalendarAdminManaged("google") && (
+                      <p className="text-xs text-accent-gold mt-1">Admin-managed</p>
+                    )}
                   </div>
                   {connecting === "google" ? (
                     <Loader2 className="h-5 w-5 text-primary animate-spin" />
@@ -521,7 +543,7 @@ export default function CalendarView() {
                     isConnected("apple") 
                       ? "border-success/50 bg-success/5" 
                       : "border-card-border bg-background hover:bg-primary/5 hover:border-primary/30"
-                  }`}
+                  } ${isCalendarAdminManaged("apple") ? "cursor-default" : ""}`}
                   onClick={handleAppleConnect}
                   disabled={connecting === "apple"}
                 >
@@ -535,6 +557,9 @@ export default function CalendarView() {
                         ? `Connected: ${getConnection("apple")?.providerEmail || ""}` 
                         : "Sync with iCloud Calendar"}
                     </p>
+                    {isCalendarAdminManaged("apple") && (
+                      <p className="text-xs text-accent-gold mt-1">Admin-managed</p>
+                    )}
                   </div>
                   {connecting === "apple" ? (
                     <Loader2 className="h-5 w-5 text-primary animate-spin" />
@@ -546,7 +571,7 @@ export default function CalendarView() {
                 </button>
               </div>
 
-              {connectedCount > 0 && (
+              {connectedCount > 0 && !isCalendarAdminManaged("google") && !isCalendarAdminManaged("apple") && (
                 <p className="text-xs text-text-subtle text-center mt-4">
                   Click a connected calendar to disconnect it.
                 </p>
