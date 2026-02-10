@@ -16,7 +16,7 @@ import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
 
 type StatusFilter = "all" | "active" | "completed";
-type ViewTab = "my-tasks" | "team";
+type ViewTab = "my-tasks" | "all" | "team";
 
 type TypeFilterState = {
   buyers: boolean;
@@ -74,6 +74,9 @@ export default function Tasks() {
 
   const baseTasks = useMemo(() => {
     if (!user) return [];
+    if (viewTab === "all") {
+      return tasks; // Show all workspace tasks
+    }
     if (viewTab === "team") {
       return tasks.filter(hasTeammateAssigned);
     }
@@ -190,6 +193,16 @@ export default function Tasks() {
               >
                 <User className="h-4 w-4" />
                 My Tasks
+              </button>
+              <button
+                onClick={() => setViewTab("all")}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all gap-2 ${
+                  viewTab === "all"
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "hover:bg-muted-foreground/10"
+                }`}
+              >
+                All Tasks
               </button>
               <button
                 onClick={() => setViewTab("team")}
