@@ -91,9 +91,24 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
     setIsEditing(false);
   };
 
+  const recalculateCommissions = (listing: ListingData): ListingData => {
+    const price = Number(listing.price) || 0;
+    const pct = Number(listing.commissionPercentage) || 0;
+    const totalCommission = price * (pct / 100);
+    const agentCommission = totalCommission * 0.5;
+    const brokerageCommission = totalCommission * 0.5;
+    return { ...listing, totalCommission, agentCommission, brokerageCommission, commission: agentCommission };
+  };
+
   const updateField = (field: keyof ListingData, value: any) => {
     if (editedListing) {
-      setEditedListing({ ...editedListing, [field]: value });
+      const updated = { ...editedListing, [field]: value };
+      // Recalculate commissions when price or percentage changes
+      if (field === 'price' || field === 'commissionPercentage') {
+        setEditedListing(recalculateCommissions(updated));
+      } else {
+        setEditedListing(updated);
+      }
     }
   };
 
