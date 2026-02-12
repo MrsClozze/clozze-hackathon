@@ -15,6 +15,7 @@ import { Clock, MapPin, User, Plus, Info, Users, CalendarRange, Repeat } from "l
 import { format, differenceInDays, parseISO } from "date-fns";
 import TaskDetailsModal from "@/components/dashboard/TaskDetailsModal";
 import AddTaskModal from "@/components/dashboard/AddTaskModal";
+import AITaskInput from "@/components/dashboard/AITaskInput";
 
 type StatusFilter = "all" | "active" | "completed";
 
@@ -187,6 +188,12 @@ export default function Tasks() {
             </p>
           </div>
         )}
+
+        <AITaskInput
+          teamMembers={teammates.map(m => ({ userId: m.userId, name: m.name }))}
+          buyers={buyers.map(b => ({ id: b.id, firstName: b.firstName, lastName: b.lastName }))}
+          listings={listings.map(l => ({ id: l.id, address: l.address }))}
+        />
 
         {hasTeamMemberAccess && teammates.length > 0 && (
           <div className="mb-6">
