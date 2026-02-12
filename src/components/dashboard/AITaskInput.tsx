@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Sparkles, Send, Loader2, X } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Sparkles, Send, Loader2, Mic, MicOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,8 +47,62 @@ export default function AITaskInput({ teamMembers, buyers, listings }: AITaskInp
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [parsedTask, setParsedTask] = useState<ParsedTask | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const { toast } = useToast();
   const { addTask } = useTasks();
+
+  const startRecording = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Not Supported", description: "Speech recognition is not supported in this browser.", variant: "destructive" });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    let finalTranscript = input;
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += (finalTranscript ? " " : "") + transcript;
+        } else {
+          interim = transcript;
+        }
+      }
+      setInput(finalTranscript + (interim ? " " + interim : ""));
+    };
+
+    recognition.onerror = (event: any) => {
+      setIsRecording(false);
+      if (event.error === "not-allowed") {
+        toast({ title: "Microphone Blocked", description: "Please allow microphone access in your browser settings.", variant: "destructive" });
+      } else {
+        toast({ title: "Voice Error", description: "Speech recognition failed. Please try again.", variant: "destructive" });
+      }
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  }, [input, toast]);
+
+  const stopRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  }, []);
 
   const handleSubmit = async () => {
     const text = input.trim();
@@ -147,13 +201,22 @@ export default function AITaskInput({ teamMembers, buyers, listings }: AITaskInp
         </div>
         <div className="flex gap-2">
           <Input
-            placeholder='Try: "Create a task for John to send the inspection report by Friday"'
+            placeholder={isRecording ? "Listening…" : 'Try: "Create a task for John to send the inspection report by Friday"'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             disabled={loading}
             className="flex-1"
           />
+          <Button
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={loading}
+            size="icon"
+            variant={isRecording ? "destructive" : "outline"}
+            className={isRecording ? "animate-pulse" : ""}
+          >
+            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
           <Button onClick={handleSubmit} disabled={!input.trim() || loading} size="icon">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
