@@ -236,11 +236,9 @@ export default function CalendarView() {
   const [newEventDescription, setNewEventDescription] = useState("");
   const [activeTab, setActiveTab] = useState("tasks");
   
-  // Team calendar state
+  // Team shared events state
   const [teamEvents, setTeamEvents] = useState<CalendarEvent[]>([]);
-  const [teamAdmins, setTeamAdmins] = useState<{ userId: string; name: string; }[]>([]);
-  const [newTeamEventAdmin, setNewTeamEventAdmin] = useState("");
-  const [newTeamEventSyncExternal, setNewTeamEventSyncExternal] = useState(false);
+  const [teamAdminsExist, setTeamAdminsExist] = useState(false);
   
   // Sync confirmation dialog state
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
@@ -308,11 +306,12 @@ export default function CalendarView() {
         .eq("share_calendars_with_team", true);
 
       if (!prefs || prefs.length === 0) {
-        setTeamAdmins([]);
+        setTeamAdminsExist(false);
         setTeamEvents([]);
         return;
       }
 
+      setTeamAdminsExist(true);
       const sharingUserIds = prefs.map(p => p.user_id);
 
       // Get profiles for names
@@ -325,7 +324,6 @@ export default function CalendarView() {
         userId: p.id,
         name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Team Member",
       }));
-      setTeamAdmins(admins);
 
       // Fetch their calendar events  
       const { data: events } = await supabase
@@ -461,15 +459,13 @@ export default function CalendarView() {
     });
   }, [connectedEvents]);
 
-  // Get events based on active tab
+  // Get events based on active tab, merging team events when sharing is enabled
   const activeEvents = useMemo(() => {
     switch (activeTab) {
       case "tasks":
-        return taskEvents;
+        return [...taskEvents, ...teamEvents.filter(e => e.isTeamEvent)];
       case "connected":
         return connectedCalendarEvents;
-      case "team":
-        return teamEvents;
       default:
         return taskEvents;
     }
@@ -487,89 +483,12 @@ export default function CalendarView() {
   const handleDayClick = (day: number) => {
     setSelectedDay(day);
     setIsDailyViewOpen(true);
-    // Reset team event form
-    if (teamAdmins.length > 0) {
-      setNewTeamEventAdmin(teamAdmins[0].userId);
-    }
   };
 
   const handleAddEvent = async () => {
     if (!newEventTitle.trim() || !selectedDay) return;
 
-    if (activeTab === "team") {
-      // Create event on admin's calendar
-      if (!newTeamEventAdmin) {
-        toast({ title: "Select a team member", description: "Please select which team member's calendar to add to.", variant: "destructive" });
-        return;
-      }
-
-      const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
-      const newEvent = {
-        user_id: newTeamEventAdmin,
-        title: newEventTitle,
-        description: newEventDescription || null,
-        event_date: eventDate.toISOString().split('T')[0],
-        event_time: newEventTime || null,
-        event_type: 'custom',
-        source: 'team_member',
-        reminder_enabled: false,
-      };
-
-      const { data, error } = await supabase
-        .from("calendar_events")
-        .insert(newEvent)
-        .select()
-        .single();
-
-      if (error) {
-        toast({ title: "Error", description: "Failed to create event. Make sure the team member has calendar sharing enabled.", variant: "destructive" });
-        return;
-      }
-
-      // If sync to external calendar is enabled, trigger sync
-      if (newTeamEventSyncExternal && data) {
-        try {
-          await supabase.functions.invoke('sync-google-calendar', {
-            body: {
-              action: 'sync_task',
-              task: {
-                id: data.id,
-                title: newEventTitle,
-                notes: newEventDescription || "",
-                dueDate: eventDate.toISOString().split('T')[0],
-                dueTime: newEventTime || undefined,
-              },
-              targetUserIds: [newTeamEventAdmin],
-              syncMode: 'selected',
-            },
-          });
-        } catch (err) {
-          console.error("Failed to sync to external calendar:", err);
-        }
-      }
-
-      // Add to local team events
-      const admin = teamAdmins.find(a => a.userId === newTeamEventAdmin);
-      setTeamEvents(prev => [...prev, {
-        id: data.id,
-        date: selectedDay,
-        month: currentDate.getMonth(),
-        year: currentDate.getFullYear(),
-        title: newEventTitle,
-        time: newEventTime || undefined,
-        description: newEventDescription || undefined,
-        color: "bg-accent",
-        textColor: "text-accent-foreground",
-        isTeamEvent: true,
-        ownerName: admin?.name || "Team Member",
-        ownerUserId: newTeamEventAdmin,
-      }]);
-
-      toast({
-        title: "Event created",
-        description: `Event added to ${admin?.name || "team member"}'s calendar`,
-      });
-    } else if (activeTab === "connected") {
+    if (activeTab === "connected") {
       // Add to connected calendar events (DB)
       const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
       await addConnectedEvent({
@@ -603,12 +522,12 @@ export default function CalendarView() {
     setNewEventTitle("");
     setNewEventTime("");
     setNewEventDescription("");
-    setNewTeamEventSyncExternal(false);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (activeTab === "team") {
-      // Delete from DB
+    // Check if it's a team event
+    const teamEvent = teamEvents.find(e => e.id === eventId);
+    if (teamEvent) {
       const { error } = await supabase
         .from("calendar_events")
         .delete()
@@ -617,7 +536,9 @@ export default function CalendarView() {
         setTeamEvents(prev => prev.filter(e => e.id !== eventId));
         toast({ title: "Event deleted", description: "The event has been removed." });
       }
-    } else if (activeTab === "connected") {
+      return;
+    }
+    if (activeTab === "connected") {
       await deleteConnectedEvent(eventId);
     } else {
       setCalendarEvents(calendarEvents.filter(event => event.id !== eventId));
@@ -924,7 +845,6 @@ export default function CalendarView() {
           {[
             { value: "tasks", label: "Clozze Task Calendar", icon: Calendar, disabled: false, hint: "" },
             { value: "connected", label: "Connected Calendar", icon: Unlink, disabled: !hasAnyConnection, hint: !hasAnyConnection ? "Not linked" : "" },
-            { value: "team", label: "Team", icon: Users, disabled: teamAdmins.length === 0, hint: teamAdmins.length === 0 ? "None shared" : "" },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.value;
@@ -953,7 +873,6 @@ export default function CalendarView() {
         <p className="text-xs text-text-muted">
           {activeTab === "tasks" && "Centralized view of all tasks by date."}
           {activeTab === "connected" && "Events from your connected calendar, including synced items."}
-          {activeTab === "team" && "Shared calendars from team members who have enabled visibility."}
         </p>
       </div>
 
@@ -972,7 +891,7 @@ export default function CalendarView() {
               {selectedDay && formatDayWithMonth(selectedDay)}
             </DialogTitle>
             <DialogDescription className="text-text-muted">
-              {activeTab === "tasks" ? "Tasks for this day" : activeTab === "connected" ? "Connected calendar events" : "Team calendar events"}
+              {activeTab === "tasks" ? "Tasks and shared team events for this day" : "Connected calendar events"}
             </DialogDescription>
           </DialogHeader>
 
@@ -980,7 +899,7 @@ export default function CalendarView() {
             {/* Events List */}
             <div>
               <h3 className="text-sm font-semibold text-text-heading mb-3">
-                {activeTab === "tasks" ? "Tasks" : "Events"}
+                {activeTab === "tasks" ? "Tasks & Events" : "Events"}
               </h3>
               <div className="space-y-2">
                 {selectedDay && getEventsForDay(selectedDay).length > 0 ? (
@@ -1046,27 +965,9 @@ export default function CalendarView() {
             <div className="border-t border-card-border pt-4">
               <h3 className="text-sm font-semibold text-text-heading mb-3 flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                {activeTab === "team" ? "Add Event for Team Member" : "Add New Event"}
+                Add New Event
               </h3>
               <div className="space-y-4">
-                {/* Team member selector for team tab */}
-                {activeTab === "team" && teamAdmins.length > 0 && (
-                  <div>
-                    <Label htmlFor="team-admin-select" className="text-text-heading">Team Member</Label>
-                    <select
-                      id="team-admin-select"
-                      value={newTeamEventAdmin}
-                      onChange={(e) => setNewTeamEventAdmin(e.target.value)}
-                      className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      {teamAdmins.map(admin => (
-                        <option key={admin.userId} value={admin.userId}>
-                          {admin.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 <div>
                   <Label htmlFor="event-title" className="text-text-heading">Event Title</Label>
@@ -1100,32 +1001,13 @@ export default function CalendarView() {
                   />
                 </div>
 
-                {/* Sync to external calendar toggle for team events */}
-                {activeTab === "team" && (
-                  <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50 border border-card-border">
-                    <div>
-                      <Label htmlFor="sync-external" className="text-sm font-medium text-text-heading">
-                        Sync to connected calendar
-                      </Label>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        Also add this event to the team member's external calendar
-                      </p>
-                    </div>
-                    <Switch
-                      id="sync-external"
-                      checked={newTeamEventSyncExternal}
-                      onCheckedChange={setNewTeamEventSyncExternal}
-                    />
-                  </div>
-                )}
-
                 <Button
                   onClick={handleAddEvent}
                   disabled={!newEventTitle.trim()}
                   className="w-full"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {activeTab === "team" ? "Add to Team Calendar" : "Add Event"}
+                  Add Event
                 </Button>
               </div>
             </div>
