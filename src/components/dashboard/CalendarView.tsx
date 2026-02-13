@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink, Settings, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -917,36 +918,44 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {/* Calendar Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="tasks" className="text-xs sm:text-sm">
-            <Calendar className="h-3.5 w-3.5 mr-1.5" />
-            Clozze Task Calendar
-          </TabsTrigger>
-          <TabsTrigger value="connected" className="text-xs sm:text-sm" disabled={!hasAnyConnection}>
-            <Unlink className="h-3.5 w-3.5 mr-1.5" />
-            Connected Calendar
-            {!hasAnyConnection && <span className="ml-1 text-[10px] opacity-60">(Not linked)</span>}
-          </TabsTrigger>
-          <TabsTrigger value="team" className="text-xs sm:text-sm" disabled={teamAdmins.length === 0}>
-            <Users className="h-3.5 w-3.5 mr-1.5" />
-            Team
-            {teamAdmins.length === 0 && <span className="ml-1 text-[10px] opacity-60">(None shared)</span>}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {/* Tab descriptions */}
-      {activeTab === "tasks" && (
-        <p className="text-xs text-text-muted mb-3">Centralized view of all tasks by date.</p>
-      )}
-      {activeTab === "connected" && (
-        <p className="text-xs text-text-muted mb-3">Events from your connected calendar, including synced items.</p>
-      )}
-      {activeTab === "team" && (
-        <p className="text-xs text-text-muted mb-3">Shared calendars from team members who have enabled visibility.</p>
-      )}
+      {/* Calendar View Selector */}
+      <div className="mb-4 space-y-2">
+        <div className="inline-flex items-center rounded-lg border border-border bg-secondary/40 p-0.5 gap-0.5">
+          {[
+            { value: "tasks", label: "Clozze Task Calendar", icon: Calendar, disabled: false, hint: "" },
+            { value: "connected", label: "Connected Calendar", icon: Unlink, disabled: !hasAnyConnection, hint: !hasAnyConnection ? "Not linked" : "" },
+            { value: "team", label: "Team", icon: Users, disabled: teamAdmins.length === 0, hint: teamAdmins.length === 0 ? "None shared" : "" },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.value;
+            return (
+              <button
+                key={tab.value}
+                onClick={() => !tab.disabled && setActiveTab(tab.value)}
+                disabled={tab.disabled}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-150",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-text-muted hover:text-text-body hover:bg-secondary/80",
+                  tab.disabled && "opacity-40 cursor-not-allowed"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+                {tab.hint && (
+                  <span className="text-[10px] opacity-60">({tab.hint})</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-text-muted">
+          {activeTab === "tasks" && "Centralized view of all tasks by date."}
+          {activeTab === "connected" && "Events from your connected calendar, including synced items."}
+          {activeTab === "team" && "Shared calendars from team members who have enabled visibility."}
+        </p>
+      </div>
 
       {/* Calendar Grid */}
       <CalendarGrid
