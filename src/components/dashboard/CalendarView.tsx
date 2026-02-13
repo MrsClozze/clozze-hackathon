@@ -922,11 +922,11 @@ export default function CalendarView() {
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="tasks" className="text-xs sm:text-sm">
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
-            Clozze Tasks
+            Clozze Task Calendar
           </TabsTrigger>
           <TabsTrigger value="connected" className="text-xs sm:text-sm" disabled={!hasAnyConnection}>
             <Unlink className="h-3.5 w-3.5 mr-1.5" />
-            Connected
+            Connected Calendar
             {!hasAnyConnection && <span className="ml-1 text-[10px] opacity-60">(Not linked)</span>}
           </TabsTrigger>
           <TabsTrigger value="team" className="text-xs sm:text-sm" disabled={teamAdmins.length === 0}>
@@ -939,10 +939,10 @@ export default function CalendarView() {
 
       {/* Tab descriptions */}
       {activeTab === "tasks" && (
-        <p className="text-xs text-text-muted mb-3">All your tasks organized by date — no external calendar needed.</p>
+        <p className="text-xs text-text-muted mb-3">Centralized view of all tasks by date.</p>
       )}
       {activeTab === "connected" && (
-        <p className="text-xs text-text-muted mb-3">Events from your connected Google or Apple calendar.</p>
+        <p className="text-xs text-text-muted mb-3">Events from your connected calendar, including synced items.</p>
       )}
       {activeTab === "team" && (
         <p className="text-xs text-text-muted mb-3">Shared calendars from team members who have enabled visibility.</p>
