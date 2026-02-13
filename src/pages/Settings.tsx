@@ -351,6 +351,9 @@ export default function Settings() {
 
       if (error) throw error;
 
+      // Terminate all other active sessions for security
+      await supabase.auth.signOut({ scope: 'others' });
+
       // Send password change confirmation email (fire-and-forget)
       supabase.functions.invoke('send-password-reset-confirmation', {
         body: {

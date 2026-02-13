@@ -222,6 +222,9 @@ export default function ResetPassword() {
 
       if (updateError) throw updateError;
 
+      // Revoke all persistent sessions globally (user will log in fresh)
+      await supabase.auth.signOut({ scope: 'global' });
+
       // Send confirmation email
       try {
         await supabase.functions.invoke('send-password-reset-confirmation', {
