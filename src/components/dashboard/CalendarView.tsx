@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink, Settings, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,8 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { CalendarSyncConfirmDialog } from "@/components/integrations/CalendarSyncConfirmDialog";
 import { CalendarEventDeleteDialog } from "@/components/dashboard/CalendarEventDeleteDialog";
 import { useTasks } from "@/contexts/TasksContext";
@@ -34,10 +36,11 @@ interface CalendarEvent {
   color: string;
   textColor: string;
   isTask?: boolean;
-  taskId?: string; // The actual task ID (without 'task-' prefix)
+  taskId?: string;
+  isTeamEvent?: boolean;
+  ownerName?: string;
+  ownerUserId?: string;
 }
-
-const initialEvents: CalendarEvent[] = [];
 
 // Helper function to format 24-hour time to 12-hour format
 const formatTimeTo12Hour = (time24: string | undefined): string => {
@@ -143,10 +146,86 @@ function AppleCalendarModal({
   );
 }
 
+// Reusable Calendar Grid component
+function CalendarGrid({
+  currentDate,
+  events,
+  onDayClick,
+}: {
+  currentDate: Date;
+  events: CalendarEvent[];
+  onDayClick: (day: number) => void;
+}) {
+  const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+  const daysInMonth = getDaysInMonth(currentDate);
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const calendarDays = Array.from({ length: 35 }, (_, i) => {
+    const dayNumber = i - firstDay + 1;
+    return dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : null;
+  });
+
+  const getEventsForDay = (day: number | null) => {
+    if (!day) return [];
+    return events.filter(event =>
+      event.date === day &&
+      event.month === currentDate.getMonth() &&
+      event.year === currentDate.getFullYear()
+    );
+  };
+
+  return (
+    <div className="bg-card border border-card-border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-card-border">
+        {daysOfWeek.map((day) => (
+          <div key={day} className="p-2 text-center text-xs font-medium text-text-muted bg-background-elevated">
+            {day}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {calendarDays.map((day, index) => {
+          const dayEvents = getEventsForDay(day);
+          const isToday = day === new Date().getDate() &&
+            currentDate.getMonth() === new Date().getMonth() &&
+            currentDate.getFullYear() === new Date().getFullYear();
+
+          return (
+            <div
+              key={index}
+              onClick={() => day && onDayClick(day)}
+              className={`min-h-[80px] p-2 border-r border-b border-card-border last:border-r-0 hover:bg-background-elevated transition-colors ${day ? 'cursor-pointer' : ''}`}
+            >
+              {day && (
+                <>
+                  <div className={`text-sm font-medium mb-1 ${isToday ? 'bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center' : 'text-text-heading'}`}>
+                    {day}
+                  </div>
+                  <div className="space-y-1">
+                    {dayEvents.map((event, eventIndex) => (
+                      <div
+                        key={eventIndex}
+                        className={`text-xs px-1 py-0.5 rounded ${event.color} ${event.textColor} truncate`}
+                      >
+                        {event.isTeamEvent && event.ownerName ? `[${event.ownerName}] ` : ""}{event.title}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CalendarView() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isDailyViewOpen, setIsDailyViewOpen] = useState(false);
   const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
@@ -154,6 +233,13 @@ export default function CalendarView() {
   const [newEventTitle, setNewEventTitle] = useState("");
   const [newEventTime, setNewEventTime] = useState("");
   const [newEventDescription, setNewEventDescription] = useState("");
+  const [activeTab, setActiveTab] = useState("tasks");
+  
+  // Team calendar state
+  const [teamEvents, setTeamEvents] = useState<CalendarEvent[]>([]);
+  const [teamAdmins, setTeamAdmins] = useState<{ userId: string; name: string; }[]>([]);
+  const [newTeamEventAdmin, setNewTeamEventAdmin] = useState("");
+  const [newTeamEventSyncExternal, setNewTeamEventSyncExternal] = useState(false);
   
   // Sync confirmation dialog state
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
@@ -167,6 +253,9 @@ export default function CalendarView() {
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [shareCalendarsWithTeam, setShareCalendarsWithTeam] = useState(false);
   const [loadingSharePref, setLoadingSharePref] = useState(false);
+
+  // Connected calendar events
+  const { events: connectedEvents, addEvent: addConnectedEvent, deleteEvent: deleteConnectedEvent, refetch: refetchConnectedEvents } = useCalendarEvents();
 
   // Fetch calendar sharing preference
   useEffect(() => {
@@ -182,6 +271,92 @@ export default function CalendarView() {
       }
     };
     fetchPref();
+  }, [user]);
+
+  // Fetch team admins who share their calendars and their events
+  useEffect(() => {
+    if (!user) return;
+    const fetchTeamCalendarData = async () => {
+      // Get team members who share calendars
+      const { data: teamMembers } = await supabase
+        .from("team_members")
+        .select("team_id, user_id")
+        .eq("status", "active");
+      
+      if (!teamMembers || teamMembers.length === 0) return;
+
+      // Find teams I'm in
+      const myTeamIds = teamMembers
+        .filter(tm => tm.user_id === user.id)
+        .map(tm => tm.team_id);
+      
+      if (myTeamIds.length === 0) return;
+
+      // Get teammates
+      const teammateIds = teamMembers
+        .filter(tm => myTeamIds.includes(tm.team_id) && tm.user_id !== user.id)
+        .map(tm => tm.user_id);
+
+      if (teammateIds.length === 0) return;
+
+      // Check which teammates share calendars
+      const { data: prefs } = await supabase
+        .from("agent_communication_preferences")
+        .select("user_id, share_calendars_with_team")
+        .in("user_id", teammateIds)
+        .eq("share_calendars_with_team", true);
+
+      if (!prefs || prefs.length === 0) {
+        setTeamAdmins([]);
+        setTeamEvents([]);
+        return;
+      }
+
+      const sharingUserIds = prefs.map(p => p.user_id);
+
+      // Get profiles for names
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", sharingUserIds);
+
+      const admins = (profiles || []).map(p => ({
+        userId: p.id,
+        name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Team Member",
+      }));
+      setTeamAdmins(admins);
+
+      // Fetch their calendar events  
+      const { data: events } = await supabase
+        .from("calendar_events")
+        .select("*")
+        .in("user_id", sharingUserIds)
+        .order("event_date", { ascending: true });
+
+      if (events) {
+        const mapped: CalendarEvent[] = events.map(event => {
+          const eventDate = new Date(event.event_date + "T00:00:00");
+          const admin = admins.find(a => a.userId === event.user_id);
+          return {
+            id: event.id,
+            date: eventDate.getDate(),
+            month: eventDate.getMonth(),
+            year: eventDate.getFullYear(),
+            title: event.title,
+            time: event.event_time || undefined,
+            description: event.description || undefined,
+            color: "bg-accent",
+            textColor: "text-accent-foreground",
+            isTeamEvent: true,
+            ownerName: admin?.name || "Team Member",
+            ownerUserId: event.user_id,
+          };
+        });
+        setTeamEvents(mapped);
+      }
+    };
+
+    fetchTeamCalendarData();
   }, [user]);
 
   const handleToggleCalendarSharing = async (checked: boolean) => {
@@ -226,14 +401,6 @@ export default function CalendarView() {
     deleteTask 
   } = useTasks();
   
-  const getDaysInMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
-  
-  const getFirstDayOfMonth = (date: Date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-  
   const formatMonth = (date: Date) => {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
@@ -246,20 +413,12 @@ export default function CalendarView() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
   
-  const daysInMonth = getDaysInMonth(currentDate);
-  const firstDay = getFirstDayOfMonth(currentDate);
-  const calendarDays = Array.from({ length: 35 }, (_, i) => {
-    const dayNumber = i - firstDay + 1;
-    return dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : null;
-  });
-  
   // Convert tasks with showOnCalendar to calendar events
-  const taskEvents = useMemo(() => {
+  const taskEvents: CalendarEvent[] = useMemo(() => {
     return tasks
       .filter(task => {
         if (!task.showOnCalendar || !task.dueDate) return false;
         if (!user) return false;
-        // Only show tasks the current user owns or is assigned to
         const isOwner = task.userId === user.id;
         const isAssigned = task.assigneeUserIds?.includes(user.id) ?? false;
         const hasNoAssignees = !task.assigneeUserIds || task.assigneeUserIds.length === 0;
@@ -279,77 +438,196 @@ export default function CalendarView() {
           color: task.priority === 'high' ? 'bg-destructive' : task.priority === 'medium' ? 'bg-accent-gold' : 'bg-primary',
           textColor: 'text-white',
           isTask: true,
-        };
+        } as CalendarEvent;
       });
   }, [tasks, user]);
 
-  // Combine manual events with task events
-  const allEvents = useMemo(() => {
-    // Add month/year to manual events for comparison
-    const manualWithDate = calendarEvents.map(e => ({
-      ...e,
-      month: currentDate.getMonth(),
-      year: currentDate.getFullYear(),
-    }));
-    return [...manualWithDate, ...taskEvents];
-  }, [calendarEvents, taskEvents, currentDate]);
+  // Connected calendar events mapped to CalendarEvent format
+  const connectedCalendarEvents: CalendarEvent[] = useMemo(() => {
+    return connectedEvents.map(event => {
+      const d = event.date;
+      return {
+        id: event.id,
+        date: d.getDate(),
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        title: event.title,
+        time: event.time || undefined,
+        description: event.description || undefined,
+        color: "bg-secondary",
+        textColor: "text-secondary-foreground",
+      } as CalendarEvent;
+    });
+  }, [connectedEvents]);
+
+  // Get events based on active tab
+  const activeEvents = useMemo(() => {
+    switch (activeTab) {
+      case "tasks":
+        return taskEvents;
+      case "connected":
+        return connectedCalendarEvents;
+      case "team":
+        return teamEvents;
+      default:
+        return taskEvents;
+    }
+  }, [activeTab, taskEvents, connectedCalendarEvents, teamEvents]);
 
   const getEventsForDay = (day: number | null) => {
     if (!day) return [];
-    return allEvents.filter(event => 
+    return activeEvents.filter(event => 
       event.date === day && 
       event.month === currentDate.getMonth() && 
       event.year === currentDate.getFullYear()
     );
   };
 
-  const handleDayClick = (day: number | null) => {
-    if (day) {
-      setSelectedDay(day);
-      setIsDailyViewOpen(true);
+  const handleDayClick = (day: number) => {
+    setSelectedDay(day);
+    setIsDailyViewOpen(true);
+    // Reset team event form
+    if (teamAdmins.length > 0) {
+      setNewTeamEventAdmin(teamAdmins[0].userId);
     }
   };
 
-  const handleAddEvent = () => {
+  const handleAddEvent = async () => {
     if (!newEventTitle.trim() || !selectedDay) return;
 
-    const newEvent: CalendarEvent = {
-      id: Date.now().toString(),
-      date: selectedDay,
-      month: currentDate.getMonth(),
-      year: currentDate.getFullYear(),
-      title: newEventTitle,
-      time: newEventTime || undefined,
-      description: newEventDescription || undefined,
-      color: "bg-primary",
-      textColor: "text-primary-foreground",
-    };
+    if (activeTab === "team") {
+      // Create event on admin's calendar
+      if (!newTeamEventAdmin) {
+        toast({ title: "Select a team member", description: "Please select which team member's calendar to add to.", variant: "destructive" });
+        return;
+      }
 
-    setCalendarEvents([...calendarEvents, newEvent]);
+      const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
+      const newEvent = {
+        user_id: newTeamEventAdmin,
+        title: newEventTitle,
+        description: newEventDescription || null,
+        event_date: eventDate.toISOString().split('T')[0],
+        event_time: newEventTime || null,
+        event_type: 'custom',
+        source: 'team_member',
+        reminder_enabled: false,
+      };
+
+      const { data, error } = await supabase
+        .from("calendar_events")
+        .insert(newEvent)
+        .select()
+        .single();
+
+      if (error) {
+        toast({ title: "Error", description: "Failed to create event. Make sure the team member has calendar sharing enabled.", variant: "destructive" });
+        return;
+      }
+
+      // If sync to external calendar is enabled, trigger sync
+      if (newTeamEventSyncExternal && data) {
+        try {
+          await supabase.functions.invoke('sync-google-calendar', {
+            body: {
+              action: 'sync_task',
+              task: {
+                id: data.id,
+                title: newEventTitle,
+                notes: newEventDescription || "",
+                dueDate: eventDate.toISOString().split('T')[0],
+                dueTime: newEventTime || undefined,
+              },
+              targetUserIds: [newTeamEventAdmin],
+              syncMode: 'selected',
+            },
+          });
+        } catch (err) {
+          console.error("Failed to sync to external calendar:", err);
+        }
+      }
+
+      // Add to local team events
+      const admin = teamAdmins.find(a => a.userId === newTeamEventAdmin);
+      setTeamEvents(prev => [...prev, {
+        id: data.id,
+        date: selectedDay,
+        month: currentDate.getMonth(),
+        year: currentDate.getFullYear(),
+        title: newEventTitle,
+        time: newEventTime || undefined,
+        description: newEventDescription || undefined,
+        color: "bg-accent",
+        textColor: "text-accent-foreground",
+        isTeamEvent: true,
+        ownerName: admin?.name || "Team Member",
+        ownerUserId: newTeamEventAdmin,
+      }]);
+
+      toast({
+        title: "Event created",
+        description: `Event added to ${admin?.name || "team member"}'s calendar`,
+      });
+    } else if (activeTab === "connected") {
+      // Add to connected calendar events (DB)
+      const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
+      await addConnectedEvent({
+        date: eventDate,
+        title: newEventTitle,
+        time: newEventTime || undefined,
+        description: newEventDescription || undefined,
+        type: 'custom',
+        reminderEnabled: false,
+      });
+    } else {
+      // Clozze task calendar - add as a local event
+      const newEvent: CalendarEvent = {
+        id: Date.now().toString(),
+        date: selectedDay,
+        month: currentDate.getMonth(),
+        year: currentDate.getFullYear(),
+        title: newEventTitle,
+        time: newEventTime || undefined,
+        description: newEventDescription || undefined,
+        color: "bg-primary",
+        textColor: "text-primary-foreground",
+      };
+      setCalendarEvents([...calendarEvents, newEvent]);
+      toast({
+        title: "Event added",
+        description: `${newEventTitle} has been added to ${formatMonth(currentDate)} ${selectedDay}`,
+      });
+    }
+
     setNewEventTitle("");
     setNewEventTime("");
     setNewEventDescription("");
-    
-    toast({
-      title: "Event added",
-      description: `${newEventTitle} has been added to ${formatMonth(currentDate)} ${selectedDay}`,
-    });
+    setNewTeamEventSyncExternal(false);
   };
 
-  const handleDeleteEvent = (eventId: string) => {
-    setCalendarEvents(calendarEvents.filter(event => event.id !== eventId));
-    toast({
-      title: "Event deleted",
-      description: "The event has been removed from your calendar",
-    });
+  const handleDeleteEvent = async (eventId: string) => {
+    if (activeTab === "team") {
+      // Delete from DB
+      const { error } = await supabase
+        .from("calendar_events")
+        .delete()
+        .eq("id", eventId);
+      if (!error) {
+        setTeamEvents(prev => prev.filter(e => e.id !== eventId));
+        toast({ title: "Event deleted", description: "The event has been removed." });
+      }
+    } else if (activeTab === "connected") {
+      await deleteConnectedEvent(eventId);
+    } else {
+      setCalendarEvents(calendarEvents.filter(event => event.id !== eventId));
+      toast({ title: "Event deleted", description: "The event has been removed from your calendar" });
+    }
   };
 
-  // Handle clicking on an event (opens task modal for task-linked events)
+  // Handle clicking on an event
   const handleEventClick = (event: CalendarEvent, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent day click from firing
-    
+    e.stopPropagation();
     if (event.isTask && event.taskId) {
-      // Find the task and open it in the modal
       const task = tasks.find(t => t.id === event.taskId);
       if (task) {
         openTaskModal(task);
@@ -359,19 +637,16 @@ export default function CalendarView() {
 
   // Handle delete button click on an event
   const handleDeleteButtonClick = (event: CalendarEvent, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event click and day click from firing
-    
+    e.stopPropagation();
     if (event.isTask) {
-      // Show confirmation dialog for task-linked events
       setEventToDelete(event);
       setDeleteDialogOpen(true);
     } else {
-      // Direct delete for non-task events
       handleDeleteEvent(event.id);
     }
   };
 
-  // Remove from calendar only (keep task, but set showOnCalendar to false)
+  // Remove from calendar only
   const handleRemoveFromCalendarOnly = async () => {
     if (eventToDelete?.taskId) {
       await updateTask(eventToDelete.taskId, { showOnCalendar: false });
@@ -386,40 +661,24 @@ export default function CalendarView() {
   // Delete both the task and calendar event
   const handleDeleteTaskAndEvent = async () => {
     if (eventToDelete?.taskId) {
-      // Find the task to check if it has external sync enabled
       const task = tasks.find(t => t.id === eventToDelete.taskId);
-      
-      // If task was synced to external calendar, delete from Google Calendar first
       if (task?.syncToExternalCalendar) {
         try {
-          const { error } = await supabase.functions.invoke('sync-google-calendar', {
-            body: {
-              action: 'delete_event',
-              taskId: eventToDelete.taskId,
-            },
+          await supabase.functions.invoke('sync-google-calendar', {
+            body: { action: 'delete_event', taskId: eventToDelete.taskId },
           });
-          if (error) {
-            console.error('[CalendarView] Failed to delete Google Calendar event:', error);
-          } else {
-            console.log('[CalendarView] Google Calendar event deleted');
-          }
         } catch (err) {
           console.error('[CalendarView] Error deleting Google Calendar event:', err);
         }
       }
-      
       await deleteTask(eventToDelete.taskId);
-      // Task deletion will automatically remove it from taskEvents
     }
     setEventToDelete(null);
   };
 
   const formatDayWithMonth = (day: number) => {
     return new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric',
-      year: 'numeric'
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
     });
   };
 
@@ -434,15 +693,11 @@ export default function CalendarView() {
   const handleGoogleConnect = async () => {
     if (isConnected("google")) {
       if (isCalendarAdminManaged("google")) {
-        toast({
-          title: "Admin-managed calendar",
-          description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
-        });
+        toast({ title: "Admin-managed calendar", description: "This calendar is managed by an admin." });
         return;
       }
       await disconnect("google");
     } else {
-      // Check if there are existing calendar tasks - show confirmation dialog
       if (tasksToSync.length > 0) {
         setSyncConfirmProvider("google");
       } else {
@@ -454,10 +709,7 @@ export default function CalendarView() {
   const handleAppleConnect = () => {
     if (isConnected("apple")) {
       if (isCalendarAdminManaged("apple")) {
-        toast({
-          title: "Admin-managed calendar",
-          description: "This calendar is managed by an admin. To add or modify calendars, please contact your admin.",
-        });
+        toast({ title: "Admin-managed calendar", description: "This calendar is managed by an admin." });
         return;
       }
       disconnect("apple");
@@ -466,32 +718,23 @@ export default function CalendarView() {
     }
   };
   
-  // Called when Apple modal submits credentials - check for existing tasks first
   const handleAppleCredentialsSubmit = useCallback(async (appleId: string, password: string): Promise<boolean> => {
     if (tasksToSync.length > 0) {
-      // Store credentials and show confirmation dialog
       setPendingAppleCredentials({ appleId, password });
       setSyncConfirmProvider("apple");
-      return true; // Return true to close the credentials modal
+      return true;
     } else {
-      // No existing tasks, connect directly
       return await connectApple(appleId, password);
     }
   }, [tasksToSync.length, connectApple]);
   
-  // Called when user confirms or declines sync in the confirmation dialog
   const handleSyncConfirm = useCallback(async (syncExisting: boolean) => {
     const provider = syncConfirmProvider;
     setSyncConfirmProvider(null);
-    
     if (!provider) return;
-    
-    // First, sync existing tasks if user chose "Yes"
     if (syncExisting && tasksToSync.length > 0) {
       await bulkEnableExternalSync();
     }
-    
-    // Then proceed with the actual calendar connection
     if (provider === "google") {
       await connectGoogle();
     } else if (provider === "apple" && pendingAppleCredentials) {
@@ -505,12 +748,12 @@ export default function CalendarView() {
     setPendingAppleCredentials(null);
   }, []);
 
-  const connectedCount = connections.length;
   const allCalendarsConnected = isConnected("google") && isConnected("apple");
+  const hasAnyConnection = isConnected("google") || isConnected("apple");
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold text-text-heading">Calendar</h2>
           <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
@@ -655,12 +898,6 @@ export default function CalendarView() {
                 )}
               </div>
 
-              {connectedCount > 0 && !isCalendarAdminManaged("google") && !isCalendarAdminManaged("apple") && (
-                <p className="text-xs text-text-subtle text-center mt-4">
-                  Click a connected calendar to disconnect it.
-                </p>
-              )}
-
               <p className="text-xs text-text-subtle text-center mt-2">
                 Your calendar data is securely synced and never shared without your consent.
               </p>
@@ -680,52 +917,43 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-        {/* Calendar Header */}
-        <div className="grid grid-cols-7 border-b border-card-border">
-          {daysOfWeek.map((day) => (
-            <div key={day} className="p-2 text-center text-xs font-medium text-text-muted bg-background-elevated">
-              {day}
-            </div>
-          ))}
-        </div>
+      {/* Calendar Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="tasks" className="text-xs sm:text-sm">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            Clozze Tasks
+          </TabsTrigger>
+          <TabsTrigger value="connected" className="text-xs sm:text-sm" disabled={!hasAnyConnection}>
+            <Unlink className="h-3.5 w-3.5 mr-1.5" />
+            Connected
+            {!hasAnyConnection && <span className="ml-1 text-[10px] opacity-60">(Not linked)</span>}
+          </TabsTrigger>
+          <TabsTrigger value="team" className="text-xs sm:text-sm" disabled={teamAdmins.length === 0}>
+            <Users className="h-3.5 w-3.5 mr-1.5" />
+            Team
+            {teamAdmins.length === 0 && <span className="ml-1 text-[10px] opacity-60">(None shared)</span>}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7">
-          {calendarDays.map((day, index) => {
-            const events = getEventsForDay(day);
-            const isToday = day === new Date().getDate() && 
-              currentDate.getMonth() === new Date().getMonth() && 
-              currentDate.getFullYear() === new Date().getFullYear();
-            
-            return (
-              <div
-                key={index}
-                onClick={() => handleDayClick(day)}
-                className={`min-h-[80px] p-2 border-r border-b border-card-border last:border-r-0 hover:bg-background-elevated transition-colors ${day ? 'cursor-pointer' : ''}`}
-              >
-                {day && (
-                  <>
-                    <div className={`text-sm font-medium mb-1 ${isToday ? 'bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center' : 'text-text-heading'}`}>
-                      {day}
-                    </div>
-                    <div className="space-y-1">
-                      {events.map((event, eventIndex) => (
-                        <div
-                          key={eventIndex}
-                          className={`text-xs px-1 py-0.5 rounded ${event.color} ${event.textColor} truncate`}
-                        >
-                          {event.title}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* Tab descriptions */}
+      {activeTab === "tasks" && (
+        <p className="text-xs text-text-muted mb-3">All your tasks organized by date — no external calendar needed.</p>
+      )}
+      {activeTab === "connected" && (
+        <p className="text-xs text-text-muted mb-3">Events from your connected Google or Apple calendar.</p>
+      )}
+      {activeTab === "team" && (
+        <p className="text-xs text-text-muted mb-3">Shared calendars from team members who have enabled visibility.</p>
+      )}
+
+      {/* Calendar Grid */}
+      <CalendarGrid
+        currentDate={currentDate}
+        events={activeEvents}
+        onDayClick={handleDayClick}
+      />
 
       {/* Daily View Dialog */}
       <Dialog open={isDailyViewOpen} onOpenChange={setIsDailyViewOpen}>
@@ -735,14 +963,16 @@ export default function CalendarView() {
               {selectedDay && formatDayWithMonth(selectedDay)}
             </DialogTitle>
             <DialogDescription className="text-text-muted">
-              View and manage events for this day
+              {activeTab === "tasks" ? "Tasks for this day" : activeTab === "connected" ? "Connected calendar events" : "Team calendar events"}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
             {/* Events List */}
             <div>
-              <h3 className="text-sm font-semibold text-text-heading mb-3">Events</h3>
+              <h3 className="text-sm font-semibold text-text-heading mb-3">
+                {activeTab === "tasks" ? "Tasks" : "Events"}
+              </h3>
               <div className="space-y-2">
                 {selectedDay && getEventsForDay(selectedDay).length > 0 ? (
                   getEventsForDay(selectedDay).map((event) => (
@@ -763,6 +993,12 @@ export default function CalendarView() {
                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
                               <Edit2 className="h-3 w-3" />
                               Task
+                            </span>
+                          )}
+                          {event.isTeamEvent && event.ownerName && (
+                            <span className="text-xs bg-accent/10 text-accent-foreground px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {event.ownerName}
                             </span>
                           )}
                         </div>
@@ -790,7 +1026,9 @@ export default function CalendarView() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-text-muted py-4 text-center">No events scheduled for this day</p>
+                  <p className="text-sm text-text-muted py-4 text-center">
+                    {activeTab === "tasks" ? "No tasks scheduled for this day" : "No events for this day"}
+                  </p>
                 )}
               </div>
             </div>
@@ -799,9 +1037,28 @@ export default function CalendarView() {
             <div className="border-t border-card-border pt-4">
               <h3 className="text-sm font-semibold text-text-heading mb-3 flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Add New Event
+                {activeTab === "team" ? "Add Event for Team Member" : "Add New Event"}
               </h3>
               <div className="space-y-4">
+                {/* Team member selector for team tab */}
+                {activeTab === "team" && teamAdmins.length > 0 && (
+                  <div>
+                    <Label htmlFor="team-admin-select" className="text-text-heading">Team Member</Label>
+                    <select
+                      id="team-admin-select"
+                      value={newTeamEventAdmin}
+                      onChange={(e) => setNewTeamEventAdmin(e.target.value)}
+                      className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      {teamAdmins.map(admin => (
+                        <option key={admin.userId} value={admin.userId}>
+                          {admin.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="event-title" className="text-text-heading">Event Title</Label>
                   <Input
@@ -833,13 +1090,33 @@ export default function CalendarView() {
                     rows={3}
                   />
                 </div>
+
+                {/* Sync to external calendar toggle for team events */}
+                {activeTab === "team" && (
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50 border border-card-border">
+                    <div>
+                      <Label htmlFor="sync-external" className="text-sm font-medium text-text-heading">
+                        Sync to connected calendar
+                      </Label>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        Also add this event to the team member's external calendar
+                      </p>
+                    </div>
+                    <Switch
+                      id="sync-external"
+                      checked={newTeamEventSyncExternal}
+                      onCheckedChange={setNewTeamEventSyncExternal}
+                    />
+                  </div>
+                )}
+
                 <Button
                   onClick={handleAddEvent}
                   disabled={!newEventTitle.trim()}
                   className="w-full"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Event
+                  {activeTab === "team" ? "Add to Team Calendar" : "Add Event"}
                 </Button>
               </div>
             </div>
@@ -854,20 +1131,18 @@ export default function CalendarView() {
         onConnect={handleAppleCredentialsSubmit}
       />
       
-      {/* Sync Confirmation Dialog - shown before connecting */}
+      {/* Sync Confirmation Dialog */}
       <CalendarSyncConfirmDialog
         open={syncConfirmProvider !== null}
         onOpenChange={(open) => {
-          if (!open) {
-            handleSyncCancel();
-          }
+          if (!open) handleSyncCancel();
         }}
         provider={syncConfirmProvider || "google"}
         onConfirm={handleSyncConfirm}
         onCancel={handleSyncCancel}
       />
       
-      {/* Delete Confirmation Dialog for task-linked events */}
+      {/* Delete Confirmation Dialog */}
       <CalendarEventDeleteDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
