@@ -1,53 +1,33 @@
 
 
-# Add HTML Output Encoding to 4 Email Edge Functions
+# Add Session Termination After Password Change
 
 ## Summary
-Four email edge functions interpolate user-provided values (like `displayName`) directly into HTML templates without escaping. This creates a potential XSS vector in email clients. The fix is to add the same `escapeHtml()` utility already used in `send-team-invitation-email` and `docusign-callback`.
+After a successful password change (either from Settings or via the Reset Password flow), all **other** active sessions will be terminated. This ensures that if a password is compromised, changing it immediately locks out any attacker sessions on other devices.
 
 ## Changes
 
-### 1. `supabase/functions/send-welcome-email/index.ts`
-- Add the `escapeHtml()` function (copy from existing pattern)
-- Escape `displayName` before interpolation into the HTML body
+### 1. Settings page -- password change (`src/pages/Settings.tsx`)
+- After the successful `updateUser({ password })` call (line 348-352), add a call to `supabase.auth.signOut({ scope: 'others' })` to revoke all other refresh tokens while keeping the current session active.
 
-### 2. `supabase/functions/send-verification-email/index.ts`
-- Add the `escapeHtml()` function
-- Escape `displayName` before interpolation
-- Escape `verificationLink` before placing it in visible text (the `href` attribute is safe as URLs are server-generated, but the visible text rendition should be escaped)
-
-### 3. `supabase/functions/send-password-reset-email/index.ts`
-- Add the `escapeHtml()` function
-- Escape `displayName` before interpolation
-- Escape `resetLink` in the visible text paragraph
-
-### 4. `supabase/functions/send-password-reset-confirmation/index.ts`
-- Add the `escapeHtml()` function
-- Escape `displayName` before interpolation
-- Escape `loginLink` in the button href (server-generated but for consistency)
+### 2. Reset Password page (`src/pages/ResetPassword.tsx`)
+- After the successful `resetAuthClient.auth.updateUser({ password })` call, add a call using the **main** `supabase` client to `supabase.auth.signOut({ scope: 'global' })`. Since the reset page uses an ephemeral (non-persisted) client, we want to revoke **all** persistent sessions (including any that were previously active on other devices). The user is redirected to login afterward, so no session needs to be preserved.
 
 ## Technical Details
 
-The `escapeHtml` function to add in each file:
-
+### Settings page (keep current session, kill others)
 ```typescript
-const escapeHtml = (str: string): string => {
-  const htmlEscapes: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
-};
+// After updateUser succeeds:
+await supabase.auth.signOut({ scope: 'others' });
 ```
 
-Usage pattern in each function -- wrap user-derived values before template interpolation:
+### Reset Password page (kill all sessions globally)
 ```typescript
-const safeDisplayName = escapeHtml(displayName);
-// Then use safeDisplayName in the HTML template instead of displayName
+// After updateUser succeeds, revoke all persistent sessions:
+await supabase.auth.signOut({ scope: 'global' });
 ```
 
-No database changes or new dependencies required. The edge functions will be redeployed automatically.
+The `scope: 'others'` option revokes all refresh tokens except the current one. The `scope: 'global'` option revokes all refresh tokens including the current one -- appropriate for the reset flow since the user will log in fresh afterward.
+
+No database changes required.
 
