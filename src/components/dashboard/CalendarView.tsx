@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink } from "lucide-react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Clock, X, Check, Loader2, Edit2, Unlink, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
@@ -161,6 +162,50 @@ export default function CalendarView() {
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
+  
+  // Calendar visibility settings state
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false);
+  const [shareCalendarsWithTeam, setShareCalendarsWithTeam] = useState(false);
+  const [loadingSharePref, setLoadingSharePref] = useState(false);
+
+  // Fetch calendar sharing preference
+  useEffect(() => {
+    if (!user) return;
+    const fetchPref = async () => {
+      const { data } = await supabase
+        .from("agent_communication_preferences")
+        .select("share_calendars_with_team")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data) {
+        setShareCalendarsWithTeam(data.share_calendars_with_team ?? false);
+      }
+    };
+    fetchPref();
+  }, [user]);
+
+  const handleToggleCalendarSharing = async (checked: boolean) => {
+    if (!user) return;
+    setLoadingSharePref(true);
+    const { error } = await supabase
+      .from("agent_communication_preferences")
+      .upsert(
+        { user_id: user.id, share_calendars_with_team: checked },
+        { onConflict: "user_id" }
+      );
+    if (error) {
+      toast({ title: "Error", description: "Failed to update calendar visibility setting.", variant: "destructive" });
+    } else {
+      setShareCalendarsWithTeam(checked);
+      toast({
+        title: checked ? "Calendars visible to team" : "Calendars set to private",
+        description: checked
+          ? "Your teammates can now view your connected calendars."
+          : "Your connected calendars are now private.",
+      });
+    }
+    setLoadingSharePref(false);
+  };
 
   const { 
     connections, 
@@ -571,6 +616,45 @@ export default function CalendarView() {
                 </button>
               </div>
 
+              {/* Calendar Visibility Settings */}
+              <div className="mt-4 border-t border-card-border pt-4">
+                <button
+                  onClick={() => setShowCalendarSettings(!showCalendarSettings)}
+                  className="flex items-center gap-2 text-sm text-text-muted hover:text-text-heading transition-colors w-full"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="font-medium">Calendar Visibility Settings</span>
+                  <ChevronRight className={`h-4 w-4 ml-auto transition-transform ${showCalendarSettings ? "rotate-90" : ""}`} />
+                </button>
+                
+                {showCalendarSettings && (
+                  <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-card-border space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <Label htmlFor="share-calendars" className="text-sm font-medium text-text-heading">
+                          Allow teammates to view my calendars
+                        </Label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          When enabled, your connected calendars will be visible to your team members.
+                        </p>
+                      </div>
+                      <Switch
+                        id="share-calendars"
+                        checked={shareCalendarsWithTeam}
+                        onCheckedChange={handleToggleCalendarSharing}
+                        disabled={loadingSharePref}
+                      />
+                    </div>
+                    {shareCalendarsWithTeam && (
+                      <p className="text-xs text-accent-gold flex items-center gap-1.5">
+                        <Settings className="h-3 w-3" />
+                        Your calendars are currently visible to teammates.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {connectedCount > 0 && !isCalendarAdminManaged("google") && !isCalendarAdminManaged("apple") && (
                 <p className="text-xs text-text-subtle text-center mt-4">
                   Click a connected calendar to disconnect it.
@@ -578,7 +662,7 @@ export default function CalendarView() {
               )}
 
               <p className="text-xs text-text-subtle text-center mt-2">
-                Your calendar data is securely synced and never shared.
+                Your calendar data is securely synced and never shared without your consent.
               </p>
             </DialogContent>
           </Dialog>
