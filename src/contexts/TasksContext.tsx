@@ -377,7 +377,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         listing_id: task.listingId || null,
         contact_id: task.contactId || null,
         assignee_user_id: task.assigneeUserId || null,
-        show_on_calendar: task.showOnCalendar ?? false,
+        show_on_calendar: task.showOnCalendar ?? true,
         sync_to_external_calendar: task.syncToExternalCalendar ?? false,
         calendar_sync_targets: task.calendarSyncTargets ? JSON.stringify(task.calendarSyncTargets) : null,
         recurrence_pattern: task.recurrencePattern || null,
