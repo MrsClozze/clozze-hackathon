@@ -528,7 +528,7 @@ export default function Auth() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={12}
               />
             </div>
             <div className="space-y-3">
