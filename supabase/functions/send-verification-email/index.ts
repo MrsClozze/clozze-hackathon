@@ -16,6 +16,17 @@ interface VerificationEmailRequest {
   redirectOrigin?: string;
 }
 
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, firstName, redirectOrigin }: VerificationEmailRequest = await req.json();
     
-    const displayName = firstName || email.split('@')[0];
+    const displayName = escapeHtml(firstName || email.split('@')[0]);
     
     // Create Supabase admin client to generate verification link
     const supabaseAdmin = createClient(
@@ -85,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <a href="${verificationLink}" class="button">Verify Email Address</a>
                 </p>
                 <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #667eea; font-size: 14px;">${verificationLink}</p>
+                <p style="word-break: break-all; color: #667eea; font-size: 14px;">${escapeHtml(verificationLink)}</p>
                 <p>If you didn't create an account with Clozze, you can safely ignore this email.</p>
                 <p>Best regards,<br>The Clozze Team</p>
               </div>

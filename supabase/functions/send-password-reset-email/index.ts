@@ -15,6 +15,17 @@ interface PasswordResetRequest {
   redirectOrigin?: string;
 }
 
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,7 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, firstName, redirectOrigin }: PasswordResetRequest = await req.json();
     
-    const displayName = firstName || email.split('@')[0];
+    const displayName = escapeHtml(firstName || email.split('@')[0]);
     
     // Create Supabase admin client to generate password reset link
     const supabaseAdmin = createClient(
@@ -95,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
                    <a href="${resetLink}" class="button">Continue to Reset Password</a>
                  </p>
                  <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; color: #667eea; font-size: 14px;">${resetLink}</p>
+                <p style="word-break: break-all; color: #667eea; font-size: 14px;">${escapeHtml(resetLink)}</p>
                 <p>If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.</p>
                 <p>Best regards,<br>The Clozze Team</p>
               </div>
