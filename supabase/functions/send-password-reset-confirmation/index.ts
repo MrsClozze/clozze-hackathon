@@ -15,6 +15,17 @@ interface PasswordResetConfirmationRequest {
   redirectOrigin?: string;
 }
 
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,7 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, firstName, redirectOrigin }: PasswordResetConfirmationRequest = await req.json();
     
-    const displayName = firstName || email.split('@')[0];
+    const displayName = escapeHtml(firstName || email.split('@')[0]);
     const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
       ? redirectOrigin
       : 'https://clozze.lovable.app';
@@ -67,7 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
                 <p>You can now sign in to your Clozze account using your new password.</p>
                 <p style="text-align: center;">
-                  <a href="${loginLink}" class="button">Sign In to Clozze</a>
+                  <a href="${escapeHtml(loginLink)}" class="button">Sign In to Clozze</a>
                 </p>
                 <div class="security-notice">
                   <strong>🔐 Security Reminder</strong><br>

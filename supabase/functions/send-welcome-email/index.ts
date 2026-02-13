@@ -15,6 +15,17 @@ interface WelcomeEmailRequest {
   lastName?: string;
 }
 
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,9 +34,11 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, firstName, lastName }: WelcomeEmailRequest = await req.json();
     
-    const displayName = firstName && lastName 
-      ? `${firstName} ${lastName}` 
-      : firstName || email.split('@')[0];
+    const displayName = escapeHtml(
+      firstName && lastName 
+        ? `${firstName} ${lastName}` 
+        : firstName || email.split('@')[0]
+    );
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
