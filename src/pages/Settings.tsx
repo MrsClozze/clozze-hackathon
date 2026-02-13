@@ -327,8 +327,8 @@ export default function Settings() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error("New password must be at least 6 characters");
+    if (newPassword.length < 12) {
+      toast.error("New password must be at least 12 characters");
       return;
     }
 
