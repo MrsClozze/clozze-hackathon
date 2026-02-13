@@ -1,26 +1,53 @@
 
 
-# Enforce 12-Character Minimum Password Requirement
+# Add HTML Output Encoding to 4 Email Edge Functions
 
 ## Summary
-Update all password fields across the application to require a minimum of 12 characters, aligning with CASA Tier 2 security requirements.
+Four email edge functions interpolate user-provided values (like `displayName`) directly into HTML templates without escaping. This creates a potential XSS vector in email clients. The fix is to add the same `escapeHtml()` utility already used in `send-team-invitation-email` and `docusign-callback`.
 
-## Changes Required
+## Changes
 
-### 1. Auth Page (`src/pages/Auth.tsx`)
-- Change `minLength={6}` to `minLength={12}` on the password input (line ~531)
+### 1. `supabase/functions/send-welcome-email/index.ts`
+- Add the `escapeHtml()` function (copy from existing pattern)
+- Escape `displayName` before interpolation into the HTML body
 
-### 2. Reset Password Page (`src/pages/ResetPassword.tsx`)
-- Change `minLength={6}` to `minLength={12}` on both password inputs (lines ~376, ~390)
-- Update validation check from `< 6` to `< 12` (line ~206)
-- Update error message and placeholder text to say "12 characters"
+### 2. `supabase/functions/send-verification-email/index.ts`
+- Add the `escapeHtml()` function
+- Escape `displayName` before interpolation
+- Escape `verificationLink` before placing it in visible text (the `href` attribute is safe as URLs are server-generated, but the visible text rendition should be escaped)
 
-### 3. Settings Page (`src/pages/Settings.tsx`)
-- Change validation check from `< 6` to `< 12` (line ~330)
-- Update error message to say "12 characters"
+### 3. `supabase/functions/send-password-reset-email/index.ts`
+- Add the `escapeHtml()` function
+- Escape `displayName` before interpolation
+- Escape `resetLink` in the visible text paragraph
 
-### Technical Notes
-- The authentication platform enforces its own server-side minimum (default 6). The frontend will enforce the stricter 12-character requirement, ensuring no password shorter than 12 characters is ever submitted. If the server-side config can be updated to match, that would provide defense-in-depth, but the frontend gate is sufficient for CASA compliance since the API only receives passwords that already pass client validation.
-- No database migrations are needed.
-- No edge function changes are needed.
+### 4. `supabase/functions/send-password-reset-confirmation/index.ts`
+- Add the `escapeHtml()` function
+- Escape `displayName` before interpolation
+- Escape `loginLink` in the button href (server-generated but for consistency)
+
+## Technical Details
+
+The `escapeHtml` function to add in each file:
+
+```typescript
+const escapeHtml = (str: string): string => {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
+};
+```
+
+Usage pattern in each function -- wrap user-derived values before template interpolation:
+```typescript
+const safeDisplayName = escapeHtml(displayName);
+// Then use safeDisplayName in the HTML template instead of displayName
+```
+
+No database changes or new dependencies required. The edge functions will be redeployed automatically.
 
