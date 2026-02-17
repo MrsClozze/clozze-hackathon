@@ -1036,8 +1036,39 @@ export default function CalendarView() {
                           <p className="text-xs text-primary ml-5 mt-2">Click to edit task</p>
                         )}
                       </div>
-                      {/* Hide delete button on admin tab if view-only */}
-                      {!(activeTab === "admin" && teamAdminAccessLevel === "view") && (
+                      {/* On admin tab: hide actions if view-only, show both edit & delete if edit access */}
+                      {activeTab === "admin" ? (
+                        teamAdminAccessLevel === "edit" && (
+                          <div className="flex items-center gap-1">
+                            {!event.isTask && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Pre-fill the add form with this event's data for editing
+                                  setNewEventTitle(event.title);
+                                  setNewEventTime(event.time || "");
+                                  setNewEventDescription(event.description || "");
+                                  // Delete old, user will re-add with updated values
+                                  handleDeleteEvent(event.id);
+                                }}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleDeleteButtonClick(event, e)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      ) : (
                         <Button
                           variant="ghost"
                           size="sm"
