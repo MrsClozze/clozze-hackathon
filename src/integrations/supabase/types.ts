@@ -30,6 +30,7 @@ export type Database = {
           onboarding_completed: boolean | null
           preferred_email: string | null
           preferred_lender_scenario: string | null
+          share_calendars_access_level: string
           share_calendars_with_team: boolean
           share_emails_with_team: boolean
           title_company_scenario: string | null
@@ -51,6 +52,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           preferred_email?: string | null
           preferred_lender_scenario?: string | null
+          share_calendars_access_level?: string
           share_calendars_with_team?: boolean
           share_emails_with_team?: boolean
           title_company_scenario?: string | null
@@ -72,6 +74,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           preferred_email?: string | null
           preferred_lender_scenario?: string | null
+          share_calendars_access_level?: string
           share_calendars_with_team?: boolean
           share_emails_with_team?: boolean
           title_company_scenario?: string | null
