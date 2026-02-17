@@ -239,6 +239,8 @@ export default function CalendarView() {
   // Team shared events state
   const [teamEvents, setTeamEvents] = useState<CalendarEvent[]>([]);
   const [teamAdminsExist, setTeamAdminsExist] = useState(false);
+  const [teamAdminAccessLevel, setTeamAdminAccessLevel] = useState<"view" | "edit">("view");
+  const [teamAdminUserId, setTeamAdminUserId] = useState<string | null>(null);
   
   // Sync confirmation dialog state
   const [syncConfirmProvider, setSyncConfirmProvider] = useState<"google" | "apple" | null>(null);
@@ -251,6 +253,7 @@ export default function CalendarView() {
   // Calendar visibility settings state
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [shareCalendarsWithTeam, setShareCalendarsWithTeam] = useState(false);
+  const [shareCalendarsAccessLevel, setShareCalendarsAccessLevel] = useState<"view" | "edit">("view");
   const [loadingSharePref, setLoadingSharePref] = useState(false);
 
   // Connected calendar events
@@ -262,11 +265,12 @@ export default function CalendarView() {
     const fetchPref = async () => {
       const { data } = await supabase
         .from("agent_communication_preferences")
-        .select("share_calendars_with_team")
+        .select("share_calendars_with_team, share_calendars_access_level")
         .eq("user_id", user.id)
         .maybeSingle();
       if (data) {
         setShareCalendarsWithTeam(data.share_calendars_with_team ?? false);
+        setShareCalendarsAccessLevel((data as any).share_calendars_access_level ?? "view");
       }
     };
     fetchPref();
@@ -301,15 +305,21 @@ export default function CalendarView() {
       // Check which teammates share calendars
       const { data: prefs } = await supabase
         .from("agent_communication_preferences")
-        .select("user_id, share_calendars_with_team")
+        .select("user_id, share_calendars_with_team, share_calendars_access_level")
         .in("user_id", teammateIds)
         .eq("share_calendars_with_team", true);
 
       if (!prefs || prefs.length === 0) {
         setTeamAdminsExist(false);
         setTeamEvents([]);
+        setTeamAdminUserId(null);
         return;
       }
+
+      // Use the first sharing admin's access level
+      const firstPref = prefs[0] as any;
+      setTeamAdminAccessLevel(firstPref.share_calendars_access_level ?? "view");
+      setTeamAdminUserId(firstPref.user_id);
 
       setTeamAdminsExist(true);
       const sharingUserIds = prefs.map(p => p.user_id);
@@ -364,7 +374,7 @@ export default function CalendarView() {
     const { error } = await supabase
       .from("agent_communication_preferences")
       .upsert(
-        { user_id: user.id, share_calendars_with_team: checked },
+        { user_id: user.id, share_calendars_with_team: checked, share_calendars_access_level: shareCalendarsAccessLevel } as any,
         { onConflict: "user_id" }
       );
     if (error) {
@@ -376,6 +386,29 @@ export default function CalendarView() {
         description: checked
           ? "Your teammates can now view your connected calendars."
           : "Your connected calendars are now private.",
+      });
+    }
+    setLoadingSharePref(false);
+  };
+
+  const handleToggleAccessLevel = async (level: "view" | "edit") => {
+    if (!user) return;
+    setLoadingSharePref(true);
+    const { error } = await supabase
+      .from("agent_communication_preferences")
+      .upsert(
+        { user_id: user.id, share_calendars_access_level: level } as any,
+        { onConflict: "user_id" }
+      );
+    if (error) {
+      toast({ title: "Error", description: "Failed to update access level.", variant: "destructive" });
+    } else {
+      setShareCalendarsAccessLevel(level);
+      toast({
+        title: "Access level updated",
+        description: level === "edit"
+          ? "Teammates can now add and manage events on your calendar."
+          : "Teammates can only view your calendar.",
       });
     }
     setLoadingSharePref(false);
@@ -490,7 +523,45 @@ export default function CalendarView() {
   const handleAddEvent = async () => {
     if (!newEventTitle.trim() || !selectedDay) return;
 
-    if (activeTab === "connected") {
+    if (activeTab === "admin" && teamAdminUserId) {
+      // Add event to admin's calendar
+      const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
+      const newEvent = {
+        user_id: teamAdminUserId,
+        title: newEventTitle,
+        description: newEventDescription || null,
+        event_date: eventDate.toISOString().split('T')[0],
+        event_time: newEventTime ? newEventTime + ':00' : null,
+        event_type: 'custom',
+        source: 'manual',
+        reminder_enabled: false,
+      };
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .insert(newEvent)
+        .select()
+        .single();
+      if (error) {
+        toast({ title: "Error", description: "Failed to add event to admin calendar.", variant: "destructive" });
+      } else if (data) {
+        const mapped: CalendarEvent = {
+          id: data.id,
+          date: selectedDay,
+          month: currentDate.getMonth(),
+          year: currentDate.getFullYear(),
+          title: data.title,
+          time: data.event_time || undefined,
+          description: data.description || undefined,
+          color: "bg-accent",
+          textColor: "text-accent-foreground",
+          isTeamEvent: true,
+          ownerName: "Admin",
+          ownerUserId: teamAdminUserId,
+        };
+        setTeamEvents(prev => [...prev, mapped]);
+        toast({ title: "Event added", description: `${newEventTitle} added to admin calendar.` });
+      }
+    } else if (activeTab === "connected") {
       // Add to connected calendar events (DB)
       const eventDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay);
       await addConnectedEvent({
@@ -813,10 +884,28 @@ export default function CalendarView() {
                       />
                     </div>
                     {shareCalendarsWithTeam && (
-                      <p className="text-xs text-accent-gold flex items-center gap-1.5">
-                        <Settings className="h-3 w-3" />
-                        Your calendars are currently visible to teammates.
-                      </p>
+                      <>
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-card-border">
+                          <div className="flex-1">
+                            <Label htmlFor="access-level" className="text-sm font-medium text-text-heading">
+                              Allow teammates to add/edit events
+                            </Label>
+                            <p className="text-xs text-text-muted mt-0.5">
+                              When enabled, teammates can create and manage events on your calendar.
+                            </p>
+                          </div>
+                          <Switch
+                            id="access-level"
+                            checked={shareCalendarsAccessLevel === "edit"}
+                            onCheckedChange={(checked) => handleToggleAccessLevel(checked ? "edit" : "view")}
+                            disabled={loadingSharePref}
+                          />
+                        </div>
+                        <p className="text-xs text-accent-gold flex items-center gap-1.5">
+                          <Settings className="h-3 w-3" />
+                          Your calendars are currently visible to teammates ({shareCalendarsAccessLevel === "edit" ? "can edit" : "view only"}).
+                        </p>
+                      </>
                     )}
                   </div>
                 )}
@@ -947,14 +1036,17 @@ export default function CalendarView() {
                           <p className="text-xs text-primary ml-5 mt-2">Click to edit task</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleDeleteButtonClick(event, e)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      {/* Hide delete button on admin tab if view-only */}
+                      {!(activeTab === "admin" && teamAdminAccessLevel === "view") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeleteButtonClick(event, e)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -965,56 +1057,65 @@ export default function CalendarView() {
               </div>
             </div>
 
-            {/* Add New Event Form */}
-            <div className="border-t border-card-border pt-4">
-              <h3 className="text-sm font-semibold text-text-heading mb-3 flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Event
-              </h3>
-              <div className="space-y-4">
+            {/* Add New Event Form - hidden on admin tab if view-only */}
+            {!(activeTab === "admin" && teamAdminAccessLevel === "view") && (
+              <div className="border-t border-card-border pt-4">
+                <h3 className="text-sm font-semibold text-text-heading mb-3 flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add New Event{activeTab === "admin" ? " (Admin Calendar)" : ""}
+                </h3>
+                <div className="space-y-4">
 
-                <div>
-                  <Label htmlFor="event-title" className="text-text-heading">Event Title</Label>
-                  <Input
-                    id="event-title"
-                    value={newEventTitle}
-                    onChange={(e) => setNewEventTitle(e.target.value)}
-                    placeholder="e.g., Client Meeting"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="event-time" className="text-text-heading">Time (optional)</Label>
-                  <Input
-                    id="event-time"
-                    type="time"
-                    value={newEventTime}
-                    onChange={(e) => setNewEventTime(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="event-description" className="text-text-heading">Description (optional)</Label>
-                  <Textarea
-                    id="event-description"
-                    value={newEventDescription}
-                    onChange={(e) => setNewEventDescription(e.target.value)}
-                    placeholder="Add event details..."
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="event-title" className="text-text-heading">Event Title</Label>
+                    <Input
+                      id="event-title"
+                      value={newEventTitle}
+                      onChange={(e) => setNewEventTitle(e.target.value)}
+                      placeholder="e.g., Client Meeting"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="event-time" className="text-text-heading">Time (optional)</Label>
+                    <Input
+                      id="event-time"
+                      type="time"
+                      value={newEventTime}
+                      onChange={(e) => setNewEventTime(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="event-description" className="text-text-heading">Description (optional)</Label>
+                    <Textarea
+                      id="event-description"
+                      value={newEventDescription}
+                      onChange={(e) => setNewEventDescription(e.target.value)}
+                      placeholder="Add event details..."
+                      className="mt-1"
+                      rows={3}
+                    />
+                  </div>
 
-                <Button
-                  onClick={handleAddEvent}
-                  disabled={!newEventTitle.trim()}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Event
-                </Button>
+                  <Button
+                    onClick={handleAddEvent}
+                    disabled={!newEventTitle.trim()}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Event
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+            {activeTab === "admin" && teamAdminAccessLevel === "view" && (
+              <div className="border-t border-card-border pt-4">
+                <p className="text-sm text-text-muted text-center py-2">
+                  This is a view-only calendar. Contact your admin to request edit access.
+                </p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
