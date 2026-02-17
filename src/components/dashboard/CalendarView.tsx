@@ -459,13 +459,15 @@ export default function CalendarView() {
     });
   }, [connectedEvents]);
 
-  // Get events based on active tab, merging team events when sharing is enabled
+  // Get events based on active tab
   const activeEvents = useMemo(() => {
     switch (activeTab) {
       case "tasks":
-        return [...taskEvents, ...teamEvents.filter(e => e.isTeamEvent)];
+        return taskEvents;
       case "connected":
         return connectedCalendarEvents;
+      case "admin":
+        return teamEvents;
       default:
         return taskEvents;
     }
@@ -845,6 +847,7 @@ export default function CalendarView() {
           {[
             { value: "tasks", label: "Clozze Task Calendar", icon: Calendar, disabled: false, hint: "" },
             { value: "connected", label: "Connected Calendar", icon: Unlink, disabled: !hasAnyConnection, hint: !hasAnyConnection ? "Not linked" : "" },
+            ...(teamAdminsExist ? [{ value: "admin", label: "Admin Calendar", icon: Users, disabled: false, hint: "" }] : []),
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.value;
@@ -871,8 +874,9 @@ export default function CalendarView() {
           })}
         </div>
         <p className="text-xs text-text-muted">
-          {activeTab === "tasks" && "Centralized view of all tasks by date."}
+          {activeTab === "tasks" && "Centralized view of all your tasks by date."}
           {activeTab === "connected" && "Events from your connected calendar, including synced items."}
+          {activeTab === "admin" && "Shared calendar from your workspace admin."}
         </p>
       </div>
 
