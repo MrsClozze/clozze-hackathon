@@ -47,6 +47,7 @@ export function useCalendarEvents() {
       const { data, error } = await supabase
         .from('calendar_events')
         .select('*')
+        .eq('user_id', user.id)
         .order('event_date', { ascending: true });
 
       if (error) throw error;
