@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { phSubscriptionCanceled } from "@/lib/posthog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +159,7 @@ export default function SubscriptionManagement() {
       });
       if (error) throw error;
       
+      phSubscriptionCanceled();
       toast({
         title: "Subscription cancelled",
         description: "Your subscription will remain active until the end of your billing period.",

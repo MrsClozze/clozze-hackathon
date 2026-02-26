@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { trackPurchase } from "@/lib/analytics";
+import { phCheckoutStart, phPurchaseComplete } from "@/lib/posthog";
 import SubscriptionManagement from "@/components/subscription/SubscriptionManagement";
 
 const plans = [
@@ -91,6 +92,7 @@ function PlanSelection() {
       };
       const purchaseValue = priceMap[planType] || 9.99;
       trackPurchase(purchaseValue);
+      phPurchaseComplete(purchaseValue, planType);
       
       // Clean up URL params
       searchParams.delete('success');
@@ -163,6 +165,7 @@ function PlanSelection() {
 
     // For all other cases (Pro plan, or Team add-on without Pro)
     setLoading(planType);
+    phCheckoutStart();
     
     try {
       // Team add-on for non-Pro users: checkout for Pro + 1 seat

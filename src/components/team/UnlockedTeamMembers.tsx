@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { phInviteTeammate } from "@/lib/posthog";
 import { emitTeamDataRefresh, useTeamDataRefresh } from "@/hooks/useTeamDataRefresh";
 import BentoCard from "@/components/dashboard/BentoCard";
 import { Button } from "@/components/ui/button";
@@ -333,6 +334,7 @@ export default function UnlockedTeamMembers() {
         : user!.email?.split('@')[0] || 'A team owner';
 
       // Send invitation email
+      phInviteTeammate();
       const { error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
         body: {
           inviteeEmail: formData.email,
