@@ -19,6 +19,7 @@ export function initPostHog() {
     capture_pageleave: true,
   });
   initialised = true;
+  (window as any).posthog = posthog;
 
   // Register UTM params on first load
   const params = new URLSearchParams(window.location.search);
