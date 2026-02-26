@@ -83,7 +83,7 @@ export function phCapture(event: string, properties?: Record<string, any>) {
 // Core
 export const phAppVisit = () => { console.log('[PostHog] app_visit fired'); phCapture('app_visit'); };
 export const phSignupStart = () => { console.log('[PostHog] signup_start fired'); phCapture('signup_start'); };
-export const phSignupComplete = () => { console.log('[PostHog] signup_complete fired'); phCapture('signup_complete'); };
+export const phSignupComplete = () => { console.log('[PostHog] signup_complete fired'); phCapture('signup_complete', { ...getUTMData() }); };
 export const phLogin = () => { console.log('[PostHog] login fired'); phCapture('login'); };
 
 // Activation
