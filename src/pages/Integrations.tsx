@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { phConnectIntegration } from "@/lib/posthog";
 import Layout from "@/components/layout/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -344,6 +345,7 @@ export default function Integrations() {
     }
 
     if (integrationId === "google_calendar") {
+      phConnectIntegration("google_calendar");
       await handleGoogleCalendarConnect();
       return;
     }

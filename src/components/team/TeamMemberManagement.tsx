@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { phInviteTeammate } from "@/lib/posthog";
 import { emitTeamDataRefresh, useTeamDataRefresh } from "@/hooks/useTeamDataRefresh";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -318,6 +319,7 @@ export default function TeamMemberManagement({
           : user!.email?.split('@')[0] || 'A team owner';
 
         console.log('Sending invitation email to:', formData.email);
+        phInviteTeammate();
         
         const { data: emailData, error: emailError } = await supabase.functions.invoke('send-team-invitation-email', {
           body: {

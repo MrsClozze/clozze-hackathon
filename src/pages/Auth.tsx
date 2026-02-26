@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { trackPurchase } from "@/lib/analytics";
+import { phSignupStart, phSignupComplete, phLogin, phPurchaseComplete, identifyUser } from "@/lib/posthog";
 import clozzeLogo from "@/assets/clozze-logo.png";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -148,6 +149,7 @@ export default function Auth() {
               'team': 9.99
             };
             trackPurchase(priceMap[planType] || 9.99);
+            phPurchaseComplete(priceMap[planType] || 9.99, planType);
           }
           
           refreshSubscription().then(() => {
@@ -242,6 +244,7 @@ export default function Auth() {
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    phSignupStart();
 
     try {
       console.log('[AUTH] Starting signup for:', email);
@@ -264,6 +267,10 @@ export default function Auth() {
       }
 
       console.log('[AUTH] Signup successful, user:', data.user?.id);
+      phSignupComplete();
+      if (data.user) {
+        identifyUser(data.user.id, { email, name: `${firstName} ${lastName}`.trim() });
+      }
 
       // Show success toast immediately - don't wait for welcome email
       toast({
@@ -323,6 +330,7 @@ export default function Auth() {
 
       if (error) throw error;
 
+      phLogin();
       toast({
         title: "Welcome back!",
       });

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { identifyUser, resetUser } from "@/lib/posthog";
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
@@ -183,6 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Fire-and-forget subscription check - don't await, don't affect loading state
         if (currentSession?.user) {
+          // Keep PostHog in sync with the current user
+          identifyUser(currentSession.user.id, {
+            email: currentSession.user.email,
+          });
           checkSubscription(currentSession).catch(e => {
             console.error('[AUTH] Subscription check failed (non-blocking):', e);
           });
@@ -230,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
+      resetUser();
       setUser(null);
       setSession(null);
       setSubscription(null);

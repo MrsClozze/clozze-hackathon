@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "./AuthContext";
 import { useAccountState } from "./AccountStateContext";
 import { DEMO_TASKS, isDemoId } from "@/data/demoData";
+import { phCreateTask, phCompleteTask } from "@/lib/posthog";
 
 // Helper to get browser timezone
 const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -278,6 +279,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       // If marking a recurring task as completed, trigger generation of next instances
       const currentTask = tasks.find(t => t.id === taskId);
       if (updates.status === 'completed' && currentTask?.parentTaskId) {
+        phCompleteTask();
         void supabase.functions.invoke('generate-recurring-tasks', {
           body: { parentTaskId: currentTask.parentTaskId, userId: user?.id },
         }).then(() => fetchTasks()).catch((err) => {
@@ -399,6 +401,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('[TasksContext] Task created:', data.id);
+      phCreateTask();
 
       // Insert multiple assignees into task_assignees table
       const assigneeIds = task.assigneeUserIds?.filter(Boolean) || 
