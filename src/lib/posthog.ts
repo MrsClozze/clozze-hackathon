@@ -8,18 +8,24 @@ import posthog from 'posthog-js';
 
 const POSTHOG_KEY = 'phc_WsPeLkruW8jpxi20MXxeBbFFEQXIrTfFvSt1dlyIDbF';
 
+/** The shared PostHog instance – import this instead of relying on window. */
+export const ph = posthog;
+
 let initialised = false;
 
 export function initPostHog() {
   if (initialised) return;
   console.log('[PostHog] Initializing...');
-  posthog.init(POSTHOG_KEY, {
+  ph.init(POSTHOG_KEY, {
     api_host: 'https://app.posthog.com',
     capture_pageview: true,
     capture_pageleave: true,
   });
   initialised = true;
-  (window as any).posthog = posthog;
+
+  // Attach to window for DevTools debugging
+  (window as any).posthog = ph;
+  console.log('[PostHog] Attached to window.posthog', typeof (window as any).posthog);
 
   // Register UTM params on first load
   const params = new URLSearchParams(window.location.search);
@@ -29,24 +35,24 @@ export function initPostHog() {
     if (val) utm[key] = val;
   });
   if (Object.keys(utm).length > 0) {
-    posthog.register(utm);
+    ph.register(utm);
   }
 }
 
 // ─── User identification ───────────────────────────────────────
 export function identifyUser(userId: string, traits: Record<string, any> = {}) {
   console.log('[PostHog] identify fired', userId, traits);
-  posthog.identify(userId, traits);
+  ph.identify(userId, traits);
 }
 
 export function resetUser() {
   console.log('[PostHog] reset fired');
-  posthog.reset();
+  ph.reset();
 }
 
 // ─── Generic capture ───────────────────────────────────────────
 export function phCapture(event: string, properties?: Record<string, any>) {
-  posthog.capture(event, properties);
+  ph.capture(event, properties);
 }
 
 // ─── Typed event helpers ───────────────────────────────────────
