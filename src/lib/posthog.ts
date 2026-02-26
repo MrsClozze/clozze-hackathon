@@ -27,16 +27,39 @@ export function initPostHog() {
   (window as any).posthog = ph;
   console.log('[PostHog] Attached to window.posthog', typeof (window as any).posthog);
 
-  // Register UTM params on first load
+  // Persist UTM params + referrer to localStorage (don't overwrite existing)
   const params = new URLSearchParams(window.location.search);
+  const utmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
   const utm: Record<string, string> = {};
-  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach((key) => {
+  utmKeys.forEach((key) => {
     const val = params.get(key);
-    if (val) utm[key] = val;
+    if (val) {
+      localStorage.setItem(key, val);
+      utm[key] = val;
+    }
   });
+
+  // Store referrer if present and not already stored
+  if (document.referrer && !localStorage.getItem('referrer')) {
+    localStorage.setItem('referrer', document.referrer);
+  }
+
+  // Register UTM with PostHog for super-properties
   if (Object.keys(utm).length > 0) {
     ph.register(utm);
   }
+}
+
+// ─── UTM data helper ──────────────────────────────────────────
+export function getUTMData(): Record<string, string | null> {
+  return {
+    utm_source: localStorage.getItem('utm_source'),
+    utm_medium: localStorage.getItem('utm_medium'),
+    utm_campaign: localStorage.getItem('utm_campaign'),
+    utm_content: localStorage.getItem('utm_content'),
+    utm_term: localStorage.getItem('utm_term'),
+    referrer: localStorage.getItem('referrer'),
+  };
 }
 
 // ─── User identification ───────────────────────────────────────
