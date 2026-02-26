@@ -12,6 +12,7 @@ let initialised = false;
 
 export function initPostHog() {
   if (initialised) return;
+  console.log('[PostHog] Initializing...');
   posthog.init(POSTHOG_KEY, {
     api_host: 'https://app.posthog.com',
     capture_pageview: true,
@@ -33,10 +34,12 @@ export function initPostHog() {
 
 // ─── User identification ───────────────────────────────────────
 export function identifyUser(userId: string, traits: Record<string, any> = {}) {
+  console.log('[PostHog] identify fired', userId, traits);
   posthog.identify(userId, traits);
 }
 
 export function resetUser() {
+  console.log('[PostHog] reset fired');
   posthog.reset();
 }
 
@@ -48,26 +51,30 @@ export function phCapture(event: string, properties?: Record<string, any>) {
 // ─── Typed event helpers ───────────────────────────────────────
 
 // Core
-export const phAppVisit = () => phCapture('app_visit');
-export const phSignupStart = () => phCapture('signup_start');
-export const phSignupComplete = () => phCapture('signup_complete');
-export const phLogin = () => phCapture('login');
+export const phAppVisit = () => { console.log('[PostHog] app_visit fired'); phCapture('app_visit'); };
+export const phSignupStart = () => { console.log('[PostHog] signup_start fired'); phCapture('signup_start'); };
+export const phSignupComplete = () => { console.log('[PostHog] signup_complete fired'); phCapture('signup_complete'); };
+export const phLogin = () => { console.log('[PostHog] login fired'); phCapture('login'); };
 
 // Activation
-export const phCreateWorkspace = () => phCapture('create_workspace');
-export const phCreateTransaction = () => phCapture('create_transaction');
-export const phInviteTeammate = () => phCapture('invite_teammate');
-export const phConnectIntegration = (name?: string) =>
+export const phCreateWorkspace = () => { console.log('[PostHog] create_workspace fired'); phCapture('create_workspace'); };
+export const phCreateTransaction = () => { console.log('[PostHog] create_transaction fired'); phCapture('create_transaction'); };
+export const phInviteTeammate = () => { console.log('[PostHog] invite_teammate fired'); phCapture('invite_teammate'); };
+export const phConnectIntegration = (name?: string) => {
+  console.log('[PostHog] connect_integration fired', name);
   phCapture('connect_integration', name ? { integration: name } : undefined);
+};
 
 // Engagement
-export const phUploadDocument = () => phCapture('upload_document');
-export const phCreateTask = () => phCapture('create_task');
-export const phCompleteTask = () => phCapture('complete_task');
-export const phCommentAdded = () => phCapture('comment_added');
+export const phUploadDocument = () => { console.log('[PostHog] upload_document fired'); phCapture('upload_document'); };
+export const phCreateTask = () => { console.log('[PostHog] create_task fired'); phCapture('create_task'); };
+export const phCompleteTask = () => { console.log('[PostHog] complete_task fired'); phCapture('complete_task'); };
+export const phCommentAdded = () => { console.log('[PostHog] comment_added fired'); phCapture('comment_added'); };
 
 // Revenue
-export const phCheckoutStart = () => phCapture('checkout_start');
-export const phPurchaseComplete = (value: number, plan: string) =>
+export const phCheckoutStart = () => { console.log('[PostHog] checkout_start fired'); phCapture('checkout_start'); };
+export const phPurchaseComplete = (value: number, plan: string) => {
+  console.log('[PostHog] purchase_complete fired', { value, plan });
   phCapture('purchase_complete', { value, plan });
-export const phSubscriptionCanceled = () => phCapture('subscription_canceled');
+};
+export const phSubscriptionCanceled = () => { console.log('[PostHog] subscription_canceled fired'); phCapture('subscription_canceled'); };
