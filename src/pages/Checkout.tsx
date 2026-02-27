@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,12 +16,40 @@ import { Loader2 } from "lucide-react";
  * - Authenticated users: Links subscription to their account
  * - Guest users: Stripe collects email, account created after payment
  */
+const UTM_KEYS = ["utm_source","utm_medium","utm_campaign","utm_term","utm_content","gclid","fbclid","msclkid"];
+
+function persistUtmFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  UTM_KEYS.forEach((k) => {
+    const v = params.get(k);
+    if (v) localStorage.setItem(k, v);
+  });
+}
+
+export function getStoredUtm(): Record<string, string> {
+  const out: Record<string, string> = {};
+  UTM_KEYS.forEach((k) => {
+    const v = localStorage.getItem(k);
+    if (v) out[k] = v;
+  });
+  return out;
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const utmPersisted = useRef(false);
+
+  // Persist UTM params from URL on first load
+  useEffect(() => {
+    if (!utmPersisted.current) {
+      persistUtmFromUrl();
+      utmPersisted.current = true;
+    }
+  }, []);
 
   const plan = searchParams.get("plan") || "pro";
   const seats = parseInt(searchParams.get("seats") || "0", 10);
