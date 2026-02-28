@@ -150,6 +150,16 @@ export default function Auth() {
             };
             trackPurchase(priceMap[planType] || 9.99);
             phPurchaseComplete(priceMap[planType] || 9.99, planType);
+
+            // Fire GA4 sign_up event once per successful Stripe checkout
+            const stripeSignupKey = `ga4_signup_fired_${sessionId}`;
+            if (!sessionStorage.getItem(stripeSignupKey)) {
+              window.gtag?.("event", "sign_up", {
+                method: "stripe_checkout",
+                plan: planType,
+              });
+              sessionStorage.setItem(stripeSignupKey, "true");
+            }
           }
           
           refreshSubscription().then(() => {
@@ -201,9 +211,21 @@ export default function Auth() {
           }
           
           if (!profile || !profile.onboarding_completed) {
+            // New user (or hasn't completed onboarding) — fire GA4 sign_up for Google OAuth
+            const oauthMethod = sessionStorage.getItem("ga4_oauth_method");
+            if (oauthMethod) {
+              window.gtag?.("event", "sign_up", { method: oauthMethod });
+              sessionStorage.removeItem("ga4_oauth_method");
+            }
             console.log('[AUTH] Redirecting to onboarding');
             navigate("/onboarding");
           } else {
+            // Returning user — fire GA4 login for Google OAuth
+            const oauthMethod = sessionStorage.getItem("ga4_oauth_method");
+            if (oauthMethod) {
+              window.gtag?.("event", "login", { method: oauthMethod });
+              sessionStorage.removeItem("ga4_oauth_method");
+            }
             console.log('[AUTH] Onboarding complete, redirecting to home');
             navigate("/");
           }
@@ -272,6 +294,9 @@ export default function Auth() {
         identifyUser(data.user.id, { email, name: `${firstName} ${lastName}`.trim() });
       }
 
+      // Fire GA4 sign_up event for new email signups
+      window.gtag?.("event", "sign_up", { method: "email" });
+
       // Show success toast immediately - don't wait for welcome email
       toast({
         title: "Account created!",
@@ -331,6 +356,8 @@ export default function Auth() {
       if (error) throw error;
 
       phLogin();
+      // Fire GA4 login event for returning email sign-ins
+      window.gtag?.("event", "login", { method: "email" });
       toast({
         title: "Welcome back!",
       });
@@ -355,7 +382,11 @@ export default function Auth() {
       });
 
       if (result?.error) throw result.error;
-      // If redirected, the browser will navigate to the provider.
+      // GA4 sign_up for Google is fired after OAuth callback lands back on /auth
+      // and the user is detected as new (handled by the redirect useEffect above for Stripe,
+      // or by AuthContext for organic Google signups).
+      // For now, mark intent so we can distinguish new vs returning after redirect.
+      sessionStorage.setItem("ga4_oauth_method", "google");
     } catch (error: any) {
       toast({
         title: "Google sign in failed",
