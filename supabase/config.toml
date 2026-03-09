@@ -82,3 +82,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.parse-task-input]
+
+[functions.zendesk-cancel-portal]
+verify_jwt = false
