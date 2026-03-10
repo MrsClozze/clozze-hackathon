@@ -41,13 +41,45 @@ interface BuyerData {
   commissionPercentage: string | null;
 }
 
+async function callAI(apiKey: string, messages: any[], tools?: any[], toolChoice?: any) {
+  const body: any = {
+    model: "google/gemini-3-flash-preview",
+    messages,
+  };
+  if (tools) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw { status: 429, message: "Rate limit exceeded. Please try again in a moment." };
+    }
+    if (response.status === 402) {
+      throw { status: 402, message: "AI credits exhausted. Please add credits to continue." };
+    }
+    const errorText = await response.text();
+    console.error("AI gateway error:", response.status, errorText);
+    throw { status: response.status, message: `AI gateway error: ${response.status}` };
+  }
+
+  return await response.json();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { documentText, documentType } = await req.json();
+    const { documentText, documentType, action } = await req.json();
     
     if (!documentText || typeof documentText !== "string") {
       return new Response(
@@ -56,16 +88,100 @@ serve(async (req) => {
       );
     }
 
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    // ── DETECT MODE ──
+    // Auto-detect document type from content
+    if (action === "detect") {
+      const detectResponse = await callAI(
+        LOVABLE_API_KEY,
+        [
+          {
+            role: "system",
+            content: `You are a real estate document classifier. Analyze the document text and determine what type of real estate document it is.
+
+Classify the document into ONE of these categories:
+- "listing" — if it is a Residential Listing Agreement, Exclusive Right to Sell, or similar listing contract between a seller/owner and a brokerage/agent to list a property for sale.
+- "buyer" — if it is a Buyer Representation Agreement, Buyer Agency Agreement, Buyer Broker Agreement, or similar contract between a buyer/client and a brokerage/agent for buyer representation services.
+- "unrecognized" — if the document does not clearly fit either category above. This includes purchase agreements, inspection reports, closing documents, general contracts, or any document that is NOT specifically a listing agreement or buyer representation agreement.
+
+IMPORTANT:
+- Look at the TITLE and HEADING of the document first.
+- Look for key phrases like "Exclusive Right to Sell", "Listing Agreement", "Buyer Representation", "Buyer Agency", "Buyer Broker".
+- A purchase agreement is NOT a listing agreement and NOT a buyer representation agreement.
+- If you are not confident, return "unrecognized".`,
+          },
+          {
+            role: "user",
+            content: `Classify this document:\n\n${documentText.slice(0, 5000)}`,
+          },
+        ],
+        [
+          {
+            type: "function",
+            function: {
+              name: "classify_document",
+              description: "Classify the real estate document type",
+              parameters: {
+                type: "object",
+                properties: {
+                  documentType: {
+                    type: "string",
+                    enum: ["listing", "buyer", "unrecognized"],
+                    description: "The detected document type",
+                  },
+                  confidence: {
+                    type: "string",
+                    enum: ["high", "medium", "low"],
+                    description: "How confident the classification is",
+                  },
+                  reason: {
+                    type: "string",
+                    description: "Brief reason for the classification",
+                  },
+                },
+                required: ["documentType", "confidence", "reason"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        { type: "function", function: { name: "classify_document" } }
+      );
+
+      const toolCall = detectResponse.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall) {
+        throw new Error("Unexpected AI response format during detection");
+      }
+
+      const classification = JSON.parse(toolCall.function.arguments);
+      console.log("[parse-document] Document classification:", JSON.stringify(classification));
+
+      // If confidence is low, mark as unrecognized
+      if (classification.confidence === "low") {
+        classification.documentType = "unrecognized";
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          detectedType: classification.documentType,
+          confidence: classification.confidence,
+          reason: classification.reason,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── EXTRACT MODE ──
     if (!documentType || !["listing", "buyer"].includes(documentType)) {
       return new Response(
         JSON.stringify({ error: "Document type must be 'listing' or 'buyer'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Build the extraction prompt based on document type
@@ -77,18 +193,32 @@ serve(async (req) => {
          
          IMPORTANT: 
          - Extract ONLY the seller/property owner information, NOT buyer information
-         - DO NOT GUESS. If a field is not explicitly present in the document text, return null for that field.
+         - DO NOT GUESS OR FABRICATE DATA. If a field is not explicitly present in the document text, you MUST return null for that field.
+         - If you cannot find a specific piece of information, return null. Never make up names, emails, phone numbers, or any other data.
          - If you are unsure between multiple values, return null.
          - Return numeric values as strings (e.g., "450000" not 450000)
          - For dates, use YYYY-MM-DD format
          - For phone numbers, include the formatting as found in the document`
-      : `You are a real estate document parser. Extract ONLY buyer/client information from the provided document.
-         Focus on finding: buyer details (name, email, phone), pre-approved loan amount, 
-         wants/needs/requirements, brokerage information, and commission details.
+      : `You are a real estate document parser. Extract ONLY buyer/client information from a Buyer Representation Agreement or Buyer Agency Agreement.
+         
+         In these documents, the "Client" or "Buyer" is the person who is hiring the agent/brokerage to help them find and purchase a home.
+         The "Broker" or "Agent" or "Licensee" is the real estate professional providing the service.
+         
+         Focus on finding:
+         - The BUYER/CLIENT's name (the person buying, NOT the agent or broker)
+         - The BUYER/CLIENT's email and phone number
+         - Pre-approved loan amount (if mentioned)
+         - Property requirements, wants, or needs (if mentioned)
+         - The BROKERAGE company name (this is the company the agent works for)
+         - The brokerage address
+         - The AGENT's email (the licensee/agent representing the buyer)
+         - Commission percentage or rate
          
          IMPORTANT:
-         - Extract ONLY the buyer/client information, NOT seller or property information
-         - DO NOT GUESS. If a field is not explicitly present in the document text, return null for that field.
+         - The buyer/client is the CONSUMER hiring the agent. Their name usually appears near "Client", "Buyer", "Purchaser" labels.
+         - DO NOT GUESS OR FABRICATE DATA. If a field is not explicitly present in the document text, you MUST return null for that field.
+         - If you cannot find a buyer name, email, or phone, return null for those fields. NEVER make up names, emails, or phone numbers.
+         - Many buyer agreements do NOT contain the buyer's email or phone — that is okay, just return null.
          - If you are unsure between multiple values, return null.
          - Return numeric values as strings (e.g., "450000" not 450000)
          - For phone numbers, include the formatting as found in the document`;
@@ -119,106 +249,58 @@ serve(async (req) => {
             commissionPercentage: { type: ["string", "null"], description: "Commission percentage as a number" },
           },
           required: [
-            "sellerFirstName",
-            "sellerLastName",
-            "sellerEmail",
-            "sellerPhone",
-            "address",
-            "city",
-            "zipcode",
-            "county",
-            "bedrooms",
-            "bathrooms",
-            "sqFeet",
-            "listingPrice",
-            "appraisalPrice",
-            "multiUnit",
-            "listingStartDate",
-            "listingEndDate",
-            "brokerageName",
-            "brokerageAddress",
-            "agentEmail",
-            "commissionPercentage",
+            "sellerFirstName", "sellerLastName", "sellerEmail", "sellerPhone",
+            "address", "city", "zipcode", "county",
+            "bedrooms", "bathrooms", "sqFeet",
+            "listingPrice", "appraisalPrice", "multiUnit",
+            "listingStartDate", "listingEndDate",
+            "brokerageName", "brokerageAddress", "agentEmail", "commissionPercentage",
           ],
           additionalProperties: false,
         }
       : {
           type: "object",
           properties: {
-            buyerFirstName: { type: ["string", "null"], description: "Buyer's first name" },
-            buyerLastName: { type: ["string", "null"], description: "Buyer's last name" },
-            buyerEmail: { type: ["string", "null"], description: "Buyer's email address" },
-            buyerPhone: { type: ["string", "null"], description: "Buyer's phone number" },
+            buyerFirstName: { type: ["string", "null"], description: "Buyer/Client's first name — the person HIRING the agent, NOT the agent themselves" },
+            buyerLastName: { type: ["string", "null"], description: "Buyer/Client's last name — the person HIRING the agent, NOT the agent themselves" },
+            buyerEmail: { type: ["string", "null"], description: "Buyer/Client's email address (return null if not found — do NOT use the agent's email)" },
+            buyerPhone: { type: ["string", "null"], description: "Buyer/Client's phone number (return null if not found — do NOT use the agent's phone)" },
             preApprovedAmount: { type: ["string", "null"], description: "Pre-approved loan amount without currency symbols" },
             wantsNeeds: { type: ["string", "null"], description: "Buyer's requirements, wants, and needs for a property" },
-            brokerageName: { type: ["string", "null"], description: "Brokerage company name" },
-            brokerageAddress: { type: ["string", "null"], description: "Brokerage address" },
-            agentEmail: { type: ["string", "null"], description: "Agent email address" },
+            brokerageName: { type: ["string", "null"], description: "Brokerage company name (the company the agent works for)" },
+            brokerageAddress: { type: ["string", "null"], description: "Brokerage office address" },
+            agentEmail: { type: ["string", "null"], description: "The real estate agent/licensee's email address" },
             commissionPercentage: { type: ["string", "null"], description: "Commission percentage as a number" },
           },
           required: [
-            "buyerFirstName",
-            "buyerLastName",
-            "buyerEmail",
-            "buyerPhone",
-            "preApprovedAmount",
-            "wantsNeeds",
-            "brokerageName",
-            "brokerageAddress",
-            "agentEmail",
-            "commissionPercentage",
+            "buyerFirstName", "buyerLastName", "buyerEmail", "buyerPhone",
+            "preApprovedAmount", "wantsNeeds",
+            "brokerageName", "brokerageAddress", "agentEmail", "commissionPercentage",
           ],
           additionalProperties: false,
         };
 
     const functionName = documentType === "listing" ? "extract_listing_data" : "extract_buyer_data";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Extract the ${documentType} information from this document:\n\n${documentText}` },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: functionName,
-              description: `Extract ${documentType} data from the real estate document`,
-              parameters: extractionSchema,
-            },
+    const aiResponse = await callAI(
+      LOVABLE_API_KEY,
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Extract the ${documentType} information from this document:\n\n${documentText}` },
+      ],
+      [
+        {
+          type: "function",
+          function: {
+            name: functionName,
+            description: `Extract ${documentType} data from the real estate document. Return null for any field not explicitly found in the document — NEVER fabricate data.`,
+            parameters: extractionSchema,
           },
-        ],
-        tool_choice: { type: "function", function: { name: functionName } },
-      }),
-    });
+        },
+      ],
+      { type: "function", function: { name: functionName } }
+    );
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    
     // Extract the tool call result
     const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall || toolCall.function.name !== functionName) {
@@ -244,6 +326,8 @@ serve(async (req) => {
       }
     }
 
+    console.log(`[parse-document] Extracted ${documentType} data:`, JSON.stringify(cleanedData));
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -252,13 +336,13 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("parse-document error:", error);
+    const status = error.status || 500;
+    const message = error.message || (error instanceof Error ? error.message : "Failed to parse document");
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Failed to parse document" 
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: message }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
