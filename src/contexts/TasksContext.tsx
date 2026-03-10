@@ -354,11 +354,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
     // Validate required fields
     if (!task.title?.trim()) {
-      toast({
-        title: "Error",
-        description: "Task title is required.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Task title is required.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
