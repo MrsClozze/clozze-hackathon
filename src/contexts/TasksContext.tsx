@@ -602,11 +602,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       }
     } catch (error: any) {
       console.error('[TasksContext] Error adding task:', error);
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to create task. Please try again.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to create task. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
