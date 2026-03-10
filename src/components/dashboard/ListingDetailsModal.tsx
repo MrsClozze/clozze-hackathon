@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AttachedEmailsTab from "./AttachedEmailsTab";
 import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
@@ -211,6 +213,13 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
           </div>
         </DialogHeader>
 
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details">
         <div className="space-y-6 py-4">
           {/* Property Image and Status */}
           <div className="space-y-4">
@@ -700,6 +709,14 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="communication">
+            <div className="py-4">
+              <AttachedEmailsTab recordType="listing" recordId={listing.id} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Add Task Modal - Using standardized form */}
         <AddTaskModal 

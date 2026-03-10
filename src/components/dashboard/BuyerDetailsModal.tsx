@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AttachedEmailsTab from "./AttachedEmailsTab";
 
 const BUYER_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -213,7 +215,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
           </div>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details">
+          <div className="space-y-6 py-4">
           {/* Buyer Information */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b">
@@ -552,6 +561,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="communication">
+            <div className="py-4">
+              <AttachedEmailsTab recordType="buyer" recordId={buyer.id} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Add Task Modal - Using standardized form */}
         <AddTaskModal 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import MessageActionModal from "./MessageActionModal";
+import AttachEmailModal from "./AttachEmailModal";
 import { EmailCard, TextMessageCard } from "./MessageCard";
 import CommunicationHubSettings, { HubSettings } from "./CommunicationHubSettings";
 import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
@@ -31,6 +32,8 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const [activeTab, setActiveTab] = useState("email");
   const [emailSubTab, setEmailSubTab] = useState("needs-attention");
   const [textSubTab, setTextSubTab] = useState("needs-attention");
+  const [attachEmailId, setAttachEmailId] = useState<string | null>(null);
+  const [attachEmailSubject, setAttachEmailSubject] = useState<string | undefined>();
 
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
@@ -44,6 +47,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     analyzing, 
     syncAndAnalyze,
     ignoreEmail,
+    attachEmail,
   } = useSyncedEmails();
 
   const {
@@ -96,6 +100,11 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
       actionItem: email.ai_action_item || "",
       subject: email.subject || undefined,
     });
+  };
+
+  const handleAttachClick = (email: SyncedEmail) => {
+    setAttachEmailId(email.id);
+    setAttachEmailSubject(email.subject || undefined);
   };
 
   // Get counts for badges
@@ -193,6 +202,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
               email={email}
               onIgnore={showIgnore ? () => ignoreEmail(email.id) : undefined}
               onTakeAction={() => handleEmailAction(email)}
+              onAttach={() => handleAttachClick(email)}
               showIgnore={showIgnore}
             />
           ))}
@@ -392,6 +402,19 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
           actionItem={selectedMessage.actionItem}
         />
       )}
+
+      {/* Attach Email Modal */}
+      <AttachEmailModal
+        open={!!attachEmailId}
+        onOpenChange={(open) => { if (!open) setAttachEmailId(null); }}
+        emailSubject={attachEmailSubject}
+        onAttach={(target) => {
+          if (attachEmailId) {
+            attachEmail(attachEmailId, target);
+            setAttachEmailId(null);
+          }
+        }}
+      />
     </div>
   );
 }

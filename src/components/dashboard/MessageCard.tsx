@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, X, ArrowRight } from "lucide-react";
+import { Mail, MessageSquare, X, ArrowRight, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { SyncedEmail } from "@/hooks/useSyncedEmails";
@@ -11,8 +11,10 @@ interface MessageCardProps {
   actionItem: string;
   timestamp: string;
   priority?: "low" | "medium" | "high" | "urgent" | null;
+  isAttached?: boolean;
   onIgnore?: () => void;
   onTakeAction: () => void;
+  onAttach?: () => void;
   showIgnore?: boolean;
 }
 
@@ -24,8 +26,10 @@ export default function MessageCard({
   actionItem,
   timestamp,
   priority,
+  isAttached,
   onIgnore,
   onTakeAction,
+  onAttach,
   showIgnore = true,
 }: MessageCardProps) {
   const Icon = type === "email" ? Mail : MessageSquare;
@@ -99,6 +103,17 @@ export default function MessageCard({
             Ignore
           </Button>
         )}
+        {onAttach && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`flex-1 text-xs ${isAttached ? 'text-primary' : 'text-text-muted hover:text-text-heading'}`}
+            onClick={onAttach}
+          >
+            <Paperclip className="h-3 w-3 mr-1" />
+            {isAttached ? "Attached" : "Attach"}
+          </Button>
+        )}
         <Button
           variant="default"
           size="sm"
@@ -117,10 +132,11 @@ interface EmailCardProps {
   email: SyncedEmail;
   onIgnore?: () => void;
   onTakeAction: () => void;
+  onAttach?: () => void;
   showIgnore?: boolean;
 }
 
-export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: EmailCardProps) {
+export function EmailCard({ email, onIgnore, onTakeAction, onAttach, showIgnore = true }: EmailCardProps) {
   // Clean up AI action items that indicate no action needed
   const getCleanActionItem = (item: string | null): string => {
     if (!item) return "Review this email";
@@ -131,6 +147,8 @@ export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: 
     return item;
   };
 
+  const isAttached = !!(email.buyer_id || email.listing_id);
+
   return (
     <MessageCard
       type="email"
@@ -140,8 +158,10 @@ export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: 
       actionItem={getCleanActionItem(email.ai_action_item)}
       timestamp={email.received_at}
       priority={email.ai_priority}
+      isAttached={isAttached}
       onIgnore={onIgnore}
       onTakeAction={onTakeAction}
+      onAttach={onAttach}
       showIgnore={showIgnore}
     />
   );
