@@ -402,6 +402,19 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
           actionItem={selectedMessage.actionItem}
         />
       )}
+
+      {/* Attach Email Modal */}
+      <AttachEmailModal
+        open={!!attachEmailId}
+        onOpenChange={(open) => { if (!open) setAttachEmailId(null); }}
+        emailSubject={attachEmailSubject}
+        onAttach={(target) => {
+          if (attachEmailId) {
+            attachEmail(attachEmailId, target);
+            setAttachEmailId(null);
+          }
+        }}
+      />
     </div>
   );
 }
