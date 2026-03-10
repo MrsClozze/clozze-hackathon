@@ -342,11 +342,13 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const addTask = async (task: Omit<Task, 'id'>, options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to add a task.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to add a task.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
