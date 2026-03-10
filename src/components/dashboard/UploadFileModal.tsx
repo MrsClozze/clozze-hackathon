@@ -8,7 +8,8 @@ import docusignLogo from "@/assets/docusign-logo-new.png";
 import followUpBossLogo from "@/assets/follow-up-boss-logo.png";
 import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
-import { useDotloopConnection } from "@/hooks/useDotloopConnection";
+import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
+import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 
 interface UploadFileModalProps {
   open: boolean;
@@ -43,9 +44,10 @@ const defaultTasks = {
 export default function UploadFileModal({ open, onOpenChange }: UploadFileModalProps) {
   const [view, setView] = useState<ModalView>("upload");
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
+  const [fubModalOpen, setFubModalOpen] = useState(false);
+  const [dotloopModalOpen, setDotloopModalOpen] = useState(false);
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
-  const { connect: connectDotloop, connecting: dotloopConnecting } = useDotloopConnection();
 
   const handleClose = () => {
     setView("upload");
@@ -64,7 +66,6 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
         type: file.name.toLowerCase().includes("buyer") ? "buyer" : "listing",
         fileName: file.name,
         uploadedAt: new Date().toISOString(),
-        // Mock parsed data
         ...(file.name.toLowerCase().includes("buyer") ? {
           firstName: "John",
           lastName: "Smith",
@@ -115,9 +116,51 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const handleDocuSignUpload = async () => {
     const result = await authenticate();
     if (result) {
-      // TODO: Fetch documents from DocuSign using the access token
       console.log('DocuSign authenticated:', result);
     }
+  };
+
+  const handleFubImport = (data: any) => {
+    // Determine type based on imported data shape
+    const isBuyer = data.buyerFirstName || data.firstName;
+    const parsedResult: ParsedData = {
+      type: isBuyer ? "buyer" : "listing",
+      ...(isBuyer ? {
+        firstName: data.buyerFirstName || data.firstName || "",
+        lastName: data.buyerLastName || data.lastName || "",
+        email: data.buyerEmail || data.email || "",
+        phone: data.buyerPhone || data.phone || "",
+      } : {
+        address: data.address || "",
+        city: data.city || "",
+        zipcode: data.zipcode || "",
+        listingPrice: data.listingPrice || "",
+      }),
+    };
+
+    setParsedData(parsedResult);
+    setView("review");
+  };
+
+  const handleDotloopImport = (data: any) => {
+    const isBuyer = data.buyerFirstName || data.firstName;
+    const parsedResult: ParsedData = {
+      type: isBuyer ? "buyer" : "listing",
+      ...(isBuyer ? {
+        firstName: data.buyerFirstName || data.firstName || "",
+        lastName: data.buyerLastName || data.lastName || "",
+        email: data.buyerEmail || data.email || "",
+        phone: data.buyerPhone || data.phone || "",
+      } : {
+        address: data.address || "",
+        city: data.city || "",
+        zipcode: data.zipcode || "",
+        listingPrice: data.listingPrice || data.price || "",
+      }),
+    };
+
+    setParsedData(parsedResult);
+    setView("review");
   };
 
   const handleConfirmAndCreate = () => {
@@ -137,131 +180,145 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {view === "upload" && "Upload Document"}
-            {view === "processing" && "Processing Document"}
-            {view === "review" && "Review Extracted Data"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {view === "upload" && "Upload Document"}
+              {view === "processing" && "Processing Document"}
+              {view === "review" && "Review Extracted Data"}
+            </DialogTitle>
+          </DialogHeader>
 
-        {view === "upload" && (
-          <div className="space-y-6 py-6">
-            {/* Direct Upload */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Direct Upload</h3>
-              <FileDropZone
-                id="file-upload-direct"
-                onFileSelect={handleFileUpload}
-                accept=".pdf,.doc,.docx"
-              />
-            </div>
-
-            {/* Integration Options */}
-            <div>
-              <h3 className="text-sm font-semibold mb-3">Load from the following apps</h3>
-              <div className="grid grid-cols-3 gap-3">
-                <Button
-                  variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={handleDocuSignUpload}
-                  disabled={isAuthenticating}
-                >
-                  <img src={docusignLogo} alt="DocuSign" className="h-10 object-contain" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => toast({ title: "Follow Up Boss", description: "Integration coming soon..." })}
-                >
-                  <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
-                  onClick={() => connectDotloop()}
-                  disabled={dotloopConnecting}
-                >
-                  {dotloopConnecting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === "processing" && (
-          <div className="py-16 text-center">
-            <Loader2 className="h-16 w-16 mx-auto mb-6 text-accent-gold animate-spin" />
-            <h3 className="text-xl font-semibold mb-2">Processing Document</h3>
-            <p className="text-muted-foreground mb-4">
-              AI is extracting information from your document...
-            </p>
-            <div className="w-64 h-2 bg-secondary rounded-full mx-auto overflow-hidden">
-              <div className="h-full bg-accent-gold rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: "60%" }}></div>
-            </div>
-          </div>
-        )}
-
-        {view === "review" && parsedData && (
-          <div className="space-y-6 py-4">
-            <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+          {view === "upload" && (
+            <div className="space-y-6 py-6">
+              {/* Direct Upload */}
               <div>
-                <p className="font-semibold text-success mb-1">Document Parsed Successfully</p>
-                <p className="text-sm text-muted-foreground">
-                  Please double check contents. You will be able to edit all details once the card is uploaded.
-                </p>
-              </div>
-            </div>
-
-            <div className="border border-border rounded-lg p-6 space-y-4 bg-card">
-              <h3 className="text-lg font-semibold text-text-heading mb-4">
-                {parsedData.type === "buyer" ? "Buyer Information" : "Listing Information"}
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {Object.entries(parsedData).map(([key, value]) => {
-                  if (key === "type" || key === "fileName" || key === "uploadedAt") return null;
-                  return (
-                    <div key={key} className="space-y-1">
-                      <p className="text-muted-foreground capitalize">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
-                      </p>
-                      <p className="font-medium text-text-heading">
-                        {typeof value === "boolean" ? (value ? "Yes" : "No") : value?.toString() || "N/A"}
-                      </p>
-                    </div>
-                  );
-                })}
+                <h3 className="text-sm font-semibold mb-3">Direct Upload</h3>
+                <FileDropZone
+                  id="file-upload-direct"
+                  onFileSelect={handleFileUpload}
+                  accept=".pdf,.doc,.docx"
+                />
               </div>
 
-              <div className="pt-4 border-t border-border">
-                <p className="text-sm font-semibold mb-2">Auto-Generated Tasks ({defaultTasks[parsedData.type || "buyer"].length})</p>
-                <ul className="space-y-2">
-                  {defaultTasks[parsedData.type || "buyer"].map((task, idx) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent-gold"></span>
-                      {task.title}
-                    </li>
-                  ))}
-                </ul>
+              {/* Integration Options */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Load from the following apps</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    variant="outline"
+                    className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
+                    onClick={handleDocuSignUpload}
+                    disabled={isAuthenticating}
+                  >
+                    <img src={docusignLogo} alt="DocuSign" className="h-10 object-contain" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
+                    onClick={() => setFubModalOpen(true)}
+                  >
+                    <img src={followUpBossLogo} alt="Follow Up Boss" className="h-10 object-contain" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-20 bg-secondary border-border hover:bg-primary/10 hover:border-primary/40 transition-all"
+                    onClick={() => setDotloopModalOpen(true)}
+                  >
+                    <img src={dotloopLogo} alt="Dotloop" className="h-10 object-contain" />
+                  </Button>
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={handleClose} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmAndCreate} className="flex-1">
-                Confirm and Create Card
-              </Button>
+          {view === "processing" && (
+            <div className="py-16 text-center">
+              <Loader2 className="h-16 w-16 mx-auto mb-6 text-accent-gold animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">Processing Document</h3>
+              <p className="text-muted-foreground mb-4">
+                AI is extracting information from your document...
+              </p>
+              <div className="w-64 h-2 bg-secondary rounded-full mx-auto overflow-hidden">
+                <div className="h-full bg-accent-gold rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" style={{ width: "60%" }}></div>
+              </div>
             </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+
+          {view === "review" && parsedData && (
+            <div className="space-y-6 py-4">
+              <div className="bg-success/10 border border-success/20 rounded-lg p-4 flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-success mb-1">Data Imported Successfully</p>
+                  <p className="text-sm text-muted-foreground">
+                    Please double check contents. You will be able to edit all details once the card is uploaded.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-border rounded-lg p-6 space-y-4 bg-card">
+                <h3 className="text-lg font-semibold text-text-heading mb-4">
+                  {parsedData.type === "buyer" ? "Buyer Information" : "Listing Information"}
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {Object.entries(parsedData).map(([key, value]) => {
+                    if (key === "type" || key === "fileName" || key === "uploadedAt") return null;
+                    return (
+                      <div key={key} className="space-y-1">
+                        <p className="text-muted-foreground capitalize">
+                          {key.replace(/([A-Z])/g, " $1").trim()}
+                        </p>
+                        <p className="font-medium text-text-heading">
+                          {typeof value === "boolean" ? (value ? "Yes" : "No") : value?.toString() || "N/A"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-sm font-semibold mb-2">Auto-Generated Tasks ({defaultTasks[parsedData.type || "buyer"].length})</p>
+                  <ul className="space-y-2">
+                    {defaultTasks[parsedData.type || "buyer"].map((task, idx) => (
+                      <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-gold"></span>
+                        {task.title}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={handleClose} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmAndCreate} className="flex-1">
+                  Confirm and Create Card
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <FollowUpBossImportModal
+        open={fubModalOpen}
+        onOpenChange={setFubModalOpen}
+        importType="buyer"
+        onImport={handleFubImport}
+      />
+
+      <DotloopImportModal
+        open={dotloopModalOpen}
+        onOpenChange={setDotloopModalOpen}
+        importType="listing"
+        onImport={handleDotloopImport}
+      />
+    </>
   );
 }
