@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
 import docusignLogo from "@/assets/docusign-logo-new.png";
@@ -10,6 +10,7 @@ import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
+import { useDocumentParser } from "@/hooks/useDocumentParser";
 
 interface UploadFileModalProps {
   open: boolean;
@@ -48,6 +49,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const [dotloopModalOpen, setDotloopModalOpen] = useState(false);
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { parseListingDocument, parseBuyerDocument, isParsing } = useDocumentParser();
 
   const handleClose = () => {
     setView("upload");
@@ -57,60 +59,61 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
 
   const handleFileUpload = async (file: File) => {
     console.log("Processing file:", file.name);
-    
     setView("processing");
 
-    // Simulate AI parsing
-    setTimeout(() => {
-      const mockData: ParsedData = {
-        type: file.name.toLowerCase().includes("buyer") ? "buyer" : "listing",
-        fileName: file.name,
-        uploadedAt: new Date().toISOString(),
-        ...(file.name.toLowerCase().includes("buyer") ? {
-          firstName: "John",
-          lastName: "Smith",
-          email: "john.smith@email.com",
-          phone: "(555) 123-4567",
-          preApprovedAmount: 450000,
-          wantsNeeds: "3-bedroom house with yard, near good schools",
-          brokerageName: "Premier Realty",
-          brokerageAddress: "123 Main St",
-          agentName: "Current User",
-          agentEmail: "agent@realty.com",
-          commissionPercentage: 3.0,
-        } : {
-          sellerFirstName: "Jane",
-          sellerLastName: "Doe",
-          sellerEmail: "jane.doe@email.com",
-          sellerPhone: "(555) 987-6543",
-          address: "456 Oak Avenue",
-          city: "Beverly Hills",
-          zipcode: "90210",
-          county: "Los Angeles",
-          bedrooms: 4,
-          bathrooms: 3.5,
-          sqFeet: 3200,
-          listingPrice: 2450000,
-          appraisalPrice: 2400000,
-          multiUnit: false,
-          listingStartDate: new Date().toISOString().split('T')[0],
-          listingEndDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          brokerageName: "Luxury Properties Inc",
-          brokerageAddress: "789 Sunset Blvd",
-          agentName: "Current User",
-          agentEmail: "agent@luxury.com",
-          commissionPercentage: 6.0,
-        }),
-      };
+    // Try listing parse first; if filename hints at buyer, parse as buyer
+    const isBuyerFile = file.name.toLowerCase().includes("buyer");
+    
+    try {
+      if (isBuyerFile) {
+        const result = await parseBuyerDocument(file);
+        if (result.success && result.data) {
+          setParsedData({
+            type: "buyer",
+            fileName: file.name,
+            ...result.data,
+          });
+          setView("review");
+          toast({
+            title: "Document Parsed Successfully",
+            description: "Please review the extracted information below.",
+          });
+          return;
+        }
+      }
       
-      setParsedData(mockData);
-      setView("review");
-      
+      // Default: parse as listing
+      const result = await parseListingDocument(file);
+      if (result.success && result.data) {
+        setParsedData({
+          type: "listing",
+          fileName: file.name,
+          ...result.data,
+        });
+        setView("review");
+        toast({
+          title: "Document Parsed Successfully",
+          description: "Please review the extracted information below.",
+        });
+        return;
+      }
+
+      // If parsing returned no data, show error
+      setView("upload");
       toast({
-        title: "Document Parsed Successfully",
-        description: "Please review the extracted information below.",
+        title: "Parsing Failed",
+        description: result.error || "Could not extract data from the document. Please try again.",
+        variant: "destructive",
       });
-    }, 3000);
+    } catch (err) {
+      console.error("Document parsing error:", err);
+      setView("upload");
+      toast({
+        title: "Parsing Error",
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDocuSignUpload = async () => {
