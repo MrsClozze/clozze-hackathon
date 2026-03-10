@@ -175,15 +175,19 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   };
 
   const handleConfirmAndCreate = async () => {
-    if (!parsedData) return;
+    if (!parsedData || !user) return;
 
     try {
-      if (parsedData.type === "listing") {
+      let createdId: string | undefined;
+      const cardType = parsedData.type || "listing";
+      const tasks = defaultTasks[cardType];
+
+      if (cardType === "listing") {
         const price = parseFloat(String(parsedData.listingPrice || parsedData.price || "0").replace(/[^0-9.]/g, "")) || 0;
         const commissionPct = parseFloat(String(parsedData.commissionPercentage || "0").replace(/[^0-9.]/g, "")) || 0;
         const agentCommission = price * (commissionPct / 100);
 
-        await addListing({
+        const result = await addListing({
           address: parsedData.address || "",
           city: parsedData.city || "",
           price,
@@ -213,8 +217,9 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
           agentCommission,
           brokerageCommission: agentCommission,
         });
-      } else if (parsedData.type === "buyer") {
-        await addBuyer({
+        createdId = result?.id;
+      } else if (cardType === "buyer") {
+        const result = await addBuyer({
           firstName: parsedData.firstName || parsedData.buyerFirstName || "",
           lastName: parsedData.lastName || parsedData.buyerLastName || "",
           email: parsedData.email || parsedData.buyerEmail || "",
@@ -233,7 +238,47 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
           agentCommission: 0,
           brokerageCommission: 0,
         });
+        createdId = result?.id;
       }
+
+      // Create the auto-generated tasks linked to the new record
+      if (createdId && tasks.length > 0) {
+        for (const task of tasks) {
+          await addTask({
+            title: task.title,
+            priority: task.priority,
+            status: "pending",
+            userId: user.id,
+            date: null,
+            dueDate: null,
+            dueTime: null,
+            endTime: null,
+            address: null,
+            assignee: null,
+            assigneeUserId: null,
+            notes: `Auto-generated from document upload`,
+            hasAiAssist: false,
+            showOnCalendar: false,
+            syncToExternalCalendar: false,
+            startDate: null,
+            recurrencePattern: null,
+            recurrenceEndDate: null,
+            parentTaskId: null,
+            recurrenceIndex: null,
+            includeWeekends: true,
+            externalCalendarEventId: null,
+            calendarSyncTargets: null,
+            contactId: null,
+            assignees: [],
+            ...(cardType === "listing" ? { listingId: createdId, buyerId: null } : { buyerId: createdId, listingId: null }),
+          });
+        }
+      }
+
+      toast({
+        title: `${cardType === 'buyer' ? 'Buyer' : 'Listing'} Card Created`,
+        description: `Successfully created with ${tasks.length} automated tasks.`,
+      });
 
       handleClose();
     } catch (error) {
