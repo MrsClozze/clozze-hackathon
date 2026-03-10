@@ -103,6 +103,17 @@ export default function MessageCard({
             Ignore
           </Button>
         )}
+        {onAttach && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`flex-1 text-xs ${isAttached ? 'text-primary' : 'text-text-muted hover:text-text-heading'}`}
+            onClick={onAttach}
+          >
+            <Paperclip className="h-3 w-3 mr-1" />
+            {isAttached ? "Attached" : "Attach"}
+          </Button>
+        )}
         <Button
           variant="default"
           size="sm"
