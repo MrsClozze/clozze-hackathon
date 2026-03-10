@@ -103,16 +103,34 @@ export function FollowUpBossImportModal({
 
       // Check for error in response data (edge function returned JSON error with non-2xx status)
       if (response.error) {
-        // Try to extract the user-friendly message from the response data
+        // When functions.invoke gets a non-2xx status, the response body is in response.data
+        // response.error.message is the generic "Edge Function returned a non-2xx status code"
         const errorBody = response.data;
-        if (errorBody?.code === 'FUB_ACCOUNT_INACTIVE' || errorBody?.error?.includes('inactive') || errorBody?.error?.includes('plan level')) {
-          throw new Error(errorBody.error);
+        console.log('[FUB Import] Error response:', { error: response.error, data: response.data });
+        
+        if (errorBody && typeof errorBody === 'object') {
+          if (errorBody.code === 'FUB_ACCOUNT_INACTIVE' || errorBody.error?.includes('inactive') || errorBody.error?.includes('plan level') || errorBody.error?.includes('cancelled') || errorBody.error?.includes('expired')) {
+            throw new Error(errorBody.error || 'Your Follow Up Boss account is inactive. Please upgrade or reactivate your account to use this integration.');
+          }
+          if (errorBody.error) {
+            throw new Error(errorBody.error);
+          }
         }
-        // For other errors, try to use the response body message if available
-        if (errorBody?.error) {
-          throw new Error(errorBody.error);
+        
+        // If errorBody is a string, try parsing it
+        if (typeof errorBody === 'string') {
+          try {
+            const parsed = JSON.parse(errorBody);
+            if (parsed.error) throw new Error(parsed.error);
+          } catch (parseErr) {
+            // not JSON, use as-is if meaningful
+            if (errorBody.length > 0 && errorBody.length < 500) {
+              throw new Error(errorBody);
+            }
+          }
         }
-        throw new Error(response.error.message);
+        
+        throw new Error(response.error.message || 'Failed to fetch data from Follow Up Boss');
       }
 
       const { data } = response.data;
