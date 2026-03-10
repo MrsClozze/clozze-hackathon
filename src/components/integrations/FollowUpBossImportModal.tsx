@@ -146,8 +146,21 @@ export function FollowUpBossImportModal({
       }
     } catch (err) {
       console.error("Error fetching FUB data:", err);
-      const message = err instanceof Error ? err.message : "Failed to fetch data";
-      setError(message);
+      const rawMessage = err instanceof Error ? err.message : "Failed to fetch data";
+      
+      // Map technical errors to user-friendly messages
+      let friendlyMessage: string;
+      if (rawMessage.includes('inactive') || rawMessage.includes('cancelled') || rawMessage.includes('expired') || rawMessage.includes('plan level') || rawMessage.includes('Account cancelled')) {
+        friendlyMessage = "It looks like your Follow Up Boss account needs to be upgraded or reactivated to use this integration. Please check your Follow Up Boss subscription and try again.";
+      } else if (rawMessage.includes('non-2xx') || rawMessage.includes('Edge Function')) {
+        friendlyMessage = "We couldn't connect to Follow Up Boss right now. This may be due to your Follow Up Boss account status or a temporary issue. Please verify your account is active and try again.";
+      } else if (rawMessage.includes('credentials') || rawMessage.includes('reconnect') || rawMessage.includes('session expired')) {
+        friendlyMessage = "Your Follow Up Boss connection has expired. Please reconnect your account in Integrations and try again.";
+      } else {
+        friendlyMessage = rawMessage;
+      }
+      
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -357,9 +370,12 @@ export function FollowUpBossImportModal({
               </p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <AlertCircle className="h-10 w-10 text-destructive mb-4" />
-              <p className="text-sm text-destructive mb-4">{error}</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+                <AlertCircle className="h-6 w-6 text-amber-500" />
+              </div>
+              <p className="text-sm text-foreground font-medium mb-2">Unable to load data</p>
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm">{error}</p>
             </div>
           ) : totalItems === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
