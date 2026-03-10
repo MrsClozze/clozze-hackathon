@@ -593,11 +593,13 @@ export type Database = {
           ai_priority: string | null
           ai_requires_action: boolean | null
           body_preview: string | null
+          buyer_id: string | null
           created_at: string
           external_email_id: string
           id: string
           is_read: boolean | null
           labels: string[] | null
+          listing_id: string | null
           received_at: string
           sender_email: string
           sender_name: string | null
@@ -615,11 +617,13 @@ export type Database = {
           ai_priority?: string | null
           ai_requires_action?: boolean | null
           body_preview?: string | null
+          buyer_id?: string | null
           created_at?: string
           external_email_id: string
           id?: string
           is_read?: boolean | null
           labels?: string[] | null
+          listing_id?: string | null
           received_at: string
           sender_email: string
           sender_name?: string | null
@@ -637,11 +641,13 @@ export type Database = {
           ai_priority?: string | null
           ai_requires_action?: boolean | null
           body_preview?: string | null
+          buyer_id?: string | null
           created_at?: string
           external_email_id?: string
           id?: string
           is_read?: boolean | null
           labels?: string[] | null
+          listing_id?: string | null
           received_at?: string
           sender_email?: string
           sender_name?: string | null
@@ -651,7 +657,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "synced_emails_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_emails_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       synced_messages: {
         Row: {
