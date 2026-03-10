@@ -34,7 +34,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const [textSubTab, setTextSubTab] = useState("needs-attention");
   const [attachEmailId, setAttachEmailId] = useState<string | null>(null);
   const [attachEmailSubject, setAttachEmailSubject] = useState<string | undefined>();
-  const [textSubTab, setTextSubTab] = useState("needs-attention");
 
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
