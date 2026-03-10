@@ -201,6 +201,65 @@ export function useSyncedEmails() {
     }
   }, [toast]);
 
+  const attachEmail = useCallback(async (emailId: string, target: { buyerId?: string; listingId?: string }) => {
+    try {
+      const { error } = await supabase
+        .from("synced_emails")
+        .update({
+          buyer_id: target.buyerId || null,
+          listing_id: target.listingId || null,
+        })
+        .eq("id", emailId);
+
+      if (error) throw error;
+
+      setEmails(prev => prev.map(e =>
+        e.id === emailId
+          ? { ...e, buyer_id: target.buyerId || null, listing_id: target.listingId || null }
+          : e
+      ));
+
+      toast({
+        title: "Email Attached",
+        description: `Email linked to ${target.buyerId ? "buyer" : "listing"} profile.`,
+      });
+    } catch (error) {
+      console.error("Error attaching email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to attach email",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const detachEmail = useCallback(async (emailId: string) => {
+    try {
+      const { error } = await supabase
+        .from("synced_emails")
+        .update({ buyer_id: null, listing_id: null })
+        .eq("id", emailId);
+
+      if (error) throw error;
+
+      setEmails(prev => prev.map(e =>
+        e.id === emailId ? { ...e, buyer_id: null, listing_id: null } : e
+      ));
+
+      toast({
+        title: "Email Detached",
+        description: "Email removed from profile.",
+      });
+    } catch (error) {
+      console.error("Error detaching email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to detach email",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   // Get emails that require attention (analyzed with priority/action item, not ignored)
   // Use priority OR ai_requires_action OR has action item as signals for needing attention
   const actionRequiredEmails = emails.filter(
