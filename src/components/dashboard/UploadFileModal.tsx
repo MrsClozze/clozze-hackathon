@@ -396,8 +396,8 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
 
           {view === "unrecognized" && (
             <div className="space-y-6 py-8 text-center">
-              <div className="mx-auto w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <AlertCircle className="h-8 w-8 text-amber-500" />
+              <div className="mx-auto w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-warning" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold mb-2">Document Type Not Recognized</h3>
