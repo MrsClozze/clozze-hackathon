@@ -370,9 +370,12 @@ export function FollowUpBossImportModal({
               </p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <AlertCircle className="h-10 w-10 text-destructive mb-4" />
-              <p className="text-sm text-destructive mb-4">{error}</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+                <AlertCircle className="h-6 w-6 text-amber-500" />
+              </div>
+              <p className="text-sm text-foreground font-medium mb-2">Unable to load data</p>
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm">{error}</p>
             </div>
           ) : totalItems === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
