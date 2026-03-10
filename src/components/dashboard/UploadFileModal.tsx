@@ -53,7 +53,8 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const [dotloopModalOpen, setDotloopModalOpen] = useState(false);
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
-  const { parseListingDocument, parseBuyerDocument, isParsing } = useDocumentParser();
+  const { parseListingDocument, parseBuyerDocument, isParsing, detectAndParse } = useDocumentParser();
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const { addListing } = useListings();
   const { addBuyer } = useBuyers();
   const { addTask } = useTasks();
