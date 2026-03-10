@@ -11,8 +11,10 @@ interface MessageCardProps {
   actionItem: string;
   timestamp: string;
   priority?: "low" | "medium" | "high" | "urgent" | null;
+  isAttached?: boolean;
   onIgnore?: () => void;
   onTakeAction: () => void;
+  onAttach?: () => void;
   showIgnore?: boolean;
 }
 
