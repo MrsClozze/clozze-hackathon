@@ -215,7 +215,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
           </div>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details">
+          <div className="space-y-6 py-4">
           {/* Buyer Information */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b">
