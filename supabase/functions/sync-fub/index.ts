@@ -299,6 +299,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('[sync-fub] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Return user-friendly error for inactive FUB accounts
+    if (message === 'FUB_ACCOUNT_INACTIVE') {
+      return new Response(
+        JSON.stringify({ error: 'Your Follow Up Boss account is inactive or does not have the required plan level to use this integration. Please upgrade or reactivate your Follow Up Boss account and try again.', code: 'FUB_ACCOUNT_INACTIVE' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
