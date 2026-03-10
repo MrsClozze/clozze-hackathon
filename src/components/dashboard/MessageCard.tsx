@@ -132,6 +132,7 @@ interface EmailCardProps {
   email: SyncedEmail;
   onIgnore?: () => void;
   onTakeAction: () => void;
+  onAttach?: () => void;
   showIgnore?: boolean;
 }
 
