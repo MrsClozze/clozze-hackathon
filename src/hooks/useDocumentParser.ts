@@ -39,12 +39,19 @@ interface BuyerFormData {
   commissionPercentage: string;
 }
 
-type DocumentType = "listing" | "buyer";
+export type DetectedDocumentType = "listing" | "buyer" | "unrecognized";
 
 interface ParseResult<T> {
   success: boolean;
   data?: T;
   error?: string;
+  detectedType?: DetectedDocumentType;
+}
+
+interface DetectResult {
+  detectedType: DetectedDocumentType;
+  confidence: string;
+  reason: string;
 }
 
 export function useDocumentParser() {
@@ -52,12 +59,34 @@ export function useDocumentParser() {
   const { toast } = useToast();
 
   const prepareAiInput = (text: string) => {
-    // Keep requests fast + within model limits by trimming very long docs.
     const max = 15_000;
     if (text.length <= max) return text;
     const head = text.slice(0, 9_000);
     const tail = text.slice(-6_000);
     return `${head}\n\n--- [content truncated] ---\n\n${tail}`;
+  };
+
+  const detectDocumentType = async (file: File): Promise<DetectResult> => {
+    const documentText = prepareAiInput(await extractDocumentText(file));
+    
+    if (!documentText || documentText.length < 20) {
+      return { detectedType: "unrecognized", confidence: "low", reason: "Not enough text content" };
+    }
+
+    const { data, error } = await supabase.functions.invoke('parse-document', {
+      body: { documentText, action: 'detect' }
+    });
+
+    if (error || !data?.success) {
+      console.error("Document detection error:", error || data?.error);
+      return { detectedType: "unrecognized", confidence: "low", reason: "Detection failed" };
+    }
+
+    return {
+      detectedType: data.detectedType as DetectedDocumentType,
+      confidence: data.confidence,
+      reason: data.reason,
+    };
   };
 
   const parseListingDocument = async (file: File): Promise<ParseResult<ListingFormData>> => {
@@ -71,21 +100,12 @@ export function useDocumentParser() {
       }
 
       const { data, error } = await supabase.functions.invoke('parse-document', {
-        body: { 
-          documentText,
-          documentType: 'listing'
-        }
+        body: { documentText, documentType: 'listing' }
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to parse document");
-      }
+      if (error) throw new Error(error.message || "Failed to parse document");
+      if (!data.success) throw new Error(data.error || "Failed to extract listing information");
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to extract listing information");
-      }
-
-      // Map the response to form data, using empty strings for null values
       const formData: ListingFormData = {
         sellerFirstName: data.data.sellerFirstName || "",
         sellerLastName: data.data.sellerLastName || "",
@@ -113,11 +133,7 @@ export function useDocumentParser() {
     } catch (error) {
       console.error("Document parsing error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to parse document";
-      toast({
-        title: "Parsing Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "Parsing Error", description: errorMessage, variant: "destructive" });
       return { success: false, error: errorMessage };
     } finally {
       setIsParsing(false);
@@ -135,21 +151,12 @@ export function useDocumentParser() {
       }
 
       const { data, error } = await supabase.functions.invoke('parse-document', {
-        body: { 
-          documentText,
-          documentType: 'buyer'
-        }
+        body: { documentText, documentType: 'buyer' }
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to parse document");
-      }
+      if (error) throw new Error(error.message || "Failed to parse document");
+      if (!data.success) throw new Error(data.error || "Failed to extract buyer information");
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to extract buyer information");
-      }
-
-      // Map the response to form data, using empty strings for null values
       const formData: BuyerFormData = {
         buyerFirstName: data.data.buyerFirstName || "",
         buyerLastName: data.data.buyerLastName || "",
@@ -167,11 +174,41 @@ export function useDocumentParser() {
     } catch (error) {
       console.error("Document parsing error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to parse document";
-      toast({
-        title: "Parsing Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast({ title: "Parsing Error", description: errorMessage, variant: "destructive" });
+      return { success: false, error: errorMessage };
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  /**
+   * Auto-detect document type, then parse accordingly.
+   * Returns detectedType = "unrecognized" if the doc doesn't match listing or buyer agreements.
+   */
+  const detectAndParse = async (file: File): Promise<ParseResult<ListingFormData | BuyerFormData>> => {
+    setIsParsing(true);
+    try {
+      const detection = await detectDocumentType(file);
+      console.log("[useDocumentParser] Detection result:", detection);
+
+      if (detection.detectedType === "unrecognized") {
+        return { success: false, detectedType: "unrecognized", error: detection.reason };
+      }
+
+      if (detection.detectedType === "listing") {
+        const result = await parseListingDocument(file);
+        return { ...result, detectedType: "listing" };
+      }
+
+      if (detection.detectedType === "buyer") {
+        const result = await parseBuyerDocument(file);
+        return { ...result, detectedType: "buyer" };
+      }
+
+      return { success: false, detectedType: "unrecognized", error: "Unknown document type" };
+    } catch (error) {
+      console.error("Detect and parse error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to process document";
       return { success: false, error: errorMessage };
     } finally {
       setIsParsing(false);
@@ -182,5 +219,6 @@ export function useDocumentParser() {
     isParsing,
     parseListingDocument,
     parseBuyerDocument,
+    detectAndParse,
   };
 }

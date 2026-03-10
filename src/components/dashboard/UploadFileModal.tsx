@@ -21,7 +21,7 @@ interface UploadFileModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ModalView = "choice" | "upload" | "processing" | "review";
+type ModalView = "choice" | "upload" | "processing" | "review" | "unrecognized";
 type DocumentType = "listing" | "buyer" | null;
 
 interface ParsedData {
@@ -53,7 +53,8 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const [dotloopModalOpen, setDotloopModalOpen] = useState(false);
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
-  const { parseListingDocument, parseBuyerDocument, isParsing } = useDocumentParser();
+  const { parseListingDocument, parseBuyerDocument, isParsing, detectAndParse } = useDocumentParser();
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const { addListing } = useListings();
   const { addBuyer } = useBuyers();
   const { addTask } = useTasks();
@@ -62,39 +63,27 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const handleClose = () => {
     setView("upload");
     setParsedData(null);
+    setUploadedFile(null);
     onOpenChange(false);
   };
 
   const handleFileUpload = async (file: File) => {
     console.log("Processing file:", file.name);
     setView("processing");
+    setUploadedFile(file);
 
-    // Try listing parse first; if filename hints at buyer, parse as buyer
-    const isBuyerFile = file.name.toLowerCase().includes("buyer");
-    
     try {
-      if (isBuyerFile) {
-        const result = await parseBuyerDocument(file);
-        if (result.success && result.data) {
-          setParsedData({
-            type: "buyer",
-            fileName: file.name,
-            ...result.data,
-          });
-          setView("review");
-          toast({
-            title: "Document Parsed Successfully",
-            description: "Please review the extracted information below.",
-          });
-          return;
-        }
+      const result = await detectAndParse(file);
+
+      // Document type not recognized
+      if (result.detectedType === "unrecognized") {
+        setView("unrecognized");
+        return;
       }
-      
-      // Default: parse as listing
-      const result = await parseListingDocument(file);
+
       if (result.success && result.data) {
         setParsedData({
-          type: "listing",
+          type: result.detectedType || "listing",
           fileName: file.name,
           ...result.data,
         });
@@ -288,6 +277,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
               {view === "upload" && "Upload Document"}
               {view === "processing" && "Processing Document"}
               {view === "review" && "Review Extracted Data"}
+              {view === "unrecognized" && "Document Not Recognized"}
             </DialogTitle>
           </DialogHeader>
 
@@ -401,6 +391,60 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
                   Confirm and Create Card
                 </Button>
               </div>
+            </div>
+          )}
+
+          {view === "unrecognized" && (
+            <div className="space-y-6 py-8 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-warning" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Document Type Not Recognized</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  This document doesn't appear to be a Residential Listing Agreement or a Buyer Representation Agreement. 
+                  We can't auto-extract data from this document type.
+                </p>
+              </div>
+
+              <div className="border border-border rounded-lg p-5 bg-card text-left max-w-md mx-auto">
+                <p className="text-sm font-medium mb-3">Would you like to:</p>
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left h-auto py-3"
+                    onClick={() => {
+                      handleClose();
+                      toast({
+                        title: "Coming Soon",
+                        description: "Document attachment to client profiles will be available soon.",
+                      });
+                    }}
+                  >
+                    <div>
+                      <p className="font-medium text-sm">Attach to an existing client profile</p>
+                      <p className="text-xs text-muted-foreground">Upload this document to an existing listing or buyer</p>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left h-auto py-3"
+                    onClick={() => {
+                      setView("upload");
+                      setUploadedFile(null);
+                    }}
+                  >
+                    <div>
+                      <p className="font-medium text-sm">Try a different document</p>
+                      <p className="text-xs text-muted-foreground">Upload a listing agreement or buyer representation agreement instead</p>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+
+              <Button variant="ghost" onClick={handleClose} className="text-muted-foreground">
+                Cancel
+              </Button>
             </div>
           )}
         </DialogContent>
