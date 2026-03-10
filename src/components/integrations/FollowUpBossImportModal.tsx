@@ -101,36 +101,37 @@ export function FollowUpBossImportModal({
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      // Check for error in response data (edge function returned JSON error with non-2xx status)
+      // Check for error in response
       if (response.error) {
-        // When functions.invoke gets a non-2xx status, the response body is in response.data
-        // response.error.message is the generic "Edge Function returned a non-2xx status code"
+        // supabase-js v2: on non-2xx, response.data contains the parsed JSON body
+        // and response.error is a FunctionsHttpError with a generic message
+        let userMessage = 'Failed to fetch data from Follow Up Boss';
+        
+        // Try response.data first (supabase-js puts parsed body here)
         const errorBody = response.data;
-        console.log('[FUB Import] Error response:', { error: response.error, data: response.data });
-        
-        if (errorBody && typeof errorBody === 'object') {
-          if (errorBody.code === 'FUB_ACCOUNT_INACTIVE' || errorBody.error?.includes('inactive') || errorBody.error?.includes('plan level') || errorBody.error?.includes('cancelled') || errorBody.error?.includes('expired')) {
-            throw new Error(errorBody.error || 'Your Follow Up Boss account is inactive. Please upgrade or reactivate your account to use this integration.');
-          }
-          if (errorBody.error) {
-            throw new Error(errorBody.error);
-          }
-        }
-        
-        // If errorBody is a string, try parsing it
-        if (typeof errorBody === 'string') {
+        if (errorBody && typeof errorBody === 'object' && errorBody.error) {
+          userMessage = errorBody.error;
+        } else if (typeof errorBody === 'string' && errorBody.length > 0) {
           try {
             const parsed = JSON.parse(errorBody);
-            if (parsed.error) throw new Error(parsed.error);
-          } catch (parseErr) {
-            // not JSON, use as-is if meaningful
-            if (errorBody.length > 0 && errorBody.length < 500) {
-              throw new Error(errorBody);
-            }
+            if (parsed.error) userMessage = parsed.error;
+          } catch (_) {
+            userMessage = errorBody;
           }
         }
         
-        throw new Error(response.error.message || 'Failed to fetch data from Follow Up Boss');
+        // If still generic, try reading from the error's context (FunctionsHttpError)
+        if (userMessage === 'Failed to fetch data from Follow Up Boss') {
+          try {
+            const err = response.error as any;
+            if (err.context && typeof err.context.json === 'function') {
+              const body = await err.context.json();
+              if (body?.error) userMessage = body.error;
+            }
+          } catch (_) { /* ignore */ }
+        }
+        
+        throw new Error(userMessage);
       }
 
       const { data } = response.data;
