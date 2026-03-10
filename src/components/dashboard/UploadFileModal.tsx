@@ -170,20 +170,68 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
     setView("review");
   };
 
-  const handleConfirmAndCreate = () => {
+  const handleConfirmAndCreate = async () => {
     if (!parsedData) return;
 
-    const tasks = parsedData.type ? defaultTasks[parsedData.type] : [];
-    
-    console.log("Creating card with data:", parsedData);
-    console.log("Auto-populated tasks:", tasks);
+    try {
+      if (parsedData.type === "listing") {
+        const price = parseFloat(String(parsedData.listingPrice || parsedData.price || "0").replace(/[^0-9.]/g, "")) || 0;
+        const commissionPct = parseFloat(String(parsedData.commissionPercentage || "0").replace(/[^0-9.]/g, "")) || 0;
+        const agentCommission = price * (commissionPct / 100);
 
-    toast({
-      title: `${parsedData.type === 'buyer' ? 'Buyer' : 'Listing'} Card Created`,
-      description: `Successfully created with ${tasks.length} automated tasks.`,
-    });
+        await addListing({
+          address: parsedData.address || "",
+          city: parsedData.city || "",
+          price,
+          status: "Active",
+          daysOnMarket: 0,
+          commission: agentCommission,
+          image: "",
+          sellerFirstName: parsedData.sellerFirstName || parsedData.sellerName?.split(" ")[0] || "",
+          sellerLastName: parsedData.sellerLastName || parsedData.sellerName?.split(" ").slice(1).join(" ") || "",
+          sellerEmail: parsedData.sellerEmail || "",
+          sellerPhone: parsedData.sellerPhone || "",
+          zipcode: parsedData.zipcode || parsedData.zip || "",
+          county: parsedData.county || "",
+          bedrooms: parseInt(parsedData.bedrooms) || 0,
+          bathrooms: parseInt(parsedData.bathrooms) || 0,
+          sqFeet: parseInt(String(parsedData.sqFeet || parsedData.squareFeet || "0").replace(/[^0-9]/g, "")) || 0,
+          appraisalPrice: 0,
+          multiUnit: "no",
+          listingStartDate: parsedData.listingStartDate || "",
+          listingEndDate: parsedData.listingEndDate || "",
+          brokerageName: parsedData.brokerageName || "",
+          brokerageAddress: parsedData.brokerageAddress || "",
+          agentName: parsedData.agentName || "",
+          agentEmail: parsedData.agentEmail || "",
+          commissionPercentage: commissionPct,
+          totalCommission: agentCommission * 2,
+          agentCommission,
+          brokerageCommission: agentCommission,
+        });
+      } else if (parsedData.type === "buyer") {
+        await addBuyer({
+          firstName: parsedData.firstName || parsedData.buyerFirstName || "",
+          lastName: parsedData.lastName || parsedData.buyerLastName || "",
+          email: parsedData.email || parsedData.buyerEmail || "",
+          phone: parsedData.phone || parsedData.buyerPhone || "",
+          status: "Active",
+          preApprovedAmount: parseFloat(String(parsedData.preApprovedAmount || "0").replace(/[^0-9.]/g, "")) || 0,
+          wantsNeeds: parsedData.wantsNeeds || "",
+          commissionPercentage: 0,
+          agentCommission: 0,
+        });
+      }
 
-    handleClose();
+      handleClose();
+    } catch (error) {
+      console.error("Error creating card:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create card. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
