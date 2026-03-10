@@ -202,6 +202,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
               email={email}
               onIgnore={showIgnore ? () => ignoreEmail(email.id) : undefined}
               onTakeAction={() => handleEmailAction(email)}
+              onAttach={() => handleAttachClick(email)}
               showIgnore={showIgnore}
             />
           ))}
