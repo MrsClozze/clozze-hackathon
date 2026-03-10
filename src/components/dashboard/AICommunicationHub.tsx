@@ -102,6 +102,11 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     });
   };
 
+  const handleAttachClick = (email: SyncedEmail) => {
+    setAttachEmailId(email.id);
+    setAttachEmailSubject(email.subject || undefined);
+  };
+
   // Get counts for badges
   const emailNeedsAttentionCount = filteredActionEmails.length;
   const textNeedsAttentionCount = textActionRequired.length;
