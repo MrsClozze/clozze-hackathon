@@ -13,7 +13,7 @@ const BUYER_STATUSES = [
   { value: "Closed", label: "Closed", color: "bg-secondary" },
   { value: "Off-Market", label: "Off-Market", color: "bg-muted-foreground" },
 ] as const;
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
