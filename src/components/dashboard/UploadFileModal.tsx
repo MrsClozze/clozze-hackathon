@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
 import docusignLogo from "@/assets/docusign-logo-new.png";
@@ -10,6 +10,7 @@ import dotloopLogo from "@/assets/dotloop-logo.png";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
+import { useDocumentParser } from "@/hooks/useDocumentParser";
 
 interface UploadFileModalProps {
   open: boolean;
