@@ -63,6 +63,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const handleClose = () => {
     setView("upload");
     setParsedData(null);
+    setUploadedFile(null);
     onOpenChange(false);
   };
 
