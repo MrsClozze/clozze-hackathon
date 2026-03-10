@@ -26,8 +26,10 @@ export default function MessageCard({
   actionItem,
   timestamp,
   priority,
+  isAttached,
   onIgnore,
   onTakeAction,
+  onAttach,
   showIgnore = true,
 }: MessageCardProps) {
   const Icon = type === "email" ? Mail : MessageSquare;
