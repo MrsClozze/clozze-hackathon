@@ -339,7 +339,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addTask = async (task: Omit<Task, 'id'>) => {
+  const addTask = async (task: Omit<Task, 'id'>, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     if (!user) {
       toast({
         title: "Error",
