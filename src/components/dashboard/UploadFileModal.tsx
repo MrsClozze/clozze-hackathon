@@ -11,6 +11,8 @@ import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { FollowUpBossImportModal } from "@/components/integrations/FollowUpBossImportModal";
 import { DotloopImportModal } from "@/components/integrations/DotloopImportModal";
 import { useDocumentParser } from "@/hooks/useDocumentParser";
+import { useListings } from "@/contexts/ListingsContext";
+import { useBuyers } from "@/contexts/BuyersContext";
 
 interface UploadFileModalProps {
   open: boolean;
