@@ -56,7 +56,7 @@ interface TasksContextType {
   tasks: Task[];
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  addTask: (task: Omit<Task, 'id'>) => Promise<void>;
+  addTask: (task: Omit<Task, 'id'>, options?: { silent?: boolean }) => Promise<void>;
   addTaskAssignees: (taskId: string, userIds: string[]) => Promise<void>;
   removeTaskAssignee: (taskId: string, userId: string) => Promise<void>;
   bulkEnableExternalSync: () => Promise<void>;
