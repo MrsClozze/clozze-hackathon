@@ -52,6 +52,8 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const { toast } = useToast();
   const { authenticate, isAuthenticating } = useDocuSignAuth();
   const { parseListingDocument, parseBuyerDocument, isParsing } = useDocumentParser();
+  const { addListing } = useListings();
+  const { addBuyer } = useBuyers();
 
   const handleClose = () => {
     setView("upload");
