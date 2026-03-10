@@ -246,7 +246,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
         for (const task of tasks) {
           await addTask({
             title: task.title,
-            priority: task.priority,
+            priority: task.priority as "high" | "medium" | "low",
             status: "pending",
             userId: user.id,
             date: null,
