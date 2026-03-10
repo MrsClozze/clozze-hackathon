@@ -277,6 +277,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
               {view === "upload" && "Upload Document"}
               {view === "processing" && "Processing Document"}
               {view === "review" && "Review Extracted Data"}
+              {view === "unrecognized" && "Document Not Recognized"}
             </DialogTitle>
           </DialogHeader>
 
