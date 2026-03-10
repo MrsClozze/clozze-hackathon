@@ -19,7 +19,7 @@ import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
 import AddTaskModal from "./AddTaskModal";
 import { useToast } from "@/hooks/use-toast";
-import { BuyerData } from "@/contexts/BuyersContext";
+import { BuyerData, useBuyers } from "@/contexts/BuyersContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 
