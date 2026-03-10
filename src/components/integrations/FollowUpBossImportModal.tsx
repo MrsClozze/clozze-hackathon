@@ -101,7 +101,19 @@ export function FollowUpBossImportModal({
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      if (response.error) throw new Error(response.error.message);
+      // Check for error in response data (edge function returned JSON error with non-2xx status)
+      if (response.error) {
+        // Try to extract the user-friendly message from the response data
+        const errorBody = response.data;
+        if (errorBody?.code === 'FUB_ACCOUNT_INACTIVE' || errorBody?.error?.includes('inactive') || errorBody?.error?.includes('plan level')) {
+          throw new Error(errorBody.error);
+        }
+        // For other errors, try to use the response body message if available
+        if (errorBody?.error) {
+          throw new Error(errorBody.error);
+        }
+        throw new Error(response.error.message);
+      }
 
       const { data } = response.data;
 

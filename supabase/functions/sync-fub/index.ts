@@ -47,6 +47,16 @@ async function fubFetch(token: string, isOAuth: boolean, endpoint: string, param
       }
       throw new Error('Invalid Follow Up Boss credentials. Please reconnect.');
     }
+    if (response.status === 403) {
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.errorMessage?.toLowerCase().includes('cancelled') || parsed.errorMessage?.toLowerCase().includes('expired')) {
+          throw new Error('FUB_ACCOUNT_INACTIVE');
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message === 'FUB_ACCOUNT_INACTIVE') throw e;
+      }
+    }
     throw new Error(`FUB API error ${response.status}: ${errorText}`);
   }
 
@@ -289,6 +299,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('[sync-fub] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Return user-friendly error for inactive FUB accounts
+    if (message === 'FUB_ACCOUNT_INACTIVE') {
+      return new Response(
+        JSON.stringify({ error: 'Your Follow Up Boss account is inactive or does not have the required plan level to use this integration. Please upgrade or reactivate your Follow Up Boss account and try again.', code: 'FUB_ACCOUNT_INACTIVE' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
