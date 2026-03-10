@@ -70,33 +70,20 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const handleFileUpload = async (file: File) => {
     console.log("Processing file:", file.name);
     setView("processing");
+    setUploadedFile(file);
 
-    // Try listing parse first; if filename hints at buyer, parse as buyer
-    const isBuyerFile = file.name.toLowerCase().includes("buyer");
-    
     try {
-      if (isBuyerFile) {
-        const result = await parseBuyerDocument(file);
-        if (result.success && result.data) {
-          setParsedData({
-            type: "buyer",
-            fileName: file.name,
-            ...result.data,
-          });
-          setView("review");
-          toast({
-            title: "Document Parsed Successfully",
-            description: "Please review the extracted information below.",
-          });
-          return;
-        }
+      const result = await detectAndParse(file);
+
+      // Document type not recognized
+      if (result.detectedType === "unrecognized") {
+        setView("unrecognized");
+        return;
       }
-      
-      // Default: parse as listing
-      const result = await parseListingDocument(file);
+
       if (result.success && result.data) {
         setParsedData({
-          type: "listing",
+          type: result.detectedType || "listing",
           fileName: file.name,
           ...result.data,
         });
