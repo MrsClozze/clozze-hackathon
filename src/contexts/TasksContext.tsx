@@ -590,14 +590,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      toast({
-        title: "Success",
-        description: task.recurrencePattern 
-          ? "Recurring task created. Upcoming instances will be generated automatically."
-          : task.showOnCalendar 
-            ? "Task created and added to calendar." 
-            : "Task created successfully.",
-      });
+      if (!silent) {
+        toast({
+          title: "Success",
+          description: task.recurrencePattern 
+            ? "Recurring task created. Upcoming instances will be generated automatically."
+            : task.showOnCalendar 
+              ? "Task created and added to calendar." 
+              : "Task created successfully.",
+        });
+      }
     } catch (error: any) {
       console.error('[TasksContext] Error adding task:', error);
       toast({
