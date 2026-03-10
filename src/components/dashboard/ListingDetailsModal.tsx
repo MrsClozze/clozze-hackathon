@@ -13,7 +13,7 @@ import TaskDetailsModal from "./TaskDetailsModal";
 import AddTaskModal from "./AddTaskModal";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { ListingData } from "@/contexts/ListingsContext";
+import { ListingData, useListings } from "@/contexts/ListingsContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 
