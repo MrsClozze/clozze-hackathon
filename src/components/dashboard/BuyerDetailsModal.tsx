@@ -174,28 +174,42 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         <DialogHeader className="pr-8">
           <div className="flex items-center justify-between">
             <DialogTitle>Buyer Details</DialogTitle>
-            {!isEditing ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEditToggle}
-                className="flex-shrink-0"
-              >
-                <Edit2 className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button variant="default" size="sm" onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleCancel}>
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              {!isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditToggle}
+                    className="flex-shrink-0"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  {!buyer.isDemo && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsDeleteConfirmOpen(true)}
+                      className="flex-shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button variant="default" size="sm" onClick={handleSave}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleCancel}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
