@@ -40,8 +40,10 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
+  const { deleteListing } = useListings();
   const { toast } = useToast();
 
   const handleStatusChange = (newStatus: string) => {
