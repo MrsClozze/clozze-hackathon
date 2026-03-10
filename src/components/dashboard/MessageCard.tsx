@@ -136,7 +136,7 @@ interface EmailCardProps {
   showIgnore?: boolean;
 }
 
-export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: EmailCardProps) {
+export function EmailCard({ email, onIgnore, onTakeAction, onAttach, showIgnore = true }: EmailCardProps) {
   // Clean up AI action items that indicate no action needed
   const getCleanActionItem = (item: string | null): string => {
     if (!item) return "Review this email";
@@ -147,6 +147,8 @@ export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: 
     return item;
   };
 
+  const isAttached = !!(email.buyer_id || email.listing_id);
+
   return (
     <MessageCard
       type="email"
@@ -156,8 +158,10 @@ export function EmailCard({ email, onIgnore, onTakeAction, showIgnore = true }: 
       actionItem={getCleanActionItem(email.ai_action_item)}
       timestamp={email.received_at}
       priority={email.ai_priority}
+      isAttached={isAttached}
       onIgnore={onIgnore}
       onTakeAction={onTakeAction}
+      onAttach={onAttach}
       showIgnore={showIgnore}
     />
   );
