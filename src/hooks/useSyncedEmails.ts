@@ -20,6 +20,8 @@ export interface SyncedEmail {
   ai_category: string | null;
   ai_requires_action: boolean;
   ai_ignored: boolean;
+  buyer_id: string | null;
+  listing_id: string | null;
   created_at: string;
   updated_at: string;
 }
