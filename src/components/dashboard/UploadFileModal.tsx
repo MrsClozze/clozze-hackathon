@@ -21,7 +21,7 @@ interface UploadFileModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ModalView = "choice" | "upload" | "processing" | "review";
+type ModalView = "choice" | "upload" | "processing" | "review" | "unrecognized";
 type DocumentType = "listing" | "buyer" | null;
 
 interface ParsedData {
