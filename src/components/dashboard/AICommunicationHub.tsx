@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import MessageActionModal from "./MessageActionModal";
+import AttachEmailModal from "./AttachEmailModal";
 import { EmailCard, TextMessageCard } from "./MessageCard";
 import CommunicationHubSettings, { HubSettings } from "./CommunicationHubSettings";
 import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
