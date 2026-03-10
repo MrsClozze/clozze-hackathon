@@ -48,6 +48,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     analyzing, 
     syncAndAnalyze,
     ignoreEmail,
+    attachEmail,
   } = useSyncedEmails();
 
   const {
