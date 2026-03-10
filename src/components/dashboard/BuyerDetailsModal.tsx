@@ -561,6 +561,14 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="communication">
+            <div className="py-4">
+              <AttachedEmailsTab recordType="buyer" recordId={buyer.id} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Add Task Modal - Using standardized form */}
         <AddTaskModal 
