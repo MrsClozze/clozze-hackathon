@@ -230,26 +230,28 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
         createdId = result?.id;
       }
 
-      // Create the auto-generated tasks linked to the new record
+      // Create the auto-generated tasks linked to the new record (silently, in parallel)
       if (createdId && tasks.length > 0) {
-        for (const task of tasks) {
-          await addTask({
-            title: task.title,
-            priority: task.priority as "high" | "medium" | "low",
-            status: "pending",
-            userId: user.id,
-            date: "",
-            address: "",
-            assignee: "",
-            notes: "Auto-generated from document upload",
-            hasAIAssist: false,
-            showOnCalendar: false,
-            syncToExternalCalendar: false,
-            includeWeekends: true,
-            assignees: [],
-            ...(cardType === "listing" ? { listingId: createdId } : { buyerId: createdId }),
-          });
-        }
+        await Promise.all(
+          tasks.map((task) =>
+            addTask({
+              title: task.title,
+              priority: task.priority as "high" | "medium" | "low",
+              status: "pending",
+              userId: user.id,
+              date: "",
+              address: "",
+              assignee: "",
+              notes: "Auto-generated from document upload",
+              hasAIAssist: false,
+              showOnCalendar: false,
+              syncToExternalCalendar: false,
+              includeWeekends: true,
+              assignees: [],
+              ...(cardType === "listing" ? { listingId: createdId } : { buyerId: createdId }),
+            }, { silent: true })
+          )
+        );
       }
 
       toast({

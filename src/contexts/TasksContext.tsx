@@ -56,7 +56,7 @@ interface TasksContextType {
   tasks: Task[];
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  addTask: (task: Omit<Task, 'id'>) => Promise<void>;
+  addTask: (task: Omit<Task, 'id'>, options?: { silent?: boolean }) => Promise<void>;
   addTaskAssignees: (taskId: string, userIds: string[]) => Promise<void>;
   removeTaskAssignee: (taskId: string, userId: string) => Promise<void>;
   bulkEnableExternalSync: () => Promise<void>;
@@ -339,23 +339,28 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addTask = async (task: Omit<Task, 'id'>) => {
+  const addTask = async (task: Omit<Task, 'id'>, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to add a task.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to add a task.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
     // Validate required fields
     if (!task.title?.trim()) {
-      toast({
-        title: "Error",
-        description: "Task title is required.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: "Task title is required.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -585,21 +590,25 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      toast({
-        title: "Success",
-        description: task.recurrencePattern 
-          ? "Recurring task created. Upcoming instances will be generated automatically."
-          : task.showOnCalendar 
-            ? "Task created and added to calendar." 
-            : "Task created successfully.",
-      });
+      if (!silent) {
+        toast({
+          title: "Success",
+          description: task.recurrencePattern 
+            ? "Recurring task created. Upcoming instances will be generated automatically."
+            : task.showOnCalendar 
+              ? "Task created and added to calendar." 
+              : "Task created successfully.",
+        });
+      }
     } catch (error: any) {
       console.error('[TasksContext] Error adding task:', error);
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to create task. Please try again.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to create task. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
