@@ -56,6 +56,8 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
   const { parseListingDocument, parseBuyerDocument, isParsing } = useDocumentParser();
   const { addListing } = useListings();
   const { addBuyer } = useBuyers();
+  const { addTask } = useTasks();
+  const { user } = useAuth();
 
   const handleClose = () => {
     setView("upload");
