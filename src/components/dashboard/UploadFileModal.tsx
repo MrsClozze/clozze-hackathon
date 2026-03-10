@@ -13,6 +13,8 @@ import { DotloopImportModal } from "@/components/integrations/DotloopImportModal
 import { useDocumentParser } from "@/hooks/useDocumentParser";
 import { useListings } from "@/contexts/ListingsContext";
 import { useBuyers } from "@/contexts/BuyersContext";
+import { useTasks } from "@/contexts/TasksContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UploadFileModalProps {
   open: boolean;
