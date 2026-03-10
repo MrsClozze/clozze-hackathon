@@ -257,7 +257,7 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
             assignee: null,
             assigneeUserId: null,
             notes: `Auto-generated from document upload`,
-            hasAiAssist: false,
+            hasAIAssist: false,
             showOnCalendar: false,
             syncToExternalCalendar: false,
             startDate: null,
