@@ -213,6 +213,13 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
           </div>
         </DialogHeader>
 
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="communication">Communication</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details">
         <div className="space-y-6 py-4">
           {/* Property Image and Status */}
           <div className="space-y-4">
