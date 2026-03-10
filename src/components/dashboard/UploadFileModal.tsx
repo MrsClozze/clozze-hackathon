@@ -215,11 +215,19 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
           lastName: parsedData.lastName || parsedData.buyerLastName || "",
           email: parsedData.email || parsedData.buyerEmail || "",
           phone: parsedData.phone || parsedData.buyerPhone || "",
+          description: "",
           status: "Active",
+          image: "",
           preApprovedAmount: parseFloat(String(parsedData.preApprovedAmount || "0").replace(/[^0-9.]/g, "")) || 0,
           wantsNeeds: parsedData.wantsNeeds || "",
+          brokerageName: "",
+          brokerageAddress: "",
+          agentName: "",
+          agentEmail: "",
           commissionPercentage: 0,
+          totalCommission: 0,
           agentCommission: 0,
+          brokerageCommission: 0,
         });
       }
 
