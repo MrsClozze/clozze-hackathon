@@ -291,6 +291,8 @@ export function useSyncedEmails() {
     syncAndAnalyze,
     ignoreEmail,
     restoreEmail,
+    attachEmail,
+    detachEmail,
     refetch: fetchEmails,
   };
 }
