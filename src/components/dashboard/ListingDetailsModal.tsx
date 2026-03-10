@@ -709,6 +709,14 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="communication">
+            <div className="py-4">
+              <AttachedEmailsTab recordType="listing" recordId={listing.id} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Add Task Modal - Using standardized form */}
         <AddTaskModal 
