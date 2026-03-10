@@ -47,6 +47,16 @@ async function fubFetch(token: string, isOAuth: boolean, endpoint: string, param
       }
       throw new Error('Invalid Follow Up Boss credentials. Please reconnect.');
     }
+    if (response.status === 403) {
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.errorMessage?.toLowerCase().includes('cancelled') || parsed.errorMessage?.toLowerCase().includes('expired')) {
+          throw new Error('FUB_ACCOUNT_INACTIVE');
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message === 'FUB_ACCOUNT_INACTIVE') throw e;
+      }
+    }
     throw new Error(`FUB API error ${response.status}: ${errorText}`);
   }
 
