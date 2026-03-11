@@ -43,6 +43,8 @@ export default function TaskDetailsModal() {
 
   const { contacts, loading: contactsLoading } = useContacts();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
+  const { connections: calendarConnections } = useCalendarConnections();
+  const hasCalendarConnections = calendarConnections.filter(c => c.isOwned).length > 0;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
