@@ -725,6 +725,10 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         </div>
           </TabsContent>
 
+          <TabsContent value="contacts">
+            <ProfileContactsTab recordType="listing" recordId={listing.id} />
+          </TabsContent>
+
           <TabsContent value="communication">
             <div className="py-4">
               <AttachedEmailsTab recordType="listing" recordId={listing.id} />

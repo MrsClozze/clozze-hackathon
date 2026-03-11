@@ -577,6 +577,10 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         </div>
           </TabsContent>
 
+          <TabsContent value="contacts">
+            <ProfileContactsTab recordType="buyer" recordId={buyer.id} />
+          </TabsContent>
+
           <TabsContent value="communication">
             <div className="py-4">
               <AttachedEmailsTab recordType="buyer" recordId={buyer.id} />
