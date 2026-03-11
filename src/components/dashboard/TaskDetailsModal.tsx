@@ -23,12 +23,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useTasks, Task } from "@/contexts/TasksContext";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
+import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 
 export default function TaskDetailsModal() {
   const {
@@ -41,6 +43,8 @@ export default function TaskDetailsModal() {
 
   const { contacts, loading: contactsLoading } = useContacts();
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
+  const { connections: calendarConnections } = useCalendarConnections();
+  const hasCalendarConnections = calendarConnections.filter(c => c.isOwned).length > 0;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
@@ -529,6 +533,37 @@ export default function TaskDetailsModal() {
                 </div>
               )}
             </div>
+
+            {/* Sync to External Calendar */}
+            {isEditing && hasCalendarConnections && (
+              <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
+                <div>
+                  <Label className="text-sm font-medium">Sync to connected calendar(s)</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Push this task to your connected Google or Apple Calendar
+                  </p>
+                </div>
+                <Switch
+                  checked={editedTask?.syncToExternalCalendar ?? false}
+                  onCheckedChange={(checked) =>
+                    setEditedTask(editedTask ? { ...editedTask, syncToExternalCalendar: checked } : null)
+                  }
+                />
+              </div>
+            )}
+            {!isEditing && hasCalendarConnections && (
+              <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
+                <div>
+                  <Label className="text-sm font-medium">Sync to connected calendar(s)</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {currentTask.syncToExternalCalendar ? "This task is synced to your external calendar" : "Not synced to external calendar"}
+                  </p>
+                </div>
+                <div className={cn("text-xs font-medium px-2 py-1 rounded", currentTask.syncToExternalCalendar ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                  {currentTask.syncToExternalCalendar ? "Synced" : "Not synced"}
+                </div>
+              </div>
+            )}
 
             {/* Edit Actions */}
             {isEditing && (
