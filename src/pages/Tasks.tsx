@@ -346,8 +346,12 @@ export default function Tasks() {
                       {/* Display linked Buyer/Listing name */}
                       {getTaskSourceName(task) && (
                         <div className="mb-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {task.buyerId ? 'Buyer' : 'Listing'}: {getTaskSourceName(task)}
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            {task.buyerId ? (
+                              <><User className="h-3 w-3" /> Buyer: {getTaskSourceName(task)}</>
+                            ) : (
+                              <><Home className="h-3 w-3" /> Listing: {getTaskSourceName(task)}</>
+                            )}
                           </Badge>
                         </div>
                       )}
