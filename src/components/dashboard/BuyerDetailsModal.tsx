@@ -461,7 +461,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
           </div>
 
           {/* Suggested Tasks from Transaction */}
-          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} />
+          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} refreshKey={suggestedTasksRefreshKey} />
 
           {/* Associated Tasks */}
           <div className="space-y-4">

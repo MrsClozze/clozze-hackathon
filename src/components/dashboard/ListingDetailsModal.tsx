@@ -609,7 +609,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
           </div>
 
           {/* Suggested Tasks from Transaction */}
-          <TransactionSuggestedTasks recordType="listing" recordId={listing.id} />
+          <TransactionSuggestedTasks recordType="listing" recordId={listing.id} refreshKey={suggestedTasksRefreshKey} />
 
           {/* Associated Tasks */}
           <div className="space-y-4">
