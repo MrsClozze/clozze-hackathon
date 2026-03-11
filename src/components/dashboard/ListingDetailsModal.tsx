@@ -736,7 +736,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
       {/* Transaction prompt from guidance banner */}
       <TransactionPromptModal
         open={isTxnPromptOpen}
-        onOpenChange={setIsTxnPromptOpen}
+        onOpenChange={(open) => { setIsTxnPromptOpen(open); if (!open) setSuggestedTasksRefreshKey(k => k + 1); }}
         recordType="listing"
         recordId={listing.id}
         recordLabel={listing.address}

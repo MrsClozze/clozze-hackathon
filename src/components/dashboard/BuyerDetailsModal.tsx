@@ -588,7 +588,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
       {/* Transaction prompt from guidance banner */}
       <TransactionPromptModal
         open={isTxnPromptOpen}
-        onOpenChange={setIsTxnPromptOpen}
+        onOpenChange={(open) => { setIsTxnPromptOpen(open); if (!open) setSuggestedTasksRefreshKey(k => k + 1); }}
         recordType="buyer"
         recordId={buyer.id}
         recordLabel={buyer.name}
