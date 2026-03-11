@@ -600,6 +600,8 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         recordId={buyer.id}
         recordLabel={buyer.name}
         importSource="manual"
+        existingState={txnCurrentState}
+        existingTransactionId={txnId}
       />
 
       {/* Closed confirmation dialog */}

@@ -748,6 +748,8 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         recordId={listing.id}
         recordLabel={listing.address}
         importSource="manual"
+        existingState={txnCurrentState}
+        existingTransactionId={txnId}
       />
 
       {/* Confirmation dialog for closing a listing */}
