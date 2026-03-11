@@ -13,9 +13,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TasksSidebar() {
   const { tasks, loading, openTaskModal } = useTasks();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
   const { isDemo } = useAccountState();
   const { user } = useAuth();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+
+  const getTaskSourceLabel = (task: any) => {
+    if (task.buyerId) {
+      const buyer = buyers.find((b: any) => b.id === task.buyerId);
+      return buyer ? { type: "Buyer", name: `${buyer.firstName} ${buyer.lastName}` } : null;
+    }
+    if (task.listingId) {
+      const listing = listings.find((l: any) => l.id === task.listingId);
+      return listing ? { type: "Listing", name: listing.address } : null;
+    }
+    return null;
+  };
 
   // Filter to only show tasks assigned to the current user
   const myTasks = useMemo(() => {
