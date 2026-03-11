@@ -431,30 +431,9 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If showOnCalendar is true, create a calendar event
-      if (task.showOnCalendar && task.dueDate) {
-        const calendarEvent = {
-          user_id: user.id,
-          title: task.title.trim(),
-          event_date: task.dueDate,
-          event_time: task.dueTime || null, // Include time if provided
-          description: task.notes || null,
-          address: task.address || null,
-          event_type: 'task',
-          source: 'manual',
-        };
-
-        const { error: calendarError } = await supabase
-          .from('calendar_events')
-          .insert(calendarEvent);
-
-        if (calendarError) {
-          console.error('[TasksContext] Calendar event insert error:', calendarError);
-          // Don't throw - task was created, just calendar event failed
-        } else {
-          console.log('[TasksContext] Calendar event created for task');
-        }
-      }
+      // Note: Tasks with showOnCalendar=true appear on the Clozze Task Calendar
+      // directly from the tasks table. We do NOT insert into calendar_events here.
+      // calendar_events is reserved for external/connected calendar events only.
 
       // If syncToExternalCalendar is true, sync to connected calendars
       if (task.syncToExternalCalendar && task.dueDate) {
