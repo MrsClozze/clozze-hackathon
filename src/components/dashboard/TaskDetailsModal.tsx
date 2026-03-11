@@ -239,7 +239,11 @@ export default function TaskDetailsModal() {
                         {editedTask?.date || "Pick a date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover border border-border z-[60]" align="start" sideOffset={4}>
+                    <PopoverContent
+                      className="w-auto p-0 z-[80] bg-card text-card-foreground border border-border shadow-elevated"
+                      align="start"
+                      sideOffset={4}
+                    >
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -250,7 +254,7 @@ export default function TaskDetailsModal() {
                           }
                         }}
                         initialFocus
-                        className="pointer-events-auto bg-popover"
+                        className="p-3 pointer-events-auto bg-card text-card-foreground rounded-md"
                       />
                     </PopoverContent>
                   </Popover>
