@@ -79,7 +79,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId }: Tran
         title: suggested.title,
         notes: suggested.description || "",
         dueDate: suggested.due_date || "",
-        priority: suggested.priority,
+        priority: suggested.priority as "low" | "medium" | "high",
         status: "pending",
         ...(recordType === "buyer" ? { buyerId: recordId } : { listingId: recordId }),
         address: "",
