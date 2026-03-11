@@ -12,12 +12,16 @@ import PhoneImportModal from "@/components/contacts/PhoneImportModal";
 import { Contact } from "@/contexts/ContactsContext";
 
 const CATEGORIES = {
-  "Clients": ["Buyers", "Sellers"],
-  "Core Partners": ["Lenders / Financing", "Title & Escrow", "Appraisers", "Home Inspectors", "Attorneys"],
-  "Home Preparation": ["Stagers & Designers", "Contractors", "Painters & Flooring", "Roof & Exterior", "Landscaping", "Cleaning", "Photography & Videography"],
-  "Insurance & Protection": ["Home Insurance", "Flood & Fire Insurance"],
-  "Moving & Setup": ["Moving", "Storage", "Utilities & Internet", "Home Security"],
-  "Financial & Legal Extras": ["CPA & Tax Advisors", "1031 Exchange Intermediaries", "Notary", "HOA Contacts"],
+  "Clients": ["Buyer", "Seller", "Investor", "Landlord", "Tenant", "Past Client", "Referral Client"],
+  "Core Transaction Partners": ["Mortgage Lender", "Loan Officer", "Title Company", "Escrow Officer", "Transaction Coordinator", "Co-Agent (Buyer Agent)", "Co-Agent (Listing Agent)", "Brokerage Admin"],
+  "Inspection & Due Diligence": ["Home Inspector", "Pest Inspector", "Roof Inspector", "Structural Engineer", "Septic Inspector", "Well Inspector", "Radon Inspector", "Mold Inspector", "Surveyor", "Appraiser"],
+  "Home Preparation": ["Photographer", "Videographer", "Drone Photographer", "Home Stager", "Interior Designer", "Handyman", "Contractor", "Painter", "Landscaper", "Cleaner", "Junk Removal"],
+  "Insurance & Protection": ["Home Insurance Agent", "Flood Insurance Agent", "Title Insurance Representative", "Home Warranty Provider", "Property Protection Services"],
+  "Moving & Setup": ["Moving Company", "Storage Company", "Junk Removal Service", "Utility Setup Service", "Internet Provider", "Cable Provider", "Smart Home Installation", "Locksmith"],
+  "Financial & Legal": ["Real Estate Attorney", "Real Estate CPA", "Tax Advisor", "Financial Advisor", "Estate Planner", "Notary"],
+  "Vendors & Property Services": ["Plumber", "Electrician", "HVAC Technician", "Appliance Technician", "Pool Service", "Pest Control", "Roofing Contractor", "Flooring Contractor", "Window Installer", "General Contractor"],
+  "Marketing & Listing Services": ["Marketing Coordinator", "Social Media Manager", "Print Marketing Vendor", "Sign Installation", "Lockbox Installer", "Virtual Tour Provider", "Listing Website Provider"],
+  "Internal Team": ["Team Agent", "Showing Agent", "Assistant", "Marketing Assistant", "Transaction Coordinator", "Operations Manager"],
 };
 
 export default function Contacts() {
