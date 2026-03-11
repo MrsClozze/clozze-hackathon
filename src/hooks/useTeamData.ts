@@ -78,21 +78,36 @@ export function useTeamData() {
         const closedListings = listings?.filter(l => l.status === "Closed") || [];
         const activeBuyers = buyers?.filter(b => b.status === "Active") || [];
 
-        const totalSalesVolume = closedListings.reduce((sum, l) => sum + Number(l.price || 0), 0);
-        
         // Only calculate commission from buyers where financial data is visible (is_owner = true)
-        // For team members viewing other agents' buyers, agent_commission will be NULL
         const ownedBuyers = buyers?.filter(b => b.is_owner === true) || [];
-        
-        const totalCommission = [
-          ...listings?.map(l => Number(l.agent_commission || 0)) || [],
-          ...ownedBuyers.map(b => Number(b.agent_commission || 0))
-        ].reduce((sum, c) => sum + c, 0);
+        const closedBuyers = ownedBuyers.filter(b => b.status === "Closed");
+        const pipelineBuyers = ownedBuyers.filter(b => b.status === "Active" || b.status === "Pending");
 
-        const totalItems = (listings?.length || 0) + ownedBuyers.length;
-        const avgCommission = totalItems > 0 
-          ? totalCommission / totalItems 
-          : 0;
+        // CLOSED metrics - only from Closed records
+        const closedSalesVolume = closedListings.reduce((sum, l) => sum + Number(l.price || 0), 0);
+        const closedListingCommission = closedListings.reduce((sum, l) => sum + Number(l.agent_commission || 0), 0);
+        const closedBuyerCommission = closedBuyers.reduce((sum, b) => {
+          // 50/50 split: (pre_approved_amount * commission_percentage / 100) * 0.5
+          const preApproved = Number(b.pre_approved_amount || 0);
+          const pct = Number(b.commission_percentage || 0);
+          return sum + (preApproved * pct / 100) * 0.5;
+        }, 0);
+        const totalClosedCommission = closedListingCommission + closedBuyerCommission;
+
+        // PROJECTED metrics - Active + Pending records (pipeline)
+        const projectedSalesVolume = [...activeListings, ...pendingListings]
+          .reduce((sum, l) => sum + Number(l.price || 0), 0);
+        const projectedListingCommission = [...activeListings, ...pendingListings]
+          .reduce((sum, l) => sum + Number(l.agent_commission || 0), 0);
+        const projectedBuyerCommission = pipelineBuyers.reduce((sum, b) => {
+          const preApproved = Number(b.pre_approved_amount || 0);
+          const pct = Number(b.commission_percentage || 0);
+          return sum + (preApproved * pct / 100) * 0.5;
+        }, 0);
+        const totalProjectedCommission = projectedListingCommission + projectedBuyerCommission;
+
+        const totalItems = closedListings.length + closedBuyers.length;
+        const avgCommission = totalItems > 0 ? totalClosedCommission / totalItems : 0;
 
         setStats({
           totalListings: listings?.length || 0,
@@ -101,11 +116,11 @@ export function useTeamData() {
           closedListings: closedListings.length,
           totalBuyers: buyers?.length || 0,
           activeBuyers: activeBuyers.length,
-          totalSalesVolume,
-          totalCommission,
+          totalSalesVolume: closedSalesVolume,
+          totalCommission: totalClosedCommission,
           avgCommission,
-          projectedSalesVolume: 0,
-          projectedCommission: 0,
+          projectedSalesVolume,
+          projectedCommission: totalProjectedCommission,
         });
       } catch (err) {
         console.error("Error fetching team data:", err);
