@@ -274,11 +274,16 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
               </div>
             </div>
 
-            {/* Medium-confidence guidance banner */}
+            {/* Transaction stage progression control */}
             <TransactionGuidanceBanner
               recordType="listing"
               recordId={listing.id}
-              onStartTransaction={() => setIsTxnPromptOpen(true)}
+              refreshKey={suggestedTasksRefreshKey}
+              onStartTransaction={(currentState, transactionId) => {
+                setTxnCurrentState(currentState);
+                setTxnId(transactionId);
+                setIsTxnPromptOpen(true);
+              }}
             />
 
             <div>
