@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
+import ProfileContactsTab from "./ProfileContactsTab";
 
 const BUYER_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
