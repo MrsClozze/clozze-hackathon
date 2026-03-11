@@ -534,6 +534,37 @@ export default function TaskDetailsModal() {
               )}
             </div>
 
+            {/* Sync to External Calendar */}
+            {isEditing && hasCalendarConnections && (
+              <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
+                <div>
+                  <Label className="text-sm font-medium">Sync to connected calendar(s)</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Push this task to your connected Google or Apple Calendar
+                  </p>
+                </div>
+                <Switch
+                  checked={editedTask?.syncToExternalCalendar ?? false}
+                  onCheckedChange={(checked) =>
+                    setEditedTask(editedTask ? { ...editedTask, syncToExternalCalendar: checked } : null)
+                  }
+                />
+              </div>
+            )}
+            {!isEditing && hasCalendarConnections && (
+              <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border">
+                <div>
+                  <Label className="text-sm font-medium">Sync to connected calendar(s)</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {currentTask.syncToExternalCalendar ? "This task is synced to your external calendar" : "Not synced to external calendar"}
+                  </p>
+                </div>
+                <div className={cn("text-xs font-medium px-2 py-1 rounded", currentTask.syncToExternalCalendar ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                  {currentTask.syncToExternalCalendar ? "Synced" : "Not synced"}
+                </div>
+              </div>
+            )}
+
             {/* Edit Actions */}
             {isEditing && (
               <div className="flex gap-2 pt-2">
