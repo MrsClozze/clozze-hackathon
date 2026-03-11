@@ -154,6 +154,22 @@ export default function TasksSidebar() {
                 </div>
                 {task.address && <div>{task.address}</div>}
                 {task.assignee && <div>{task.assignee}</div>}
+                {(() => {
+                  const source = getTaskSourceLabel(task);
+                  if (!source) return null;
+                  return (
+                    <div className="flex items-center gap-1 mt-1">
+                      {source.type === "Buyer" ? (
+                        <User className="h-3 w-3 text-primary" />
+                      ) : (
+                        <Home className="h-3 w-3 text-primary" />
+                      )}
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                        {source.type}: {source.name}
+                      </Badge>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
