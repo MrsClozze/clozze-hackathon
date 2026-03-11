@@ -46,6 +46,8 @@ export default function TransactionSuggestedTasks({ recordType, recordId, refres
       .select("id")
       .eq(column, recordId)
       .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!txn) {
