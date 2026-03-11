@@ -1,7 +1,10 @@
-import { Plus, Clock, AlertTriangle, Info } from "lucide-react";
+import { Plus, Clock, AlertTriangle, Info, Home, User } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useTasks } from "@/contexts/TasksContext";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
 import { useAuth } from "@/contexts/AuthContext";
 import TaskDetailsModal from "./TaskDetailsModal";
@@ -10,9 +13,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TasksSidebar() {
   const { tasks, loading, openTaskModal } = useTasks();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
   const { isDemo } = useAccountState();
   const { user } = useAuth();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+
+  const getTaskSourceLabel = (task: any) => {
+    if (task.buyerId) {
+      const buyer = buyers.find((b: any) => b.id === task.buyerId);
+      return buyer ? { type: "Buyer", name: `${buyer.firstName} ${buyer.lastName}` } : null;
+    }
+    if (task.listingId) {
+      const listing = listings.find((l: any) => l.id === task.listingId);
+      return listing ? { type: "Listing", name: listing.address } : null;
+    }
+    return null;
+  };
 
   // Filter to only show tasks assigned to the current user
   const myTasks = useMemo(() => {
@@ -137,6 +154,22 @@ export default function TasksSidebar() {
                 </div>
                 {task.address && <div>{task.address}</div>}
                 {task.assignee && <div>{task.assignee}</div>}
+                {(() => {
+                  const source = getTaskSourceLabel(task);
+                  if (!source) return null;
+                  return (
+                    <div className="flex items-center gap-1 mt-1">
+                      {source.type === "Buyer" ? (
+                        <User className="h-3 w-3 text-primary" />
+                      ) : (
+                        <Home className="h-3 w-3 text-primary" />
+                      )}
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                        {source.type}: {source.name}
+                      </Badge>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
