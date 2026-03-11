@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ListingData, useListings } from "@/contexts/ListingsContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
+import TransactionSuggestedTasks from "@/components/transactions/TransactionSuggestedTasks";
 
 const LISTING_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
