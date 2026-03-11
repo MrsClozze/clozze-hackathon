@@ -1,7 +1,10 @@
-import { Plus, Clock, AlertTriangle, Info } from "lucide-react";
+import { Plus, Clock, AlertTriangle, Info, Home, User } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useTasks } from "@/contexts/TasksContext";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { useAccountState } from "@/contexts/AccountStateContext";
 import { useAuth } from "@/contexts/AuthContext";
 import TaskDetailsModal from "./TaskDetailsModal";
