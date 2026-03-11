@@ -24,7 +24,7 @@ interface TransactionSuggestedTasksProps {
   refreshKey?: number;
 }
 
-export default function TransactionSuggestedTasks({ recordType, recordId }: TransactionSuggestedTasksProps) {
+export default function TransactionSuggestedTasks({ recordType, recordId, refreshKey }: TransactionSuggestedTasksProps) {
   const { user } = useAuth();
   const { addTask, refetchTasks } = useTasks();
   const { toast } = useToast();
