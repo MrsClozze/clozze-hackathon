@@ -21,6 +21,7 @@ interface SuggestedTask {
 interface TransactionSuggestedTasksProps {
   recordType: "buyer" | "listing";
   recordId: string;
+  refreshKey?: number;
 }
 
 export default function TransactionSuggestedTasks({ recordType, recordId }: TransactionSuggestedTasksProps) {
