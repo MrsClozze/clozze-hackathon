@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, X, ArrowRight, Paperclip } from "lucide-react";
+import { Mail, MessageSquare, X, ArrowRight, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { SyncedEmail } from "@/hooks/useSyncedEmails";
@@ -110,8 +110,8 @@ export default function MessageCard({
             className={`flex-1 text-xs ${isAttached ? 'text-primary' : 'text-text-muted hover:text-text-heading'}`}
             onClick={onAttach}
           >
-            <Paperclip className="h-3 w-3 mr-1" />
-            {isAttached ? "Attached" : "Attach"}
+            <Link2 className="h-3 w-3 mr-1" />
+            {isAttached ? "Linked" : "Link"}
           </Button>
         )}
         <Button

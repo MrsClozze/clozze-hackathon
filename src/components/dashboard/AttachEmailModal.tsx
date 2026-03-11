@@ -44,7 +44,7 @@ export default function AttachEmailModal({ open, onOpenChange, onAttach, emailSu
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Attach Email to Profile</DialogTitle>
+          <DialogTitle>Link Email to Profile</DialogTitle>
         </DialogHeader>
 
         {emailSubject && (
@@ -123,7 +123,7 @@ export default function AttachEmailModal({ open, onOpenChange, onAttach, emailSu
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={!selectedId} className="flex-1">
-            Attach Email
+            Link Email
           </Button>
         </div>
       </DialogContent>
