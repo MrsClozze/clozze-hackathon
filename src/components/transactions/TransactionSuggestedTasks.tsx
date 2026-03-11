@@ -69,7 +69,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId, refres
 
   useEffect(() => {
     fetchSuggestedTasks();
-  }, [user, recordId, recordType]);
+  }, [user, recordId, recordType, refreshKey]);
 
   const acceptTask = async (suggested: SuggestedTask) => {
     if (!user) return;
