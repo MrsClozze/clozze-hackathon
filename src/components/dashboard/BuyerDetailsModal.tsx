@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BuyerData, useBuyers } from "@/contexts/BuyersContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
+import TransactionSuggestedTasks from "@/components/transactions/TransactionSuggestedTasks";
 
 
 interface BuyerDetailsModalProps {
@@ -457,6 +458,9 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
               </div>
             </div>
           </div>
+
+          {/* Suggested Tasks from Transaction */}
+          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} />
 
           {/* Associated Tasks */}
           <div className="space-y-4">
