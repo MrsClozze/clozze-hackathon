@@ -44,6 +44,8 @@ export default function TransactionGuidanceBanner({
         .select("id, state")
         .eq(column, recordId)
         .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
         .maybeSingle();
 
       if (error) {
