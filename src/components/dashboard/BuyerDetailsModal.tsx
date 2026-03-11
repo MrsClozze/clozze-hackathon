@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
+import ProfileContactsTab from "./ProfileContactsTab";
 
 const BUYER_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -220,9 +221,10 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="communication">Communication</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 mb-4 h-11 bg-card-elevated border border-card-border rounded-lg p-1">
+            <TabsTrigger value="details" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Details</TabsTrigger>
+            <TabsTrigger value="contacts" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Contacts</TabsTrigger>
+            <TabsTrigger value="communication" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Communication</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details">
@@ -573,6 +575,10 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="contacts">
+            <ProfileContactsTab recordType="buyer" recordId={buyer.id} />
           </TabsContent>
 
           <TabsContent value="communication">
