@@ -239,7 +239,7 @@ export default function TaskDetailsModal() {
                         {editedTask?.date || "Pick a date"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover border border-border" align="start">
+                    <PopoverContent className="w-auto p-0 bg-popover border border-border z-[60]" align="start" sideOffset={4}>
                       <Calendar
                         mode="single"
                         selected={selectedDate}
