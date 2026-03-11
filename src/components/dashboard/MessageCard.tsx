@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, X, ArrowRight, Paperclip } from "lucide-react";
+import { Mail, MessageSquare, X, ArrowRight, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { SyncedEmail } from "@/hooks/useSyncedEmails";
