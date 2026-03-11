@@ -36,6 +36,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId, refres
 
   const fetchSuggestedTasks = async () => {
     if (!user || !recordId) return;
+    setLoading(true);
 
     const column = recordType === "listing" ? "listing_id" : "buyer_id";
 
