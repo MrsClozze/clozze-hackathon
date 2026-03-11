@@ -43,6 +43,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
+  const [suggestedTasksRefreshKey, setSuggestedTasksRefreshKey] = useState(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
@@ -608,7 +609,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
           </div>
 
           {/* Suggested Tasks from Transaction */}
-          <TransactionSuggestedTasks recordType="listing" recordId={listing.id} />
+          <TransactionSuggestedTasks recordType="listing" recordId={listing.id} refreshKey={suggestedTasksRefreshKey} />
 
           {/* Associated Tasks */}
           <div className="space-y-4">
@@ -735,7 +736,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
       {/* Transaction prompt from guidance banner */}
       <TransactionPromptModal
         open={isTxnPromptOpen}
-        onOpenChange={setIsTxnPromptOpen}
+        onOpenChange={(open) => { setIsTxnPromptOpen(open); if (!open) setSuggestedTasksRefreshKey(k => k + 1); }}
         recordType="listing"
         recordId={listing.id}
         recordLabel={listing.address}

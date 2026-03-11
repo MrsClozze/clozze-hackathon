@@ -43,6 +43,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
+  const [suggestedTasksRefreshKey, setSuggestedTasksRefreshKey] = useState(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
@@ -460,7 +461,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
           </div>
 
           {/* Suggested Tasks from Transaction */}
-          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} />
+          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} refreshKey={suggestedTasksRefreshKey} />
 
           {/* Associated Tasks */}
           <div className="space-y-4">
@@ -587,7 +588,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
       {/* Transaction prompt from guidance banner */}
       <TransactionPromptModal
         open={isTxnPromptOpen}
-        onOpenChange={setIsTxnPromptOpen}
+        onOpenChange={(open) => { setIsTxnPromptOpen(open); if (!open) setSuggestedTasksRefreshKey(k => k + 1); }}
         recordType="buyer"
         recordId={buyer.id}
         recordLabel={buyer.name}

@@ -21,9 +21,10 @@ interface SuggestedTask {
 interface TransactionSuggestedTasksProps {
   recordType: "buyer" | "listing";
   recordId: string;
+  refreshKey?: number;
 }
 
-export default function TransactionSuggestedTasks({ recordType, recordId }: TransactionSuggestedTasksProps) {
+export default function TransactionSuggestedTasks({ recordType, recordId, refreshKey }: TransactionSuggestedTasksProps) {
   const { user } = useAuth();
   const { addTask, refetchTasks } = useTasks();
   const { toast } = useToast();
@@ -35,6 +36,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId }: Tran
 
   const fetchSuggestedTasks = async () => {
     if (!user || !recordId) return;
+    setLoading(true);
 
     const column = recordType === "listing" ? "listing_id" : "buyer_id";
 
@@ -68,7 +70,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId }: Tran
 
   useEffect(() => {
     fetchSuggestedTasks();
-  }, [user, recordId, recordType]);
+  }, [user, recordId, recordType, refreshKey]);
 
   const acceptTask = async (suggested: SuggestedTask) => {
     if (!user) return;
