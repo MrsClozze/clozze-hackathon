@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { BuyerData, useBuyers } from "@/contexts/BuyersContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
+import TransactionSuggestedTasks from "@/components/transactions/TransactionSuggestedTasks";
 
 
 interface BuyerDetailsModalProps {
