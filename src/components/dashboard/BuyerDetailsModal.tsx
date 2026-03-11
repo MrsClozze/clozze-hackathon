@@ -459,6 +459,9 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
             </div>
           </div>
 
+          {/* Suggested Tasks from Transaction */}
+          <TransactionSuggestedTasks recordType="buyer" recordId={buyer.id} />
+
           {/* Associated Tasks */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

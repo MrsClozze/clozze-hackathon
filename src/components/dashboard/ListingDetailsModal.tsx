@@ -607,6 +607,9 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             </div>
           </div>
 
+          {/* Suggested Tasks from Transaction */}
+          <TransactionSuggestedTasks recordType="listing" recordId={listing.id} />
+
           {/* Associated Tasks */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
