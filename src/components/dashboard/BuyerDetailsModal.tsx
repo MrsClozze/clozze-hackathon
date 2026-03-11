@@ -43,6 +43,7 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
+  const [suggestedTasksRefreshKey, setSuggestedTasksRefreshKey] = useState(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
