@@ -44,6 +44,8 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
   const [suggestedTasksRefreshKey, setSuggestedTasksRefreshKey] = useState(0);
+  const [txnCurrentState, setTxnCurrentState] = useState<string | null>(null);
+  const [txnId, setTxnId] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
@@ -272,11 +274,16 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
               </div>
             </div>
 
-            {/* Medium-confidence guidance banner */}
+            {/* Transaction stage progression control */}
             <TransactionGuidanceBanner
               recordType="listing"
               recordId={listing.id}
-              onStartTransaction={() => setIsTxnPromptOpen(true)}
+              refreshKey={suggestedTasksRefreshKey}
+              onStartTransaction={(currentState, transactionId) => {
+                setTxnCurrentState(currentState);
+                setTxnId(transactionId);
+                setIsTxnPromptOpen(true);
+              }}
             />
 
             <div>
@@ -741,6 +748,8 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         recordId={listing.id}
         recordLabel={listing.address}
         importSource="manual"
+        existingState={txnCurrentState}
+        existingTransactionId={txnId}
       />
 
       {/* Confirmation dialog for closing a listing */}

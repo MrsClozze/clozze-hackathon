@@ -1,97 +1,151 @@
 import { useState, useEffect } from "react";
-import { CalendarClock, X, ArrowRight } from "lucide-react";
+import { CalendarClock, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+
+const STAGES = [
+  { value: "draft", label: "Just Starting", order: 0 },
+  { value: "under_contract", label: "Under Contract", order: 1 },
+  { value: "in_escrow", label: "In Escrow", order: 2 },
+] as const;
 
 interface TransactionGuidanceBannerProps {
   recordType: "listing" | "buyer";
   recordId: string;
-  onStartTransaction?: () => void;
+  onStartTransaction?: (currentState: string | null, transactionId: string | null) => void;
+  refreshKey?: number;
 }
 
 /**
- * Medium-confidence guidance banner shown in buyer/listing detail views
- * when no transaction is linked yet.
- * Dismissible and non-intrusive.
+ * Always-visible stage progression control shown in buyer/listing detail views.
+ * Shows current transaction state and allows advancing to next stages.
  */
 export default function TransactionGuidanceBanner({
   recordType,
   recordId,
   onStartTransaction,
+  refreshKey = 0,
 }: TransactionGuidanceBannerProps) {
   const { user } = useAuth();
-  const [isDismissed, setIsDismissed] = useState(false);
-  const [hasTransaction, setHasTransaction] = useState<boolean | null>(null);
+  const [currentState, setCurrentState] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user || !recordId) return;
 
-    // Check if a transaction already exists for this record
-    const checkTransaction = async () => {
+    const fetchTransaction = async () => {
+      setLoading(true);
       const column = recordType === "listing" ? "listing_id" : "buyer_id";
       const { data, error } = await supabase
         .from("transactions")
-        .select("id")
+        .select("id, state")
         .eq(column, recordId)
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
         console.error("Error checking transaction:", error);
-        setHasTransaction(true); // Hide banner on error
+        setLoading(false);
         return;
       }
 
-      setHasTransaction(!!data);
+      if (data) {
+        setCurrentState(data.state);
+        setTransactionId(data.id);
+      } else {
+        setCurrentState(null);
+        setTransactionId(null);
+      }
+      setLoading(false);
     };
 
-    checkTransaction();
+    fetchTransaction();
+  }, [user, recordId, recordType, refreshKey]);
 
-    // Check session dismissal
-    const dismissKey = `txn_banner_dismissed_${recordId}`;
-    if (sessionStorage.getItem(dismissKey)) {
-      setIsDismissed(true);
-    }
-  }, [user, recordId, recordType]);
+  if (!recordId || loading) return null;
 
-  const handleDismiss = () => {
-    setIsDismissed(true);
-    sessionStorage.setItem(`txn_banner_dismissed_${recordId}`, "true");
-  };
-
-  // Don't render if: dismissed, has transaction, still loading, or no record
-  if (isDismissed || hasTransaction !== false || !recordId) return null;
+  const currentStageOrder = currentState
+    ? STAGES.find(s => s.value === currentState)?.order ?? -1
+    : -1;
 
   return (
-    <div className="relative flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/15 animate-in fade-in slide-in-from-top-2 duration-300">
-      <CalendarClock className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground mb-0.5">
-          Ready to track this deal?
+    <div className="relative flex flex-col gap-3 p-4 rounded-lg bg-primary/5 border border-primary/15 animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="flex items-center gap-2">
+        <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
+        <p className="text-sm font-medium text-foreground">
+          {currentState ? "Transaction Progress" : "Start a Transaction"}
         </p>
-        <p className="text-xs text-muted-foreground">
-          Most agents start a transaction once a contract is signed. Transactions generate your deal timeline and suggested tasks automatically.
-        </p>
-        {onStartTransaction && (
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto p-0 mt-1.5 text-xs text-primary font-medium gap-1"
-            onClick={onStartTransaction}
-          >
-            Start a Transaction
-            <ArrowRight className="h-3 w-3" />
-          </Button>
-        )}
       </div>
-      <button
-        onClick={handleDismiss}
-        className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5"
-        aria-label="Dismiss"
-      >
-        <X className="h-4 w-4" />
-      </button>
+
+      {!currentState && (
+        <p className="text-xs text-muted-foreground">
+          Start a transaction to generate your deal timeline and suggested tasks automatically.
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {STAGES.map((stage) => {
+          const isCompleted = stage.order <= currentStageOrder && currentState !== null;
+          const isCurrent = stage.value === currentState;
+          const isNext = stage.order === currentStageOrder + 1 || (currentState === null && stage.order === 0);
+          const isDisabled = isCompleted && !isCurrent;
+          const isFutureLocked = stage.order > currentStageOrder + 1 && currentState !== null;
+
+          if (isCurrent) {
+            return (
+              <Badge
+                key={stage.value}
+                variant="default"
+                className="gap-1.5 bg-primary text-primary-foreground cursor-default"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                {stage.label}
+              </Badge>
+            );
+          }
+
+          if (isDisabled) {
+            return (
+              <Badge
+                key={stage.value}
+                variant="secondary"
+                className="gap-1.5 opacity-50 cursor-default line-through"
+              >
+                {stage.label}
+              </Badge>
+            );
+          }
+
+          if (isNext) {
+            return (
+              <Button
+                key={stage.value}
+                variant="outline"
+                size="sm"
+                className="h-auto py-1 px-3 text-xs font-medium gap-1 border-primary/30 hover:border-primary hover:bg-primary/10"
+                onClick={() => onStartTransaction?.(currentState, transactionId)}
+              >
+                {stage.label}
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            );
+          }
+
+          // Future locked stage
+          return (
+            <Badge
+              key={stage.value}
+              variant="outline"
+              className="gap-1.5 opacity-40 cursor-default"
+            >
+              {stage.label}
+            </Badge>
+          );
+        })}
+      </div>
     </div>
   );
 }

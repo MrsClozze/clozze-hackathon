@@ -44,6 +44,8 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [isTxnPromptOpen, setIsTxnPromptOpen] = useState(false);
   const [suggestedTasksRefreshKey, setSuggestedTasksRefreshKey] = useState(0);
+  const [txnCurrentState, setTxnCurrentState] = useState<string | null>(null);
+  const [txnId, setTxnId] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tasks, openTaskModal } = useTasks();
@@ -283,11 +285,16 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
               </div>
             </div>
 
-            {/* Medium-confidence guidance banner */}
+            {/* Transaction stage progression control */}
             <TransactionGuidanceBanner
               recordType="buyer"
               recordId={buyer.id}
-              onStartTransaction={() => setIsTxnPromptOpen(true)}
+              refreshKey={suggestedTasksRefreshKey}
+              onStartTransaction={(currentState, transactionId) => {
+                setTxnCurrentState(currentState);
+                setTxnId(transactionId);
+                setIsTxnPromptOpen(true);
+              }}
             />
 
             <h3 className="text-lg font-semibold text-text-heading">Buyer Information</h3>
@@ -593,6 +600,8 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         recordId={buyer.id}
         recordLabel={buyer.name}
         importSource="manual"
+        existingState={txnCurrentState}
+        existingTransactionId={txnId}
       />
 
       {/* Closed confirmation dialog */}
