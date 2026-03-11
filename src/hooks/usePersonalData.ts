@@ -152,22 +152,21 @@ export function usePersonalData(period: string = "ytd") {
       0
     );
 
-    // Calculate listing commissions from stored agent_commission
-    const listingCommissions = filteredListings.reduce(
+    // CLOSED commission: only from Closed records
+    const closedBuyers = filteredBuyers.filter((b) => b.status === "Closed");
+
+    const closedListingCommission = closedListings.reduce(
       (sum, l) => sum + Number(l.agent_commission || 0),
       0
     );
 
-    // Calculate buyer commissions dynamically using 50/50 split logic
-    const buyerCommissions = filteredBuyers.reduce((sum, b) => {
+    const closedBuyerCommission = closedBuyers.reduce((sum, b) => {
       const preApproved = Number(b.pre_approved_amount || 0);
       const commPct = Number(b.commission_percentage || 0);
-      const totalComm = preApproved * (commPct / 100);
-      const agentComm = totalComm * 0.5;
-      return sum + agentComm;
+      return sum + (preApproved * commPct / 100) * 0.5;
     }, 0);
 
-    const totalCommission = listingCommissions + buyerCommissions;
+    const totalCommission = closedListingCommission + closedBuyerCommission;
 
     // Projected commission: pipeline listing commissions + active buyer commissions
     const pipelineListingCommissions = pipelineListings.reduce(
