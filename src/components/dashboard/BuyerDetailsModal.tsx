@@ -285,11 +285,16 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
               </div>
             </div>
 
-            {/* Medium-confidence guidance banner */}
+            {/* Transaction stage progression control */}
             <TransactionGuidanceBanner
               recordType="buyer"
               recordId={buyer.id}
-              onStartTransaction={() => setIsTxnPromptOpen(true)}
+              refreshKey={suggestedTasksRefreshKey}
+              onStartTransaction={(currentState, transactionId) => {
+                setTxnCurrentState(currentState);
+                setTxnId(transactionId);
+                setIsTxnPromptOpen(true);
+              }}
             />
 
             <h3 className="text-lg font-semibold text-text-heading">Buyer Information</h3>
