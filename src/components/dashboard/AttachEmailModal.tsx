@@ -123,7 +123,7 @@ export default function AttachEmailModal({ open, onOpenChange, onAttach, emailSu
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={!selectedId} className="flex-1">
-            Attach Email
+            Link Email
           </Button>
         </div>
       </DialogContent>
