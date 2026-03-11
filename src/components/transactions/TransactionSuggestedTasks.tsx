@@ -85,7 +85,7 @@ export default function TransactionSuggestedTasks({ recordType, recordId }: Tran
         address: "",
         assignee: "",
         date: "",
-        hasAiAssist: false,
+        hasAIAssist: false,
         showOnCalendar: true,
         syncToExternalCalendar: false,
         includeWeekends: true,
