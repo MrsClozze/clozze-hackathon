@@ -112,6 +112,7 @@ export default function TaskDetailsModal() {
 
       await updateTask(selectedTask.id, {
         ...editedTask,
+        date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : editedTask.date,
         startDate: selectedStartDate ? format(selectedStartDate, "yyyy-MM-dd") : undefined,
         dueTime: editedTime || undefined,
         assignee: assigneeNames || undefined,
