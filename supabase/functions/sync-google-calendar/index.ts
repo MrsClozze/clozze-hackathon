@@ -40,6 +40,29 @@ interface CalendarConnection {
   token_expires_at: string;
 }
 
+interface StoredExternalCalendarIds {
+  google?: string;
+  apple?: string;
+}
+
+function parseExternalCalendarIds(value: string | null | undefined): StoredExternalCalendarIds {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object") {
+      return {
+        google: typeof parsed.google === "string" ? parsed.google : undefined,
+        apple: typeof parsed.apple === "string" ? parsed.apple : undefined,
+      };
+    }
+  } catch {
+    // Legacy string format: treat as Google event id.
+  }
+
+  return { google: value };
+}
+
 // Refresh access token if expired
 // deno-lint-ignore no-explicit-any
 async function getValidAccessToken(
