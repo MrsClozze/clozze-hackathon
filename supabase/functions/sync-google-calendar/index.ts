@@ -156,7 +156,8 @@ function formatLocalDateTime(
 // Create or update a Google Calendar event
 async function syncTaskToGoogleCalendar(
   accessToken: string,
-  task: TaskToSync
+  task: TaskToSync,
+  existingEventId?: string
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   try {
     // Parse the due date components directly to avoid timezone issues
