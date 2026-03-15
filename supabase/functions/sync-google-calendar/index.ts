@@ -363,6 +363,19 @@ serve(async (req) => {
     }
 
     if (action === "sync_task" && task) {
+      let existingExternalIds: StoredExternalCalendarIds = {};
+
+      if (task.id) {
+        const { data: existingTask } = await adminClient
+          .from("tasks")
+          .select("external_calendar_event_id")
+          .eq("id", task.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        existingExternalIds = parseExternalCalendarIds(existingTask?.external_calendar_event_id ?? null);
+      }
+
       // Determine which users' calendars to sync to
       let userIdsToSync: string[] = [user.id];
       
@@ -411,15 +424,17 @@ serve(async (req) => {
           results.push({ userId: targetUserId, success: false, error: "No valid token" });
           continue;
         }
-        
-        const result = await syncTaskToGoogleCalendar(targetAccessToken, task);
+
+        const existingGoogleEventId = targetUserId === user.id ? existingExternalIds.google : undefined;
+        const result = await syncTaskToGoogleCalendar(targetAccessToken, task, existingGoogleEventId);
         results.push({ userId: targetUserId, ...result });
         
         // Store event ID only for the task creator's sync
         if (result.success && result.eventId && task.id && targetUserId === user.id) {
+          existingExternalIds = { ...existingExternalIds, google: result.eventId };
           await adminClient
             .from("tasks")
-            .update({ external_calendar_event_id: result.eventId })
+            .update({ external_calendar_event_id: JSON.stringify(existingExternalIds) })
             .eq("id", task.id);
           console.log("Stored Google Calendar event ID in task:", task.id, result.eventId);
         }
