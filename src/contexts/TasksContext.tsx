@@ -408,7 +408,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const newTask = {
         user_id: user.id,
         title: task.title.trim(),
-        date: task.date || null,
+        date: task.date || (task.dueDate ? formatLegacyTaskDate(task.dueDate) : null),
         address: task.address || null,
         assignee: task.assignee || null,
         has_ai_assist: task.hasAIAssist ?? false,
