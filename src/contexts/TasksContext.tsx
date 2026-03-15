@@ -275,10 +275,39 @@ export function TasksProvider({ children }: { children: ReactNode }) {
             timezone: getBrowserTimezone(),
           };
 
-          // IMPORTANT: Do not let Apple sync latency block Google sync.
-          await supabase.functions.invoke('sync-google-calendar', {
-            body: { action: 'sync_task', task: taskPayload },
+          console.log('[TasksContext] Syncing task to external calendars:', {
+            taskId,
+            dueDate,
+            syncToExternalCalendar: true,
           });
+
+          // Determine sync targets
+          const syncTargets = updates.calendarSyncTargets ?? currentTaskForSync?.calendarSyncTargets;
+          const syncBody: Record<string, unknown> = { action: 'sync_task', task: taskPayload };
+          
+          if (syncTargets && syncTargets.mode !== "mine") {
+            syncBody.syncMode = syncTargets.mode;
+            if (syncTargets.mode === "selected" && syncTargets.userIds) {
+              syncBody.targetUserIds = syncTargets.userIds;
+            }
+          }
+
+          // IMPORTANT: Do not let Apple sync latency block Google sync.
+          try {
+            const googleResult = await supabase.functions.invoke('sync-google-calendar', {
+              body: syncBody,
+            });
+
+            if (googleResult.error) {
+              console.error('[TasksContext] Google calendar sync error:', googleResult.error);
+            } else if (googleResult.data?.error) {
+              console.error('[TasksContext] Google calendar sync API error:', googleResult.data.error);
+            } else {
+              console.log('[TasksContext] Google calendar sync succeeded:', googleResult.data);
+            }
+          } catch (err) {
+            console.error('[TasksContext] Google calendar sync exception:', err);
+          }
 
           const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
             new Promise((resolve, reject) => {
@@ -294,12 +323,14 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
           void withTimeout(
             supabase.functions.invoke('sync-apple-calendar', {
-              body: { action: 'sync_task', task: taskPayload },
+              body: syncBody,
             }),
             6000
           ).catch((err) => {
             console.warn('[TasksContext] Apple calendar sync failed (non-blocking):', err);
           });
+        } else {
+          console.warn('[TasksContext] Sync enabled but no dueDate found, skipping sync');
         }
       }
 
