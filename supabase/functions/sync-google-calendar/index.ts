@@ -317,7 +317,10 @@ serve(async (req) => {
   }
 
   try {
+    console.log("[sync-google-calendar] Function invoked, action pending parse");
+    
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      console.error("[sync-google-calendar] Missing GOOGLE_CALENDAR_CLIENT_ID or SECRET");
       return new Response(
         JSON.stringify({ error: "Google Calendar not configured" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -327,6 +330,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("[sync-google-calendar] No auth header");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -340,14 +344,19 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
+      console.error("[sync-google-calendar] Auth failed:", userError);
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    console.log("[sync-google-calendar] Authenticated user:", user.id);
+
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { action, task, eventId, taskId, taskIds, targetUserIds, syncMode } = await req.json() as RequestBody;
+    
+    console.log("[sync-google-calendar] Action:", action, "Task ID:", task?.id || taskId);
 
     // Get valid access token
     const accessToken = await getValidAccessToken(adminClient, user.id);
