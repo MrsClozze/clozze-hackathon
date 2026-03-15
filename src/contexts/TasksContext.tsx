@@ -64,6 +64,7 @@ export interface Task {
   assignees?: TaskAssignee[];
   showOnCalendar?: boolean;
   syncToExternalCalendar?: boolean;
+  externalCalendarEventId?: string;
   calendarSyncTargets?: CalendarSyncTargets;
   recurrencePattern?: string;
   recurrenceEndDate?: string;
