@@ -253,18 +253,20 @@ async function syncTaskToGoogleCalendar(
       console.log("Creating all-day event:", { date: dateStr });
     }
 
-    // Create the event in Google Calendar
-    const response = await fetch(
-      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(event),
-      }
-    );
+    const url = existingEventId
+      ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingEventId}`
+      : "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+
+    const method = existingEventId ? "PUT" : "POST";
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    });
 
     const data = await response.json();
 
@@ -273,7 +275,7 @@ async function syncTaskToGoogleCalendar(
       return { success: false, error: data.error.message };
     }
 
-    console.log("Event created in Google Calendar:", data.id);
+    console.log(existingEventId ? "Event updated in Google Calendar:" : "Event created in Google Calendar:", data.id);
     return { success: true, eventId: data.id };
   } catch (error) {
     console.error("Error syncing to Google Calendar:", error);
