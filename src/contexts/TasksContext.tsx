@@ -131,36 +131,43 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (tasksError) throw tasksError;
 
-      const mappedTasks: Task[] = (tasksData || []).map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        date: task.date || '',
-        address: task.address || '',
-        assignee: task.assignee || '',
-        hasAIAssist: task.has_ai_assist,
-        priority: task.priority as "high" | "medium" | "low",
-        notes: task.notes || '',
-        status: task.status as "pending" | "in-progress" | "completed",
-        startDate: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : undefined,
-        dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
-        dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined,
-        endTime: task.end_time ? task.end_time.substring(0, 5) : undefined,
-        buyerId: task.buyer_id || undefined,
-        listingId: task.listing_id || undefined,
-        userId: task.user_id,
-        contactId: task.contact_id || undefined,
-        assigneeUserId: task.assignee_user_id || undefined,
-        assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
-        showOnCalendar: task.show_on_calendar || false,
-        syncToExternalCalendar: task.sync_to_external_calendar || false,
-        calendarSyncTargets: task.calendar_sync_targets ? (typeof task.calendar_sync_targets === 'string' ? JSON.parse(task.calendar_sync_targets) : task.calendar_sync_targets) : undefined,
-        recurrencePattern: task.recurrence_pattern || undefined,
-        recurrenceEndDate: task.recurrence_end_date || undefined,
-        parentTaskId: task.parent_task_id || undefined,
-        recurrenceIndex: task.recurrence_index ?? undefined,
-        includeWeekends: task.include_weekends ?? undefined,
-        isDemo: false,
-      }));
+      const mappedTasks: Task[] = (tasksData || []).map((task: any) => {
+        const normalizedDueDate = task.due_date
+          ? new Date(task.due_date).toISOString().split('T')[0]
+          : parseLegacyTaskDate(task.date);
+
+        return {
+          id: task.id,
+          title: task.title,
+          date: task.date || formatLegacyTaskDate(normalizedDueDate),
+          address: task.address || '',
+          assignee: task.assignee || '',
+          hasAIAssist: task.has_ai_assist,
+          priority: task.priority as "high" | "medium" | "low",
+          notes: task.notes || '',
+          status: task.status as "pending" | "in-progress" | "completed",
+          startDate: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : undefined,
+          dueDate: normalizedDueDate,
+          dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined,
+          endTime: task.end_time ? task.end_time.substring(0, 5) : undefined,
+          buyerId: task.buyer_id || undefined,
+          listingId: task.listing_id || undefined,
+          userId: task.user_id,
+          contactId: task.contact_id || undefined,
+          assigneeUserId: task.assignee_user_id || undefined,
+          assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
+          showOnCalendar: task.show_on_calendar || false,
+          syncToExternalCalendar: task.sync_to_external_calendar || false,
+          externalCalendarEventId: task.external_calendar_event_id || undefined,
+          calendarSyncTargets: task.calendar_sync_targets ? (typeof task.calendar_sync_targets === 'string' ? JSON.parse(task.calendar_sync_targets) : task.calendar_sync_targets) : undefined,
+          recurrencePattern: task.recurrence_pattern || undefined,
+          recurrenceEndDate: task.recurrence_end_date || undefined,
+          parentTaskId: task.parent_task_id || undefined,
+          recurrenceIndex: task.recurrence_index ?? undefined,
+          includeWeekends: task.include_weekends ?? undefined,
+          isDemo: false,
+        };
+      });
 
       // If user has real tasks, show only real tasks
       // If no real tasks and in demo mode, show demo tasks
