@@ -218,7 +218,11 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     try {
       const dbUpdates: any = {
         title: updates.title,
-        date: updates.date,
+        date: updates.date !== undefined
+          ? updates.date
+          : updates.dueDate !== undefined
+            ? (updates.dueDate ? formatLegacyTaskDate(updates.dueDate) : null)
+            : undefined,
         address: updates.address,
         assignee: updates.assignee,
         has_ai_assist: updates.hasAIAssist,
@@ -226,7 +230,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: updates.notes,
         status: updates.status,
         start_date: updates.startDate !== undefined ? (updates.startDate ? new Date(updates.startDate).toISOString() : null) : undefined,
-        due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
+        due_date: updates.dueDate !== undefined ? (updates.dueDate ? new Date(updates.dueDate).toISOString() : null) : undefined,
         due_time: updates.dueTime !== undefined ? (updates.dueTime || null) : undefined,
         end_time: updates.endTime !== undefined ? (updates.endTime || null) : undefined,
         buyer_id: updates.buyerId || null,
