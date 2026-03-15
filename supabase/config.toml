@@ -49,6 +49,8 @@ verify_jwt = false
 
 [functions.check-team-member-slots]
 
+[functions.sync-google-calendar]
+
 [functions.sync-apple-calendar]
 
 [functions.apple-calendar-auth]
