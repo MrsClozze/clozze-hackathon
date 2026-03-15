@@ -55,6 +55,28 @@ const formatTimeTo12Hour = (time24: string | undefined): string => {
 
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+const getTaskCalendarDateParts = (task: { dueDate?: string; date?: string }) => {
+  if (task.dueDate) {
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    if (year && month && day) {
+      return { year, month: month - 1, day };
+    }
+  }
+
+  if (task.date) {
+    const parsed = new Date(task.date);
+    if (!Number.isNaN(parsed.getTime())) {
+      return {
+        year: parsed.getFullYear(),
+        month: parsed.getMonth(),
+        day: parsed.getDate(),
+      };
+    }
+  }
+
+  return null;
+};
+
 // Apple Calendar Connection Modal
 function AppleCalendarModal({ 
   isOpen, 

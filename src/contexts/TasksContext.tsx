@@ -9,6 +9,27 @@ import { phCreateTask, phCompleteTask } from "@/lib/posthog";
 // Helper to get browser timezone
 const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+const formatLegacyTaskDate = (value?: string | null) => {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const parseLegacyTaskDate = (value?: string | null) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export interface TaskAssignee {
   userId: string;
   name?: string;
