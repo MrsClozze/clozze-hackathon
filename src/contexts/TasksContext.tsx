@@ -567,7 +567,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const mappedTask: Task = {
         id: data.id,
         title: data.title,
-        date: data.date || '',
+        date: data.date || (data.due_date ? formatLegacyTaskDate(new Date(data.due_date).toISOString().split('T')[0]) : ''),
         address: data.address || '',
         assignee: data.assignee || '',
         hasAIAssist: data.has_ai_assist,
@@ -586,6 +586,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserIds: assigneeIds,
         showOnCalendar: data.show_on_calendar || false,
         syncToExternalCalendar: data.sync_to_external_calendar || false,
+        externalCalendarEventId: data.external_calendar_event_id || undefined,
         recurrencePattern: data.recurrence_pattern || undefined,
         recurrenceEndDate: data.recurrence_end_date || undefined,
         parentTaskId: data.parent_task_id || undefined,

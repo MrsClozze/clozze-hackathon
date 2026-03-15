@@ -521,17 +521,28 @@ serve(async (req) => {
       const results = [];
       for (const taskData of tasksData || []) {
         if (!taskData.due_date) continue;
-        
+
+        const existingExternalIds = parseExternalCalendarIds(taskData.external_calendar_event_id);
         const result = await syncTaskToGoogleCalendar(accessToken, {
           id: taskData.id,
           title: taskData.title,
           notes: taskData.notes,
           dueDate: taskData.due_date,
           dueTime: taskData.due_time,
+          endTime: taskData.end_time,
           address: taskData.address,
-        });
+        }, existingExternalIds.google);
         
         results.push({ taskId: taskData.id, ...result });
+
+        if (result.success && result.eventId) {
+          await adminClient
+            .from("tasks")
+            .update({
+              external_calendar_event_id: JSON.stringify({ ...existingExternalIds, google: result.eventId }),
+            })
+            .eq("id", taskData.id);
+        }
       }
 
       return new Response(
