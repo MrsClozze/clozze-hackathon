@@ -110,8 +110,11 @@ export default function TaskDetailsModal() {
         .filter(Boolean)
         .join(", ");
 
+      const newDate = selectedDate ? format(selectedDate, "yyyy-MM-dd") : editedTask.date;
       await updateTask(selectedTask.id, {
         ...editedTask,
+        date: newDate,
+        dueDate: newDate,
         startDate: selectedStartDate ? format(selectedStartDate, "yyyy-MM-dd") : undefined,
         dueTime: editedTime || undefined,
         assignee: assigneeNames || undefined,

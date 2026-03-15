@@ -223,18 +223,22 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // If syncToExternalCalendar was just enabled, sync to connected calendars
-      if (updates.syncToExternalCalendar === true) {
-        const currentTask = tasks.find(t => t.id === taskId);
-        if (currentTask?.dueDate) {
+      // Sync to connected calendars if sync is enabled (either just enabled or already on and task updated)
+      const currentTaskForSync = tasks.find(t => t.id === taskId);
+      const shouldSync = updates.syncToExternalCalendar === true || 
+        (updates.syncToExternalCalendar === undefined && currentTaskForSync?.syncToExternalCalendar);
+      
+      if (shouldSync) {
+        const dueDate = updates.dueDate || currentTaskForSync?.dueDate;
+        if (dueDate) {
           const taskPayload = {
             id: taskId,
-            title: updates.title || currentTask.title,
-            notes: updates.notes ?? currentTask.notes,
-            dueDate: updates.dueDate || currentTask.dueDate,
-            dueTime: updates.dueTime ?? currentTask.dueTime,
-            endTime: updates.endTime ?? currentTask.endTime,
-            address: updates.address ?? currentTask.address,
+            title: updates.title || currentTaskForSync?.title || '',
+            notes: updates.notes ?? currentTaskForSync?.notes,
+            dueDate,
+            dueTime: updates.dueTime ?? currentTaskForSync?.dueTime,
+            endTime: updates.endTime ?? currentTaskForSync?.endTime,
+            address: updates.address ?? currentTaskForSync?.address,
             timezone: getBrowserTimezone(),
           };
 
