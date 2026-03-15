@@ -313,6 +313,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         setSelectedTask((prev) => (prev ? { ...prev, ...updates, isDemo: false } : null));
       }
 
+      await fetchTasks();
+
       // If marking a recurring task as completed, trigger generation of next instances
       const currentTask = tasks.find(t => t.id === taskId);
       if (updates.status === 'completed' && currentTask?.parentTaskId) {
