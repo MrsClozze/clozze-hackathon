@@ -449,6 +449,7 @@ serve(async (req) => {
     if (action === "delete_event") {
       // Support deleting by eventId or taskId
       let googleEventId = eventId;
+      let remainingExternalIds: StoredExternalCalendarIds | null = null;
       
       if (!googleEventId && taskId) {
         // Look up the Google Calendar event ID from the task
@@ -459,15 +460,17 @@ serve(async (req) => {
           .eq("user_id", user.id)
           .single();
         
-        if (taskError || !taskData?.external_calendar_event_id) {
-          console.log("No external calendar event ID found for task:", taskId);
+        const parsedIds = parseExternalCalendarIds(taskData?.external_calendar_event_id ?? null);
+        remainingExternalIds = { ...parsedIds };
+        googleEventId = parsedIds.google;
+
+        if (taskError || !googleEventId) {
+          console.log("No Google calendar event ID found for task:", taskId);
           return new Response(
             JSON.stringify({ success: true, message: "No external event to delete" }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
-        googleEventId = taskData.external_calendar_event_id;
       }
       
       if (!googleEventId) {
@@ -479,11 +482,18 @@ serve(async (req) => {
       
       const result = await deleteGoogleCalendarEvent(accessToken, googleEventId);
       
-      // Clear the external_calendar_event_id from the task if deletion was successful
+      // Clear only the Google external id from the task if deletion was successful
       if (result.success && taskId) {
+        if (remainingExternalIds) {
+          delete remainingExternalIds.google;
+        }
         await adminClient
           .from("tasks")
-          .update({ external_calendar_event_id: null })
+          .update({
+            external_calendar_event_id: remainingExternalIds && Object.keys(remainingExternalIds).length > 0
+              ? JSON.stringify(remainingExternalIds)
+              : null,
+          })
           .eq("id", taskId);
       }
       
