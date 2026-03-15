@@ -9,6 +9,27 @@ import { phCreateTask, phCompleteTask } from "@/lib/posthog";
 // Helper to get browser timezone
 const getBrowserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+const formatLegacyTaskDate = (value?: string | null) => {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const parseLegacyTaskDate = (value?: string | null) => {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export interface TaskAssignee {
   userId: string;
   name?: string;
@@ -43,6 +64,7 @@ export interface Task {
   assignees?: TaskAssignee[];
   showOnCalendar?: boolean;
   syncToExternalCalendar?: boolean;
+  externalCalendarEventId?: string;
   calendarSyncTargets?: CalendarSyncTargets;
   recurrencePattern?: string;
   recurrenceEndDate?: string;
@@ -109,36 +131,43 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
       if (tasksError) throw tasksError;
 
-      const mappedTasks: Task[] = (tasksData || []).map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        date: task.date || '',
-        address: task.address || '',
-        assignee: task.assignee || '',
-        hasAIAssist: task.has_ai_assist,
-        priority: task.priority as "high" | "medium" | "low",
-        notes: task.notes || '',
-        status: task.status as "pending" | "in-progress" | "completed",
-        startDate: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : undefined,
-        dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : undefined,
-        dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined,
-        endTime: task.end_time ? task.end_time.substring(0, 5) : undefined,
-        buyerId: task.buyer_id || undefined,
-        listingId: task.listing_id || undefined,
-        userId: task.user_id,
-        contactId: task.contact_id || undefined,
-        assigneeUserId: task.assignee_user_id || undefined,
-        assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
-        showOnCalendar: task.show_on_calendar || false,
-        syncToExternalCalendar: task.sync_to_external_calendar || false,
-        calendarSyncTargets: task.calendar_sync_targets ? (typeof task.calendar_sync_targets === 'string' ? JSON.parse(task.calendar_sync_targets) : task.calendar_sync_targets) : undefined,
-        recurrencePattern: task.recurrence_pattern || undefined,
-        recurrenceEndDate: task.recurrence_end_date || undefined,
-        parentTaskId: task.parent_task_id || undefined,
-        recurrenceIndex: task.recurrence_index ?? undefined,
-        includeWeekends: task.include_weekends ?? undefined,
-        isDemo: false,
-      }));
+      const mappedTasks: Task[] = (tasksData || []).map((task: any) => {
+        const normalizedDueDate = task.due_date
+          ? new Date(task.due_date).toISOString().split('T')[0]
+          : parseLegacyTaskDate(task.date);
+
+        return {
+          id: task.id,
+          title: task.title,
+          date: task.date || formatLegacyTaskDate(normalizedDueDate),
+          address: task.address || '',
+          assignee: task.assignee || '',
+          hasAIAssist: task.has_ai_assist,
+          priority: task.priority as "high" | "medium" | "low",
+          notes: task.notes || '',
+          status: task.status as "pending" | "in-progress" | "completed",
+          startDate: task.start_date ? new Date(task.start_date).toISOString().split('T')[0] : undefined,
+          dueDate: normalizedDueDate,
+          dueTime: task.due_time ? task.due_time.substring(0, 5) : undefined,
+          endTime: task.end_time ? task.end_time.substring(0, 5) : undefined,
+          buyerId: task.buyer_id || undefined,
+          listingId: task.listing_id || undefined,
+          userId: task.user_id,
+          contactId: task.contact_id || undefined,
+          assigneeUserId: task.assignee_user_id || undefined,
+          assigneeUserIds: (task.task_assignees || []).map((a: any) => a.user_id).filter(Boolean),
+          showOnCalendar: task.show_on_calendar || false,
+          syncToExternalCalendar: task.sync_to_external_calendar || false,
+          externalCalendarEventId: task.external_calendar_event_id || undefined,
+          calendarSyncTargets: task.calendar_sync_targets ? (typeof task.calendar_sync_targets === 'string' ? JSON.parse(task.calendar_sync_targets) : task.calendar_sync_targets) : undefined,
+          recurrencePattern: task.recurrence_pattern || undefined,
+          recurrenceEndDate: task.recurrence_end_date || undefined,
+          parentTaskId: task.parent_task_id || undefined,
+          recurrenceIndex: task.recurrence_index ?? undefined,
+          includeWeekends: task.include_weekends ?? undefined,
+          isDemo: false,
+        };
+      });
 
       // If user has real tasks, show only real tasks
       // If no real tasks and in demo mode, show demo tasks
@@ -189,7 +218,11 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     try {
       const dbUpdates: any = {
         title: updates.title,
-        date: updates.date,
+        date: updates.date !== undefined
+          ? updates.date
+          : updates.dueDate !== undefined
+            ? (updates.dueDate ? formatLegacyTaskDate(updates.dueDate) : null)
+            : undefined,
         address: updates.address,
         assignee: updates.assignee,
         has_ai_assist: updates.hasAIAssist,
@@ -197,7 +230,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         notes: updates.notes,
         status: updates.status,
         start_date: updates.startDate !== undefined ? (updates.startDate ? new Date(updates.startDate).toISOString() : null) : undefined,
-        due_date: updates.dueDate ? new Date(updates.dueDate).toISOString() : null,
+        due_date: updates.dueDate !== undefined ? (updates.dueDate ? new Date(updates.dueDate).toISOString() : null) : undefined,
         due_time: updates.dueTime !== undefined ? (updates.dueTime || null) : undefined,
         end_time: updates.endTime !== undefined ? (updates.endTime || null) : undefined,
         buyer_id: updates.buyerId || null,
@@ -279,6 +312,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       if (selectedTask?.id === taskId) {
         setSelectedTask((prev) => (prev ? { ...prev, ...updates, isDemo: false } : null));
       }
+
+      await fetchTasks();
 
       // If marking a recurring task as completed, trigger generation of next instances
       const currentTask = tasks.find(t => t.id === taskId);
@@ -373,7 +408,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const newTask = {
         user_id: user.id,
         title: task.title.trim(),
-        date: task.date || null,
+        date: task.date || (task.dueDate ? formatLegacyTaskDate(task.dueDate) : null),
         address: task.address || null,
         assignee: task.assignee || null,
         has_ai_assist: task.hasAIAssist ?? false,
@@ -532,7 +567,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       const mappedTask: Task = {
         id: data.id,
         title: data.title,
-        date: data.date || '',
+        date: data.date || (data.due_date ? formatLegacyTaskDate(new Date(data.due_date).toISOString().split('T')[0]) : ''),
         address: data.address || '',
         assignee: data.assignee || '',
         hasAIAssist: data.has_ai_assist,
@@ -551,6 +586,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         assigneeUserIds: assigneeIds,
         showOnCalendar: data.show_on_calendar || false,
         syncToExternalCalendar: data.sync_to_external_calendar || false,
+        externalCalendarEventId: data.external_calendar_event_id || undefined,
         recurrencePattern: data.recurrence_pattern || undefined,
         recurrenceEndDate: data.recurrence_end_date || undefined,
         parentTaskId: data.parent_task_id || undefined,

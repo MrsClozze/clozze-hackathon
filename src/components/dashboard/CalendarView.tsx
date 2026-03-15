@@ -55,6 +55,28 @@ const formatTimeTo12Hour = (time24: string | undefined): string => {
 
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
+const getTaskCalendarDateParts = (task: { dueDate?: string; date?: string }) => {
+  if (task.dueDate) {
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    if (year && month && day) {
+      return { year, month: month - 1, day };
+    }
+  }
+
+  if (task.date) {
+    const parsed = new Date(task.date);
+    if (!Number.isNaN(parsed.getTime())) {
+      return {
+        year: parsed.getFullYear(),
+        month: parsed.getMonth(),
+        day: parsed.getDate(),
+      };
+    }
+  }
+
+  return null;
+};
+
 // Apple Calendar Connection Modal
 function AppleCalendarModal({ 
   isOpen, 
@@ -449,7 +471,8 @@ export default function CalendarView() {
   const taskEvents: CalendarEvent[] = useMemo(() => {
     return tasks
       .filter(task => {
-        if (!task.showOnCalendar || !task.dueDate) return false;
+        const taskDate = getTaskCalendarDateParts(task);
+        if (!task.showOnCalendar || !taskDate) return false;
         if (!user) return false;
         const isOwner = task.userId === user.id;
         const isAssigned = task.assigneeUserIds?.includes(user.id) ?? false;
@@ -457,13 +480,13 @@ export default function CalendarView() {
         return isOwner || isAssigned || (hasNoAssignees && isOwner);
       })
       .map(task => {
-        const [year, month, day] = task.dueDate!.split('-').map(Number);
+        const taskDate = getTaskCalendarDateParts(task)!;
         return {
           id: `task-${task.id}`,
           taskId: task.id,
-          date: day,
-          month: month - 1,
-          year: year,
+          date: taskDate.day,
+          month: taskDate.month,
+          year: taskDate.year,
           title: task.title,
           time: task.dueTime || undefined,
           description: task.notes || undefined,
@@ -476,7 +499,28 @@ export default function CalendarView() {
 
   // Connected calendar events mapped to CalendarEvent format
   const connectedCalendarEvents: CalendarEvent[] = useMemo(() => {
-    return connectedEvents.map(event => {
+    const externalTaskEvents = tasks
+      .filter(task => task.syncToExternalCalendar)
+      .map(task => {
+        const taskDate = getTaskCalendarDateParts(task);
+        if (!taskDate) return null;
+        return {
+          id: `connected-task-${task.id}`,
+          taskId: task.id,
+          date: taskDate.day,
+          month: taskDate.month,
+          year: taskDate.year,
+          title: task.title,
+          time: task.dueTime || undefined,
+          description: task.notes || undefined,
+          color: 'bg-primary',
+          textColor: 'text-primary-foreground',
+          isTask: true,
+        } as CalendarEvent;
+      })
+      .filter(Boolean) as CalendarEvent[];
+
+    const manualConnectedEvents = connectedEvents.map(event => {
       const d = event.date;
       return {
         id: event.id,
@@ -486,11 +530,13 @@ export default function CalendarView() {
         title: event.title,
         time: event.time || undefined,
         description: event.description || undefined,
-        color: "bg-secondary",
-        textColor: "text-secondary-foreground",
+        color: 'bg-secondary',
+        textColor: 'text-secondary-foreground',
       } as CalendarEvent;
     });
-  }, [connectedEvents]);
+
+    return [...externalTaskEvents, ...manualConnectedEvents];
+  }, [connectedEvents, tasks]);
 
   // Get events based on active tab
   const activeEvents = useMemo(() => {

@@ -40,6 +40,29 @@ interface CalendarConnection {
   token_expires_at: string;
 }
 
+interface StoredExternalCalendarIds {
+  google?: string;
+  apple?: string;
+}
+
+function parseExternalCalendarIds(value: string | null | undefined): StoredExternalCalendarIds {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object") {
+      return {
+        google: typeof parsed.google === "string" ? parsed.google : undefined,
+        apple: typeof parsed.apple === "string" ? parsed.apple : undefined,
+      };
+    }
+  } catch {
+    // Legacy string format: treat as Google event id.
+  }
+
+  return { google: value };
+}
+
 // Refresh access token if expired
 // deno-lint-ignore no-explicit-any
 async function getValidAccessToken(
@@ -133,7 +156,8 @@ function formatLocalDateTime(
 // Create or update a Google Calendar event
 async function syncTaskToGoogleCalendar(
   accessToken: string,
-  task: TaskToSync
+  task: TaskToSync,
+  existingEventId?: string
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   try {
     // Parse the due date components directly to avoid timezone issues
@@ -229,18 +253,20 @@ async function syncTaskToGoogleCalendar(
       console.log("Creating all-day event:", { date: dateStr });
     }
 
-    // Create the event in Google Calendar
-    const response = await fetch(
-      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(event),
-      }
-    );
+    const url = existingEventId
+      ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${existingEventId}`
+      : "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+
+    const method = existingEventId ? "PUT" : "POST";
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    });
 
     const data = await response.json();
 
@@ -249,7 +275,7 @@ async function syncTaskToGoogleCalendar(
       return { success: false, error: data.error.message };
     }
 
-    console.log("Event created in Google Calendar:", data.id);
+    console.log(existingEventId ? "Event updated in Google Calendar:" : "Event created in Google Calendar:", data.id);
     return { success: true, eventId: data.id };
   } catch (error) {
     console.error("Error syncing to Google Calendar:", error);
@@ -337,6 +363,19 @@ serve(async (req) => {
     }
 
     if (action === "sync_task" && task) {
+      let existingExternalIds: StoredExternalCalendarIds = {};
+
+      if (task.id) {
+        const { data: existingTask } = await adminClient
+          .from("tasks")
+          .select("external_calendar_event_id")
+          .eq("id", task.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        existingExternalIds = parseExternalCalendarIds(existingTask?.external_calendar_event_id ?? null);
+      }
+
       // Determine which users' calendars to sync to
       let userIdsToSync: string[] = [user.id];
       
@@ -385,15 +424,17 @@ serve(async (req) => {
           results.push({ userId: targetUserId, success: false, error: "No valid token" });
           continue;
         }
-        
-        const result = await syncTaskToGoogleCalendar(targetAccessToken, task);
+
+        const existingGoogleEventId = targetUserId === user.id ? existingExternalIds.google : undefined;
+        const result = await syncTaskToGoogleCalendar(targetAccessToken, task, existingGoogleEventId);
         results.push({ userId: targetUserId, ...result });
         
         // Store event ID only for the task creator's sync
         if (result.success && result.eventId && task.id && targetUserId === user.id) {
+          existingExternalIds = { ...existingExternalIds, google: result.eventId };
           await adminClient
             .from("tasks")
-            .update({ external_calendar_event_id: result.eventId })
+            .update({ external_calendar_event_id: JSON.stringify(existingExternalIds) })
             .eq("id", task.id);
           console.log("Stored Google Calendar event ID in task:", task.id, result.eventId);
         }
@@ -408,6 +449,7 @@ serve(async (req) => {
     if (action === "delete_event") {
       // Support deleting by eventId or taskId
       let googleEventId = eventId;
+      let remainingExternalIds: StoredExternalCalendarIds | null = null;
       
       if (!googleEventId && taskId) {
         // Look up the Google Calendar event ID from the task
@@ -418,15 +460,17 @@ serve(async (req) => {
           .eq("user_id", user.id)
           .single();
         
-        if (taskError || !taskData?.external_calendar_event_id) {
-          console.log("No external calendar event ID found for task:", taskId);
+        const parsedIds = parseExternalCalendarIds(taskData?.external_calendar_event_id ?? null);
+        remainingExternalIds = { ...parsedIds };
+        googleEventId = parsedIds.google;
+
+        if (taskError || !googleEventId) {
+          console.log("No Google calendar event ID found for task:", taskId);
           return new Response(
             JSON.stringify({ success: true, message: "No external event to delete" }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        
-        googleEventId = taskData.external_calendar_event_id;
       }
       
       if (!googleEventId) {
@@ -438,11 +482,18 @@ serve(async (req) => {
       
       const result = await deleteGoogleCalendarEvent(accessToken, googleEventId);
       
-      // Clear the external_calendar_event_id from the task if deletion was successful
+      // Clear only the Google external id from the task if deletion was successful
       if (result.success && taskId) {
+        if (remainingExternalIds) {
+          delete remainingExternalIds.google;
+        }
         await adminClient
           .from("tasks")
-          .update({ external_calendar_event_id: null })
+          .update({
+            external_calendar_event_id: remainingExternalIds && Object.keys(remainingExternalIds).length > 0
+              ? JSON.stringify(remainingExternalIds)
+              : null,
+          })
           .eq("id", taskId);
       }
       
@@ -470,17 +521,28 @@ serve(async (req) => {
       const results = [];
       for (const taskData of tasksData || []) {
         if (!taskData.due_date) continue;
-        
+
+        const existingExternalIds = parseExternalCalendarIds(taskData.external_calendar_event_id);
         const result = await syncTaskToGoogleCalendar(accessToken, {
           id: taskData.id,
           title: taskData.title,
           notes: taskData.notes,
           dueDate: taskData.due_date,
           dueTime: taskData.due_time,
+          endTime: taskData.end_time,
           address: taskData.address,
-        });
+        }, existingExternalIds.google);
         
         results.push({ taskId: taskData.id, ...result });
+
+        if (result.success && result.eventId) {
+          await adminClient
+            .from("tasks")
+            .update({
+              external_calendar_event_id: JSON.stringify({ ...existingExternalIds, google: result.eventId }),
+            })
+            .eq("id", taskData.id);
+        }
       }
 
       return new Response(
