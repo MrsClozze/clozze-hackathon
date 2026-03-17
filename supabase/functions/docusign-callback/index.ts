@@ -37,8 +37,10 @@ serve(async (req) => {
     }
 
     if (!code || !userId) {
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Missing authorization code or user info')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Missing authorization info. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
