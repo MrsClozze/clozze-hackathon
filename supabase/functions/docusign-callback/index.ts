@@ -16,11 +16,12 @@ const parseState = (stateParam: string | null): StateData => {
   }
 };
 
-const htmlResponse = (message: string) =>
-  new Response(
-    `<!DOCTYPE html><html><head><title>DocuSign</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>${message}</p><script>window.close();</script></body></html>`,
-    { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-  );
+const buildRedirect = (origin: string, status: string, message?: string) => {
+  const url = new URL(`${origin}/integrations`);
+  url.searchParams.set('docusign', status);
+  if (message) url.searchParams.set('message', message.substring(0, 200));
+  return Response.redirect(url.toString(), 302);
+};
 
 serve(async (req) => {
   try {
