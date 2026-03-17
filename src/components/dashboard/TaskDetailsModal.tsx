@@ -609,10 +609,30 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
+            {/* DocuSign Envelope Status */}
+            {!isEditing && selectedTask && (
+              <DocuSignEnvelopeStatus
+                taskId={selectedTask.id}
+                buyerId={selectedTask.buyerId}
+                listingId={selectedTask.listingId}
+              />
+            )}
+
             {/* AI Assist Section */}
             {!isEditing && (
               <div className="pt-4 border-t border-border space-y-2">
                 <Label className="text-sm font-medium text-text-muted mb-2">Use Clozze AI Assist</Label>
+                
+                {/* Send with DocuSign */}
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 text-primary border-primary/30 hover:bg-primary/10"
+                  onClick={() => setIsDocuSignModalOpen(true)}
+                >
+                  <Send className="h-4 w-4" />
+                  Send with DocuSign
+                </Button>
+
                 {(currentTask.assignee || currentAssigneeNames.length > 0) && (
                   <Button
                     variant="outline"
