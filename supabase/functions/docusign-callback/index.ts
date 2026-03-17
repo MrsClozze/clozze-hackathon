@@ -140,8 +140,9 @@ serve(async (req) => {
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const redirectUrl = `${supabaseUrl}?docusign=error&message=${encodeURIComponent(errorMessage.substring(0, 200))}`;
-    return Response.redirect(redirectUrl, 302);
+    return new Response(
+      `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Error: ${errorMessage.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
+      { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+    );
   }
 });
