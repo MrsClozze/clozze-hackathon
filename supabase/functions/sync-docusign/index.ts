@@ -12,7 +12,7 @@ async function refreshDocuSignToken(refreshToken: string): Promise<{ access_toke
   if (!integrationKey || !secretKey) return null;
 
   try {
-    const resp = await fetch('https://account.docusign.com/oauth/token', {
+    const resp = await fetch('https://account-d.docusign.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
