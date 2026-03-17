@@ -91,12 +91,12 @@ export default function MessageCard({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 justify-end">
         {showIgnore && onIgnore && (
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 text-xs text-text-muted hover:text-text-heading"
+            className="text-xs text-text-muted hover:text-text-heading hover:bg-destructive/10 px-3"
             onClick={onIgnore}
           >
             <X className="h-3 w-3 mr-1" />
@@ -107,7 +107,7 @@ export default function MessageCard({
           <Button
             variant="ghost"
             size="sm"
-            className={`flex-1 text-xs ${isAttached ? 'text-primary' : 'text-text-muted hover:text-text-heading'}`}
+            className={`text-xs px-3 ${isAttached ? 'text-primary' : 'text-text-muted hover:text-text-heading'}`}
             onClick={onAttach}
           >
             <Link2 className="h-3 w-3 mr-1" />
@@ -117,7 +117,7 @@ export default function MessageCard({
         <Button
           variant="default"
           size="sm"
-          className="flex-1 text-xs"
+          className="text-xs px-4"
           onClick={onTakeAction}
         >
           Take Action
