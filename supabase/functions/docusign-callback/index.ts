@@ -30,13 +30,17 @@ serve(async (req) => {
     const redirectBase = `${appOrigin}/integrations`;
 
     if (error) {
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent(error.substring(0, 200))}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign error: ${error.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     if (!code || !userId) {
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Missing authorization code or user info')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Missing authorization info. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
@@ -65,8 +69,10 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('[docusign-callback] Token exchange failed:', errText);
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to exchange authorization code')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to connect. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     const tokenData = await tokenResponse.json();
@@ -113,20 +119,30 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('[docusign-callback] DB error:', dbError);
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to store credentials')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to store credentials. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
 
-    // Redirect back to app with success
-    const redirectUrl = `${redirectBase}?docusign=success`;
-    return Response.redirect(redirectUrl, 302);
+    // Return a minimal self-closing page (no app branding in popup)
+    return new Response(
+      `<!DOCTYPE html><html><head><title>Connected</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign connected. This window will close automatically.</p><script>window.close();</script></body></html>`,
+      {
+        headers: {
+          'Content-Type': 'text/html',
+          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
+        },
+      }
+    );
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const redirectUrl = `${supabaseUrl}?docusign=error&message=${encodeURIComponent(errorMessage.substring(0, 200))}`;
-    return Response.redirect(redirectUrl, 302);
+    return new Response(
+      `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Error: ${errorMessage.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
+      { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+    );
   }
 });
