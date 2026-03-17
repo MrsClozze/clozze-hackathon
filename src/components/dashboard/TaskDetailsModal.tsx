@@ -755,6 +755,32 @@ export default function TaskDetailsModal() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send with DocuSign Modal */}
+      {selectedTask && (
+        <SendWithDocuSignModal
+          open={isDocuSignModalOpen}
+          onOpenChange={setIsDocuSignModalOpen}
+          taskId={selectedTask.id}
+          buyerId={selectedTask.buyerId}
+          listingId={selectedTask.listingId}
+          defaultRecipients={(() => {
+            const recipients: { name: string; email: string }[] = [];
+            if (selectedTask.buyerId) {
+              const buyer = buyers.find(b => b.id === selectedTask.buyerId);
+              if (buyer) recipients.push({ name: `${buyer.first_name} ${buyer.last_name}`, email: buyer.email });
+            }
+            if (selectedTask.listingId) {
+              const listing = listings.find(l => l.id === selectedTask.listingId);
+              if (listing?.seller_email && listing?.seller_first_name) {
+                recipients.push({ name: `${listing.seller_first_name} ${listing.seller_last_name || ''}`.trim(), email: listing.seller_email });
+              }
+            }
+            return recipients;
+          })()}
+          defaultSubject={selectedTask.title ? `Please sign: ${selectedTask.title}` : ""}
+        />
+      )}
     </>
   );
 }
