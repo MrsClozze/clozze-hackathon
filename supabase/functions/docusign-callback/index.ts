@@ -119,8 +119,10 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('[docusign-callback] DB error:', dbError);
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to store credentials')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to store credentials. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
