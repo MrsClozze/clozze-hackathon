@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Upload, Plus, X, Send, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Upload, Plus, X, Send, FileText, ArrowLeft, ArrowRight, CheckCircle2, User, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useDocuSignEnvelopes } from "@/hooks/useDocuSignEnvelopes";
@@ -38,6 +39,8 @@ interface SendWithDocuSignModalProps {
   onSent?: (envelopeId: string) => void;
 }
 
+type ModalStep = "compose" | "review";
+
 export function SendWithDocuSignModal({
   open,
   onOpenChange,
@@ -53,6 +56,7 @@ export function SendWithDocuSignModal({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [step, setStep] = useState<ModalStep>("compose");
   const [recipients, setRecipients] = useState<Recipient[]>(
     defaultRecipients.length > 0 ? defaultRecipients : [{ name: "", email: "" }]
   );
@@ -74,6 +78,7 @@ export function SendWithDocuSignModal({
       setSending(false);
       setEnableReminders(true);
       setEnableExpiration(true);
+      setStep("compose");
     }
     onOpenChange(isOpen);
   };
@@ -115,7 +120,6 @@ export function SendWithDocuSignModal({
     }
 
     setFiles((prev) => [...prev, ...validFiles]);
-    // Reset file input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -138,17 +142,23 @@ export function SendWithDocuSignModal({
     setRecipients(updated);
   };
 
-  const handleSend = async () => {
-    const validRecipients = recipients.filter(r => r.name.trim() && r.email.trim());
-    if (validRecipients.length === 0) {
-      toast({ title: "Recipients required", description: "Add at least one recipient with name and email", variant: "destructive" });
-      return;
-    }
-    if (files.length === 0) {
-      toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
-      return;
-    }
+  const validRecipients = recipients.filter(r => r.name.trim() && r.email.trim());
+  const canProceedToReview = validRecipients.length > 0 && files.length > 0;
+  const resolvedSubject = subject || (files.length > 0 ? `Please sign: ${files[0].file.name}` : "Please sign the attached document");
 
+  const handleGoToReview = () => {
+    if (!canProceedToReview) {
+      if (files.length === 0) {
+        toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
+      } else {
+        toast({ title: "Recipients required", description: "Add at least one recipient with name and email", variant: "destructive" });
+      }
+      return;
+    }
+    setStep("review");
+  };
+
+  const handleSend = async () => {
     setSending(true);
     try {
       const documents = files.map((f, idx) => ({
@@ -160,7 +170,7 @@ export function SendWithDocuSignModal({
       const result = await sendEnvelope({
         documents,
         recipients: validRecipients,
-        emailSubject: subject || `Please sign: ${files.map(f => f.file.name).join(", ")}`,
+        emailSubject: resolvedSubject,
         emailBlurb: message || undefined,
         taskId,
         buyerId,
@@ -192,6 +202,7 @@ export function SendWithDocuSignModal({
     await authenticate();
   };
 
+  // Not connected state
   if (!isConnected) {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -216,6 +227,145 @@ export function SendWithDocuSignModal({
     );
   }
 
+  // Review step
+  if (step === "review") {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <img src={docusignLogo} alt="DocuSign" className="h-5 object-contain" />
+              Review &amp; Send
+            </DialogTitle>
+            <DialogDescription>
+              Please review the details below before sending for signature.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4">
+            {/* Documents summary */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-primary" />
+                Documents ({files.length})
+              </Label>
+              <div className="space-y-1.5">
+                {files.map((f, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{f.file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(f.file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
+                      {f.file.name.split('.').pop()?.toUpperCase()}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recipients summary */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <User className="h-4 w-4 text-primary" />
+                Signers ({validRecipients.length})
+              </Label>
+              <div className="space-y-1.5">
+                {validRecipients.map((r, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{r.name}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {r.email}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs flex-shrink-0">
+                      Signer {idx + 1}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Email details */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/10">
+              <Label className="text-sm font-medium">Email Details</Label>
+              <div className="space-y-1">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Subject:</span>{" "}
+                  {resolvedSubject}
+                </p>
+                {message && (
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Message:</span>{" "}
+                    {message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Notification summary */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/10">
+              <Label className="text-sm font-medium">Notifications</Label>
+              <div className="flex flex-wrap gap-2">
+                {enableReminders && (
+                  <Badge variant="outline" className="text-xs">
+                    <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                    Reminders (3-day delay, every 5 days)
+                  </Badge>
+                )}
+                {enableExpiration && (
+                  <Badge variant="outline" className="text-xs">
+                    <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                    Expires after 30 days
+                  </Badge>
+                )}
+                {!enableReminders && !enableExpiration && (
+                  <p className="text-xs text-muted-foreground">No automated notifications</p>
+                )}
+              </div>
+            </div>
+
+            {/* Signature placement info */}
+            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                <strong>Signature placement:</strong> A signature field will be automatically placed at the bottom of page 1 of each document. Signers can reposition or add additional fields during the signing process.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setStep("compose")} className="flex-1 gap-1.5">
+                <ArrowLeft className="h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={sending}
+                className="flex-1 bg-primary text-primary-foreground gap-1.5"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Send for Signature
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Compose step
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -236,7 +386,6 @@ export function SendWithDocuSignModal({
               Documents {files.length > 0 && `(${files.length})`}
             </Label>
 
-            {/* List uploaded files */}
             {files.length > 0 && (
               <div className="space-y-2 mb-3">
                 {files.map((f, idx) => (
@@ -248,12 +397,7 @@ export function SendWithDocuSignModal({
                         {(f.file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(idx)}
-                      className="flex-shrink-0"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeFile(idx)} className="flex-shrink-0">
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -261,7 +405,6 @@ export function SendWithDocuSignModal({
               </div>
             )}
 
-            {/* Upload button */}
             {files.length < 10 && (
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -364,22 +507,18 @@ export function SendWithDocuSignModal({
             </div>
           </div>
 
-          {/* Send Button */}
+          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button
-              onClick={handleSend}
-              disabled={sending || files.length === 0 || recipients.every(r => !r.name.trim() || !r.email.trim())}
-              className="flex-1 bg-primary text-primary-foreground"
+              onClick={handleGoToReview}
+              disabled={!canProceedToReview}
+              className="flex-1 bg-primary text-primary-foreground gap-1.5"
             >
-              {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Send for Signature
+              Review
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
