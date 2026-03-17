@@ -437,7 +437,7 @@ export default function Integrations() {
   };
 
   const handleDocuSignDigitalReferral = async () => {
-    if (typeof DSDigitialSignup === "undefined") {
+    if (typeof DSDigitalSignup === "undefined") {
       toast({
         title: "Script not loaded",
         description: "Please refresh the page and try again.",
