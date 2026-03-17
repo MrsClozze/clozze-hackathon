@@ -436,6 +436,26 @@ export default function Integrations() {
     }
   };
 
+  const handleDocuSignDigitalReferral = () => {
+    if (typeof DSDigitialSignup === "undefined") {
+      toast({
+        title: "Script not loaded",
+        description: "Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const firstName = user?.user_metadata?.first_name || "";
+    const lastName = user?.user_metadata?.last_name || "";
+    const email = user?.email || "";
+    const phone = "";
+    const partnerIK = import.meta.env.VITE_DOCUSIGN_INTEGRATION_KEY || "";
+    const loginRedirectUri = `${window.location.origin}/integrations`;
+
+    DSDigitialSignup.startSignup(firstName, lastName, email, phone, partnerIK, loginRedirectUri, "en");
+  };
+
 
   const getConnectionStatus = (integrationId: string) => {
     if (integrationId === "google_calendar") {
