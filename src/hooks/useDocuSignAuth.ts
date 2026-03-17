@@ -81,7 +81,6 @@ export const useDocuSignAuth = () => {
         };
 
         const messageHandler = (event: MessageEvent) => {
-          // Accept messages from any origin since the callback page runs on the Supabase domain
           if (event.data.type === 'docusign-success') {
             cleanup();
             setIsAuthenticating(false);
@@ -105,15 +104,39 @@ export const useDocuSignAuth = () => {
 
         window.addEventListener('message', messageHandler);
 
-        const checkClosed = setInterval(() => {
+        // When popup closes, poll DB as fallback in case postMessage was missed
+        const checkClosed = setInterval(async () => {
           if (popup.closed) {
             cleanup();
+            // Give a moment for any in-flight DB writes to complete
+            await new Promise(r => setTimeout(r, 1500));
+            // Check DB for connection status
+            try {
+              const { data } = await supabase
+                .from('service_integrations')
+                .select('is_connected')
+                .eq('user_id', user!.id)
+                .eq('service_name', 'docusign')
+                .maybeSingle();
+
+              if (data?.is_connected) {
+                setIsAuthenticating(false);
+                setIsConnected(true);
+                toast({
+                  title: "DocuSign Connected",
+                  description: "Successfully authenticated with DocuSign",
+                });
+                resolve(true);
+                return;
+              }
+            } catch (err) {
+              console.error('Error polling DocuSign status:', err);
+            }
             setIsAuthenticating(false);
             resolve(false);
           }
         }, 1000);
 
-        // Timeout after 3 minutes to prevent being stuck forever
         const timeout = setTimeout(() => {
           if (!resolved) {
             cleanup();
