@@ -69,8 +69,10 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('[docusign-callback] Token exchange failed:', errText);
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to exchange authorization code')}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to connect. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     const tokenData = await tokenResponse.json();
