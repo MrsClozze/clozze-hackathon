@@ -1,24 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const escapeJs = (str: string): string => {
-  return str
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/</g, '\\x3c')
-    .replace(/>/g, '\\x3e');
-};
-
-const escapeHtml = (str: string): string => {
-  const htmlEscapes: Record<string, string> = {
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  };
-  return str.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
-};
-
 interface StateData {
   origin?: string;
   userId?: string;
@@ -41,22 +23,20 @@ serve(async (req) => {
     const stateParam = url.searchParams.get('state');
 
     const stateData = parseState(stateParam);
-    const allowedOrigin = stateData.origin || Deno.env.get('SUPABASE_URL') || '';
+    const appOrigin = stateData.origin || '';
     const userId = stateData.userId;
-    const safeOrigin = escapeJs(allowedOrigin);
+
+    // Build redirect URL back to the app's integrations page
+    const redirectBase = `${appOrigin}/integrations`;
 
     if (error) {
-      const safeError = escapeJs(error.substring(0, 200));
-      return new Response(
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>DocuSign</title></head><body>
-<script>window.opener.postMessage({ type: 'docusign-error', error: '${safeError}' }, '${safeOrigin}');window.close();</script>
-<p>Authentication error. This window will close.</p></body></html>`,
-        { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-      );
+      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent(error.substring(0, 200))}`;
+      return Response.redirect(redirectUrl, 302);
     }
 
     if (!code || !userId) {
-      throw new Error('Missing authorization code or user info');
+      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Missing authorization code or user info')}`;
+      return Response.redirect(redirectUrl, 302);
     }
 
     const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
@@ -85,7 +65,8 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('[docusign-callback] Token exchange failed:', errText);
-      throw new Error('Failed to exchange authorization code');
+      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to exchange authorization code')}`;
+      return Response.redirect(redirectUrl, 302);
     }
 
     const tokenData = await tokenResponse.json();
@@ -100,7 +81,6 @@ serve(async (req) => {
     let baseUri = '';
     if (userInfoResponse.ok) {
       const userInfo = await userInfoResponse.json();
-      // Use the default account
       const defaultAccount = userInfo.accounts?.find((a: any) => a.is_default) || userInfo.accounts?.[0];
       if (defaultAccount) {
         accountId = defaultAccount.account_id;
@@ -108,7 +88,7 @@ serve(async (req) => {
         console.log('[docusign-callback] Account ID:', accountId, 'Base URI:', baseUri);
       }
     } else {
-      await userInfoResponse.text(); // consume body
+      await userInfoResponse.text();
       console.warn('[docusign-callback] Could not fetch user info');
     }
 
@@ -133,41 +113,20 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('[docusign-callback] DB error:', dbError);
-      throw new Error('Failed to store credentials');
+      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent('Failed to store credentials')}`;
+      return Response.redirect(redirectUrl, 302);
     }
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
 
-    // Send success to parent window
-    const safeAccountId = escapeJs(accountId);
-    const safeBaseUri = escapeJs(baseUri);
-
-    return new Response(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>DocuSign</title></head><body>
-<script>
-  window.opener.postMessage({
-    type: 'docusign-success',
-    accountId: '${safeAccountId}',
-    baseUri: '${safeBaseUri}'
-  }, '${safeOrigin}');
-  window.close();
-</script>
-<p>Authentication successful! This window will close.</p></body></html>`,
-      { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-    );
+    // Redirect back to app with success
+    const redirectUrl = `${redirectBase}?docusign=success`;
+    return Response.redirect(redirectUrl, 302);
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const safeErrorMessage = escapeJs(errorMessage.substring(0, 200));
-    const safeHtmlError = escapeHtml(errorMessage.substring(0, 200));
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const safeOrigin = escapeJs(supabaseUrl);
-
-    return new Response(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>DocuSign Error</title></head><body>
-<script>window.opener.postMessage({ type: 'docusign-error', error: '${safeErrorMessage}' }, '${safeOrigin}');window.close();</script>
-<p>Error: ${safeHtmlError}</p></body></html>`,
-      { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-    );
+    const redirectUrl = `${supabaseUrl}?docusign=error&message=${encodeURIComponent(errorMessage.substring(0, 200))}`;
+    return Response.redirect(redirectUrl, 302);
   }
 });
