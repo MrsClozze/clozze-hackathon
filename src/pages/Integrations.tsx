@@ -356,10 +356,10 @@ export default function Integrations() {
     }
 
     if (integrationId === "docusign") {
-      toast({
-        title: "Coming Soon",
-        description: "DocuSign integration is coming soon! We're finalizing production access.",
-      });
+      const success = await docuSignAuth.authenticate();
+      if (success) {
+        toast({ title: "DocuSign Connected", description: "Your DocuSign account is now connected." });
+      }
       return;
     }
 
