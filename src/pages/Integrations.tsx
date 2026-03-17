@@ -429,6 +429,11 @@ export default function Integrations() {
       await disconnectFub();
       return;
     }
+
+    if (integrationId === "docusign") {
+      await disconnectDocuSign();
+      return;
+    }
   };
 
 
