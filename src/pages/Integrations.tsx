@@ -242,7 +242,7 @@ export default function Integrations() {
         setIsProcessingOAuth(false);
       });
     }
-  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth, refreshFub]);
+  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth, refreshFub, refreshDocuSign]);
 
   const handleGoogleCalendarConnect = async () => {
     if (!user) {
