@@ -598,20 +598,30 @@ export default function Integrations() {
                     Disconnect
                   </Button>
                 ) : (
-                  <Button
-                    onClick={() => handleConnect(integration.id)}
-                    disabled={connecting}
-                    className="mt-auto"
-                  >
-                    {connecting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      "Connect"
+                  <div className="mt-auto flex flex-col gap-2">
+                    <Button
+                      onClick={() => handleConnect(integration.id)}
+                      disabled={connecting}
+                    >
+                      {connecting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        "Connect"
+                      )}
+                    </Button>
+                    {integration.id === "docusign" && (
+                      <button
+                        type="button"
+                        onClick={handleDocuSignDigitalReferral}
+                        className="text-xs text-primary hover:underline text-center"
+                      >
+                        Don't have a DocuSign account? Start a free trial
+                      </button>
                     )}
-                  </Button>
+                  </div>
                 )}
               </Card>
             );
