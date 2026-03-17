@@ -100,6 +100,7 @@ serve(async (req) => {
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
+    authUrl.searchParams.set('prompt', 'login');
 
     return new Response(
       JSON.stringify({ authUrl: authUrl.toString() }),
