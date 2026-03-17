@@ -81,7 +81,7 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { authenticate, isAuthenticating, isConnected: isDocuSignConnected, disconnect: disconnectDocuSign } = useDocuSignAuth();
+  const { authenticate, isAuthenticating, isConnected: isDocuSignConnected, disconnect: disconnectDocuSign, refresh: refreshDocuSign } = useDocuSignAuth();
   const { refreshGmailStatus } = useIntegrations();
   const {
     isConnected: isDotloopConnected,
@@ -144,6 +144,26 @@ export default function Integrations() {
 
   // Handle OAuth callback from Google (Calendar or Gmail) or FUB redirect
   useEffect(() => {
+    // Handle DocuSign OAuth redirect (comes back with ?docusign=success/error)
+    const docusignStatus = searchParams.get("docusign");
+    if (docusignStatus) {
+      setSearchParams({}, { replace: true });
+      if (docusignStatus === "success") {
+        refreshDocuSign();
+        toast({
+          title: "DocuSign Connected",
+          description: "Your DocuSign account has been linked successfully!",
+        });
+      } else if (docusignStatus === "error") {
+        toast({
+          title: "Connection failed",
+          description: `DocuSign connection error: ${searchParams.get("message") || "unknown"}`,
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     // Handle FUB OAuth redirect (comes back with ?fub=success/error/denied)
     const fubStatus = searchParams.get("fub");
     if (fubStatus) {
@@ -222,7 +242,7 @@ export default function Integrations() {
         setIsProcessingOAuth(false);
       });
     }
-  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth, refreshFub]);
+  }, [searchParams, setSearchParams, handleOAuthCallback, handleGmailOAuthCallback, toast, isProcessingOAuth, refreshFub, refreshDocuSign]);
 
   const handleGoogleCalendarConnect = async () => {
     if (!user) {

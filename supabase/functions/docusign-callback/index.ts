@@ -16,11 +16,12 @@ const parseState = (stateParam: string | null): StateData => {
   }
 };
 
-const htmlResponse = (message: string) =>
-  new Response(
-    `<!DOCTYPE html><html><head><title>DocuSign</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>${message}</p><script>window.close();</script></body></html>`,
-    { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-  );
+const buildRedirect = (origin: string, status: string, message?: string) => {
+  const url = new URL(`${origin}/integrations`);
+  url.searchParams.set('docusign', status);
+  if (message) url.searchParams.set('message', message.substring(0, 200));
+  return Response.redirect(url.toString(), 302);
+};
 
 serve(async (req) => {
   try {
@@ -30,15 +31,16 @@ serve(async (req) => {
     const stateParam = url.searchParams.get('state');
 
     const stateData = parseState(stateParam);
+    const appOrigin = stateData.origin || '';
     const userId = stateData.userId;
     const codeVerifier = stateData.codeVerifier;
 
     if (error) {
-      return htmlResponse(`DocuSign error: ${error.substring(0, 200)}. You can close this window.`);
+      return buildRedirect(appOrigin, 'error', error);
     }
 
     if (!code || !userId) {
-      return htmlResponse('Missing authorization info. You can close this window.');
+      return buildRedirect(appOrigin, 'error', 'Missing authorization code or user info');
     }
 
     const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
@@ -73,7 +75,7 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('[docusign-callback] Token exchange failed:', errText);
-      return htmlResponse('Failed to connect. You can close this window.');
+      return buildRedirect(appOrigin, 'error', 'Failed to exchange authorization code');
     }
 
     const tokenData = await tokenResponse.json();
@@ -120,16 +122,18 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('[docusign-callback] DB error:', dbError);
-      return htmlResponse('Failed to store credentials. You can close this window.');
+      return buildRedirect(appOrigin, 'error', 'Failed to store credentials');
     }
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
 
-    // Return a minimal self-closing page (no app branding in popup)
-    return htmlResponse('DocuSign connected successfully! This window will close automatically.');
+    // Redirect back to app with success
+    return buildRedirect(appOrigin, 'success');
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return htmlResponse(`Error: ${errorMessage.substring(0, 200)}. You can close this window.`);
+    // Fallback redirect
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    return buildRedirect(supabaseUrl, 'error', errorMessage);
   }
 });
