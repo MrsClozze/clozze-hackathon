@@ -359,6 +359,82 @@ export type Database = {
           },
         ]
       }
+      docusign_envelopes: {
+        Row: {
+          buyer_id: string | null
+          completed_at: string | null
+          created_at: string
+          document_name: string | null
+          envelope_id: string
+          id: string
+          listing_id: string | null
+          recipients: Json
+          sent_at: string | null
+          status: string
+          subject: string
+          task_id: string | null
+          updated_at: string
+          user_id: string
+          voided_at: string | null
+        }
+        Insert: {
+          buyer_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          document_name?: string | null
+          envelope_id: string
+          id?: string
+          listing_id?: string | null
+          recipients?: Json
+          sent_at?: string | null
+          status?: string
+          subject: string
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+          voided_at?: string | null
+        }
+        Update: {
+          buyer_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          document_name?: string | null
+          envelope_id?: string
+          id?: string
+          listing_id?: string | null
+          recipients?: Json
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "docusign_envelopes_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "docusign_envelopes_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "docusign_envelopes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listings: {
         Row: {
           address: string
