@@ -3,19 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-// Get allowed origins for postMessage validation
-const getAllowedOrigins = (): string[] => {
-  const origins = [window.location.origin];
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (supabaseUrl) {
-    try {
-      origins.push(new URL(supabaseUrl).origin);
-    } catch {
-      // Ignore invalid URL
-    }
-  }
-  return origins;
-};
 
 export const useDocuSignAuth = () => {
   const { user } = useAuth();
@@ -84,12 +71,19 @@ export const useDocuSignAuth = () => {
       }
 
       return new Promise<boolean>((resolve) => {
-        const messageHandler = (event: MessageEvent) => {
-          const allowedOrigins = getAllowedOrigins();
-          if (!allowedOrigins.includes(event.origin)) return;
+        let resolved = false;
+        const cleanup = () => {
+          if (resolved) return;
+          resolved = true;
+          clearInterval(checkClosed);
+          clearTimeout(timeout);
+          window.removeEventListener('message', messageHandler);
+        };
 
+        const messageHandler = (event: MessageEvent) => {
+          // Accept messages from any origin since the callback page runs on the Supabase domain
           if (event.data.type === 'docusign-success') {
-            window.removeEventListener('message', messageHandler);
+            cleanup();
             setIsAuthenticating(false);
             setIsConnected(true);
             toast({
@@ -98,7 +92,7 @@ export const useDocuSignAuth = () => {
             });
             resolve(true);
           } else if (event.data.type === 'docusign-error') {
-            window.removeEventListener('message', messageHandler);
+            cleanup();
             setIsAuthenticating(false);
             toast({
               title: "Authentication Failed",
@@ -113,12 +107,26 @@ export const useDocuSignAuth = () => {
 
         const checkClosed = setInterval(() => {
           if (popup.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', messageHandler);
+            cleanup();
             setIsAuthenticating(false);
             resolve(false);
           }
         }, 1000);
+
+        // Timeout after 3 minutes to prevent being stuck forever
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            cleanup();
+            setIsAuthenticating(false);
+            try { popup.close(); } catch {}
+            toast({
+              title: "Connection timed out",
+              description: "The DocuSign connection timed out. Please try again.",
+              variant: "destructive",
+            });
+            resolve(false);
+          }
+        }, 180000);
       });
     } catch (error) {
       console.error('DocuSign authentication error:', error);
