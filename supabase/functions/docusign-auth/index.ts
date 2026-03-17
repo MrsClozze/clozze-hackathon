@@ -17,6 +17,15 @@ serve(async (req) => {
       throw new Error('DocuSign Integration Key not configured');
     }
 
+    // Handle request for integration key (for Digital Referral - IK is public like a client ID)
+    const url = new URL(req.url);
+    if (url.searchParams.get('action') === 'get_integration_key') {
+      return new Response(
+        JSON.stringify({ integrationKey }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verify user is authenticated
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
