@@ -356,9 +356,13 @@ export default function Integrations() {
     }
 
     if (integrationId === "docusign") {
-      const success = await authenticate();
-      if (success) {
-        toast({ title: "DocuSign Connected", description: "Your DocuSign account is now connected." });
+      if (isDocuSignConnected) {
+        await disconnectDocuSign();
+      } else {
+        const success = await authenticate();
+        if (success) {
+          toast({ title: "DocuSign Connected", description: "Your DocuSign account is now connected." });
+        }
       }
       return;
     }
