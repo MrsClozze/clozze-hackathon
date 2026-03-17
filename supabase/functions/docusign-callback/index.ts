@@ -48,8 +48,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
-    // Exchange code for tokens — production URL
-    const tokenResponse = await fetch('https://account.docusign.com/oauth/token', {
+    // Demo/sandbox DocuSign URL (use account.docusign.com for production)
+    const tokenResponse = await fetch('https://account-d.docusign.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -73,7 +73,7 @@ serve(async (req) => {
     console.log('[docusign-callback] Token exchange successful');
 
     // Get DocuSign user info to retrieve account ID
-    const userInfoResponse = await fetch('https://account.docusign.com/oauth/userinfo', {
+    const userInfoResponse = await fetch('https://account-d.docusign.com/oauth/userinfo', {
       headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
     });
 

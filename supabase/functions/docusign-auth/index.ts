@@ -66,8 +66,8 @@ serve(async (req) => {
     // Encode origin + user_id in state for callback
     const state = btoa(JSON.stringify({ origin: allowedOrigin, userId: user.id }));
 
-    // Production DocuSign URL
-    const authUrl = new URL('https://account.docusign.com/oauth/auth');
+    // Demo/sandbox DocuSign URL (use account.docusign.com for production)
+    const authUrl = new URL('https://account-d.docusign.com/oauth/auth');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', 'signature');
     authUrl.searchParams.set('client_id', integrationKey);
