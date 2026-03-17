@@ -179,7 +179,7 @@ async function getAuthenticatedContext(req: Request) {
   }
 
   // Re-fetch with potentially refreshed token
-  const finalUserInfoResp = await fetch('https://account.docusign.com/oauth/userinfo', {
+  const finalUserInfoResp = await fetch('https://account-d.docusign.com/oauth/userinfo', {
     headers: { 'Authorization': `Bearer ${accessToken}` },
   });
 
