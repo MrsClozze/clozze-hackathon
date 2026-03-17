@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 interface StateData {
   origin?: string;
   userId?: string;
+  codeVerifier?: string;
 }
 
 const parseState = (stateParam: string | null): StateData => {
@@ -15,6 +16,12 @@ const parseState = (stateParam: string | null): StateData => {
   }
 };
 
+const htmlResponse = (message: string) =>
+  new Response(
+    `<!DOCTYPE html><html><head><title>DocuSign</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>${message}</p><script>window.close();</script></body></html>`,
+    { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+  );
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -23,24 +30,15 @@ serve(async (req) => {
     const stateParam = url.searchParams.get('state');
 
     const stateData = parseState(stateParam);
-    const appOrigin = stateData.origin || '';
     const userId = stateData.userId;
-
-    // Build redirect URL back to the app's integrations page
-    const redirectBase = `${appOrigin}/integrations`;
+    const codeVerifier = stateData.codeVerifier;
 
     if (error) {
-      return new Response(
-        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign error: ${error.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
-        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-      );
+      return htmlResponse(`DocuSign error: ${error.substring(0, 200)}. You can close this window.`);
     }
 
     if (!code || !userId) {
-      return new Response(
-        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Missing authorization info. You can close this window.</p><script>window.close();</script></body></html>`,
-        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-      );
+      return htmlResponse('Missing authorization info. You can close this window.');
     }
 
     const integrationKey = Deno.env.get('DOCUSIGN_INTEGRATION_KEY');
@@ -52,6 +50,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const redirectUri = `${supabaseUrl}/functions/v1/docusign-callback`;
 
+    // Build token exchange body with PKCE code_verifier
+    const tokenBody = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    });
+    if (codeVerifier) {
+      tokenBody.set('code_verifier', codeVerifier);
+    }
+
     // Demo/sandbox DocuSign URL (use account.docusign.com for production)
     const tokenResponse = await fetch('https://account-d.docusign.com/oauth/token', {
       method: 'POST',
@@ -59,20 +67,13 @@ serve(async (req) => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': `Basic ${btoa(`${integrationKey}:${secretKey}`)}`,
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-      }),
+      body: tokenBody,
     });
 
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
       console.error('[docusign-callback] Token exchange failed:', errText);
-      return new Response(
-        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to connect. You can close this window.</p><script>window.close();</script></body></html>`,
-        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-      );
+      return htmlResponse('Failed to connect. You can close this window.');
     }
 
     const tokenData = await tokenResponse.json();
@@ -119,30 +120,16 @@ serve(async (req) => {
 
     if (dbError) {
       console.error('[docusign-callback] DB error:', dbError);
-      return new Response(
-        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Failed to store credentials. You can close this window.</p><script>window.close();</script></body></html>`,
-        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-      );
+      return htmlResponse('Failed to store credentials. You can close this window.');
     }
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
 
     // Return a minimal self-closing page (no app branding in popup)
-    return new Response(
-      `<!DOCTYPE html><html><head><title>Connected</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign connected. This window will close automatically.</p><script>window.close();</script></body></html>`,
-      {
-        headers: {
-          'Content-Type': 'text/html',
-          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
-        },
-      }
-    );
+    return htmlResponse('DocuSign connected successfully! This window will close automatically.');
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>Error: ${errorMessage.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
-      { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
-    );
+    return htmlResponse(`Error: ${errorMessage.substring(0, 200)}. You can close this window.`);
   }
 });

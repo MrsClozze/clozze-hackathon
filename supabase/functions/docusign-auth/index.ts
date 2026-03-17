@@ -6,6 +6,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Generate a random code verifier for PKCE
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+// Create code challenge from verifier using SHA-256
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -63,8 +84,12 @@ serve(async (req) => {
       }
     }
 
-    // Encode origin + user_id in state for callback
-    const state = btoa(JSON.stringify({ origin: allowedOrigin, userId: user.id }));
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    // Encode origin + user_id + code_verifier in state for callback
+    const state = btoa(JSON.stringify({ origin: allowedOrigin, userId: user.id, codeVerifier }));
 
     // Demo/sandbox DocuSign URL (use account.docusign.com for production)
     const authUrl = new URL('https://account-d.docusign.com/oauth/auth');
@@ -73,6 +98,8 @@ serve(async (req) => {
     authUrl.searchParams.set('client_id', integrationKey);
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
 
     return new Response(
       JSON.stringify({ authUrl: authUrl.toString() }),
