@@ -317,13 +317,13 @@ export function SendWithDocuSignModal({
               <div className="flex flex-wrap gap-2">
                 {enableReminders && (
                   <Badge variant="outline" className="text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                    <CheckCircle2 className="h-3 w-3 mr-1 text-primary" />
                     Reminders (3-day delay, every 5 days)
                   </Badge>
                 )}
                 {enableExpiration && (
                   <Badge variant="outline" className="text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                    <CheckCircle2 className="h-3 w-3 mr-1 text-primary" />
                     Expires after 30 days
                   </Badge>
                 )}
@@ -334,9 +334,9 @@ export function SendWithDocuSignModal({
             </div>
 
             {/* Signature placement info */}
-            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-              <p className="text-xs text-amber-800 dark:text-amber-200">
-                <strong>Signature placement:</strong> A signature field will be automatically placed at the bottom of page 1 of each document. Signers can reposition or add additional fields during the signing process.
+            <div className="p-3 rounded-lg border border-accent bg-accent/20">
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">Signature placement:</strong> A signature field will be automatically placed at the bottom of page 1 of each document. Signers can reposition or add additional fields during the signing process.
               </p>
             </div>
 
