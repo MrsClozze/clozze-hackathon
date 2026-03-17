@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon } from "lucide-react";
+import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon, Send } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
@@ -31,6 +31,11 @@ import { useTasks, Task } from "@/contexts/TasksContext";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { SendWithDocuSignModal } from "@/components/integrations/SendWithDocuSignModal";
+import { DocuSignEnvelopeStatus } from "@/components/integrations/DocuSignEnvelopeStatus";
+import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 
 export default function TaskDetailsModal() {
   const {
@@ -45,6 +50,10 @@ export default function TaskDetailsModal() {
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
   const { connections: calendarConnections } = useCalendarConnections();
   const hasCalendarConnections = calendarConnections.filter(c => c.isOwned).length > 0;
+  const { isConnected: isDocuSignConnected } = useDocuSignAuth();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
+  const [isDocuSignModalOpen, setIsDocuSignModalOpen] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
@@ -600,10 +609,30 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
+            {/* DocuSign Envelope Status */}
+            {!isEditing && selectedTask && (
+              <DocuSignEnvelopeStatus
+                taskId={selectedTask.id}
+                buyerId={selectedTask.buyerId}
+                listingId={selectedTask.listingId}
+              />
+            )}
+
             {/* AI Assist Section */}
             {!isEditing && (
               <div className="pt-4 border-t border-border space-y-2">
                 <Label className="text-sm font-medium text-text-muted mb-2">Use Clozze AI Assist</Label>
+                
+                {/* Send with DocuSign */}
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 text-primary border-primary/30 hover:bg-primary/10"
+                  onClick={() => setIsDocuSignModalOpen(true)}
+                >
+                  <Send className="h-4 w-4" />
+                  Send with DocuSign
+                </Button>
+
                 {(currentTask.assignee || currentAssigneeNames.length > 0) && (
                   <Button
                     variant="outline"
@@ -726,6 +755,32 @@ export default function TaskDetailsModal() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send with DocuSign Modal */}
+      {selectedTask && (
+        <SendWithDocuSignModal
+          open={isDocuSignModalOpen}
+          onOpenChange={setIsDocuSignModalOpen}
+          taskId={selectedTask.id}
+          buyerId={selectedTask.buyerId}
+          listingId={selectedTask.listingId}
+          defaultRecipients={(() => {
+            const recipients: { name: string; email: string }[] = [];
+            if (selectedTask.buyerId) {
+              const buyer = buyers.find(b => b.id === selectedTask.buyerId);
+              if (buyer) recipients.push({ name: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email });
+            }
+            if (selectedTask.listingId) {
+              const listing = listings.find(l => l.id === selectedTask.listingId);
+              if (listing?.sellerEmail && listing?.sellerFirstName) {
+                recipients.push({ name: `${listing.sellerFirstName} ${listing.sellerLastName || ''}`.trim(), email: listing.sellerEmail });
+              }
+            }
+            return recipients;
+          })()}
+          defaultSubject={selectedTask.title ? `Please sign: ${selectedTask.title}` : ""}
+        />
+      )}
     </>
   );
 }

@@ -161,10 +161,7 @@ export default function AddBuyerModal({ open, onOpenChange, onCreated }: AddBuye
   };
 
   const handleDocuSignClick = () => {
-    toast({
-      title: "Coming Soon",
-      description: "DocuSign integration is coming soon! We're finalizing production access.",
-    });
+    setIsDocuSignImportOpen(true);
   };
 
   const handleDocuSignImport = (data: Partial<FormData>) => {
