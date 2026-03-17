@@ -3,19 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-// Get allowed origins for postMessage validation
-const getAllowedOrigins = (): string[] => {
-  const origins = [window.location.origin];
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (supabaseUrl) {
-    try {
-      origins.push(new URL(supabaseUrl).origin);
-    } catch {
-      // Ignore invalid URL
-    }
-  }
-  return origins;
-};
 
 export const useDocuSignAuth = () => {
   const { user } = useAuth();
