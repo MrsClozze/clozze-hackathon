@@ -345,12 +345,8 @@ serve(async (req) => {
         status: 'sent',
       };
 
-      // Enable responsive signing for mobile-optimized signing experience
-      envelopeDefinition.recipientViewRequest = { returnUrl: '' };
-      // Set envelope-level responsive signing
-      for (const signer of signers) {
-        signer.clientUserId = undefined; // Ensure remote signing (not embedded)
-      }
+      // Enable responsive signing for mobile-optimized experience
+      // Note: responsive signing is enabled by default for remote signers (no clientUserId)
 
       // Add notification settings (reminders & expirations)
       const notification: any = { useAccountDefaults: 'false' };
