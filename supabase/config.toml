@@ -87,3 +87,8 @@ verify_jwt = false
 
 [functions.zendesk-cancel-portal]
 verify_jwt = false
+
+[functions.docusign-webhook]
+verify_jwt = false
+
+[functions.sync-docusign]
