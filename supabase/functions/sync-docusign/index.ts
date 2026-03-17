@@ -147,7 +147,7 @@ async function getAuthenticatedContext(req: Request) {
   }
 
   // Get user info for account ID and base URI
-  const userInfoResp = await fetch('https://account.docusign.com/oauth/userinfo', {
+  const userInfoResp = await fetch('https://account-d.docusign.com/oauth/userinfo', {
     headers: { 'Authorization': `Bearer ${accessToken}` },
   });
 
