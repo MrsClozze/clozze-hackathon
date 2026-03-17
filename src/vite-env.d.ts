@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-interface DSDigitialSignupInterface {
+interface DSDigitalSignupInterface {
   startSignup(
     firstName: string,
     lastName: string,
@@ -13,4 +13,4 @@ interface DSDigitialSignupInterface {
   viewPlans(): void;
 }
 
-declare const DSDigitialSignup: DSDigitialSignupInterface;
+declare const DSDigitalSignup: DSDigitalSignupInterface;

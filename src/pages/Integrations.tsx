@@ -463,7 +463,7 @@ export default function Integrations() {
       const phone = "";
       const loginRedirectUri = `${window.location.origin}/integrations`;
 
-      DSDigitialSignup.startSignup(firstName, lastName, email, phone, data.integrationKey, loginRedirectUri, "en");
+      DSDigitalSignup.startSignup(firstName, lastName, email, phone, data.integrationKey, loginRedirectUri, "en");
     } catch (err) {
       console.error("Digital Referral error:", err);
       toast({
