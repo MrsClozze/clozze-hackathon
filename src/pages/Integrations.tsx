@@ -143,10 +143,16 @@ export default function Integrations() {
   const processedCodeRef = React.useRef<string | null>(null);
 
   // Handle OAuth callback from Google (Calendar or Gmail) or FUB redirect
+  // Handle DocuSign OAuth redirect — if we're in a popup, just close it
   useEffect(() => {
-    // Handle DocuSign OAuth redirect (comes back with ?docusign=success/error)
     const docusignStatus = searchParams.get("docusign");
     if (docusignStatus) {
+      // If this page loaded inside a popup (from the OAuth flow), close it immediately
+      if (window.opener) {
+        window.close();
+        return;
+      }
+      // Otherwise we're in the main window (e.g. user navigated back manually)
       setSearchParams({}, { replace: true });
       if (docusignStatus === "success") {
         refreshDocuSign();
@@ -161,10 +167,10 @@ export default function Integrations() {
           variant: "destructive",
         });
       }
-      return;
     }
+  }, [searchParams, setSearchParams, refreshDocuSign, toast]);
 
-    // Handle FUB OAuth redirect (comes back with ?fub=success/error/denied)
+  useEffect(() => {
     const fubStatus = searchParams.get("fub");
     if (fubStatus) {
       setSearchParams({}, { replace: true });
