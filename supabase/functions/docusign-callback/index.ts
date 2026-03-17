@@ -119,9 +119,16 @@ serve(async (req) => {
 
     console.log('[docusign-callback] Tokens stored for user:', userId);
 
-    // Redirect back to app with success
-    const redirectUrl = `${redirectBase}?docusign=success`;
-    return Response.redirect(redirectUrl, 302);
+    // Return a minimal self-closing page (no app branding in popup)
+    return new Response(
+      `<!DOCTYPE html><html><head><title>Connected</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign connected. This window will close automatically.</p><script>window.close();</script></body></html>`,
+      {
+        headers: {
+          'Content-Type': 'text/html',
+          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",
+        },
+      }
+    );
   } catch (error) {
     console.error('[docusign-callback] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
