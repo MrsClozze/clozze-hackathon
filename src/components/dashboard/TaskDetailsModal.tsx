@@ -50,6 +50,10 @@ export default function TaskDetailsModal() {
   const { teamMembers, loading: teamMembersLoading } = useTeamMembers();
   const { connections: calendarConnections } = useCalendarConnections();
   const hasCalendarConnections = calendarConnections.filter(c => c.isOwned).length > 0;
+  const { isConnected: isDocuSignConnected } = useDocuSignAuth();
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
+  const [isDocuSignModalOpen, setIsDocuSignModalOpen] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
