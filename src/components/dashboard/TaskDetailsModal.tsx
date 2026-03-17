@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon } from "lucide-react";
+import { Clock, Edit2, Save, X, Mail, MessageSquare, Trash2, Users, Contact, CalendarIcon, Send } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
