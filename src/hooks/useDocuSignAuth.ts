@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useSearchParams } from 'react-router-dom';
 
 export const useDocuSignAuth = () => {
   const { user } = useAuth();
@@ -10,7 +9,6 @@ export const useDocuSignAuth = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const checkConnection = useCallback(async () => {
     if (!user) {
@@ -40,35 +38,6 @@ export const useDocuSignAuth = () => {
   useEffect(() => {
     checkConnection();
   }, [checkConnection]);
-
-  // Handle redirect callback from DocuSign OAuth
-  useEffect(() => {
-    const docusignResult = searchParams.get('docusign');
-    if (!docusignResult) return;
-
-    // Clean up URL params
-    const newParams = new URLSearchParams(searchParams);
-    newParams.delete('docusign');
-    newParams.delete('message');
-    setSearchParams(newParams, { replace: true });
-
-    if (docusignResult === 'success') {
-      setIsConnected(true);
-      setIsAuthenticating(false);
-      toast({
-        title: "DocuSign Connected",
-        description: "Successfully authenticated with DocuSign",
-      });
-    } else if (docusignResult === 'error') {
-      const message = searchParams.get('message') || 'Failed to authenticate with DocuSign';
-      setIsAuthenticating(false);
-      toast({
-        title: "Authentication Failed",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }, [searchParams, setSearchParams, toast]);
 
   const authenticate = useCallback(async (): Promise<boolean> => {
     setIsAuthenticating(true);
@@ -100,40 +69,62 @@ export const useDocuSignAuth = () => {
         throw new Error('Popup blocked. Please allow popups for this site.');
       }
 
-      // The callback will redirect back to /integrations?docusign=success
-      // which will be handled by the useEffect above.
-      // We just need to watch for the popup closing.
+      // The callback redirects back to /integrations?docusign=success|error
+      // which loads in the popup. We poll the DB after popup closes to detect success.
       return new Promise<boolean>((resolve) => {
-        const checkClosed = setInterval(() => {
-          if (popup.closed) {
+        let resolved = false;
+
+        const checkClosed = setInterval(async () => {
+          if (popup.closed && !resolved) {
+            resolved = true;
             clearInterval(checkClosed);
-            // Give a moment for the redirect to land and state to update
-            setTimeout(() => {
-              // If we're still authenticating after redirect should have happened,
-              // check DB as final fallback
-              if (!isConnected) {
-                checkConnection().then(() => {
-                  setIsAuthenticating(false);
-                  resolve(false);
+            clearTimeout(timeout);
+
+            // Wait for any in-flight DB writes to complete
+            await new Promise(r => setTimeout(r, 2000));
+
+            // Check DB for connection status
+            try {
+              const { data: dbData } = await supabase
+                .from('service_integrations')
+                .select('is_connected')
+                .eq('user_id', user!.id)
+                .eq('service_name', 'docusign')
+                .maybeSingle();
+
+              if (dbData?.is_connected) {
+                setIsConnected(true);
+                setIsAuthenticating(false);
+                toast({
+                  title: "DocuSign Connected",
+                  description: "Successfully authenticated with DocuSign",
                 });
-              } else {
                 resolve(true);
+                return;
               }
-            }, 2000);
+            } catch (err) {
+              console.error('Error polling DocuSign status:', err);
+            }
+
+            setIsAuthenticating(false);
+            resolve(false);
           }
         }, 1000);
 
         // Timeout after 3 minutes
-        setTimeout(() => {
-          clearInterval(checkClosed);
-          setIsAuthenticating(false);
-          try { popup.close(); } catch {}
-          toast({
-            title: "Connection timed out",
-            description: "The DocuSign connection timed out. Please try again.",
-            variant: "destructive",
-          });
-          resolve(false);
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            clearInterval(checkClosed);
+            setIsAuthenticating(false);
+            try { popup.close(); } catch {}
+            toast({
+              title: "Connection timed out",
+              description: "The DocuSign connection timed out. Please try again.",
+              variant: "destructive",
+            });
+            resolve(false);
+          }
         }, 180000);
       });
     } catch (error) {
@@ -146,7 +137,7 @@ export const useDocuSignAuth = () => {
       setIsAuthenticating(false);
       return false;
     }
-  }, [toast, checkConnection, isConnected]);
+  }, [toast, user]);
 
   const disconnect = useCallback(async () => {
     if (!user) return;
