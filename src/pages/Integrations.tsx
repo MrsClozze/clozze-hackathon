@@ -81,7 +81,7 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { authenticate, isAuthenticating, isConnected: isDocuSignConnected, disconnect: disconnectDocuSign } = useDocuSignAuth();
+  const { authenticate, isAuthenticating, isConnected: isDocuSignConnected, disconnect: disconnectDocuSign, refresh: refreshDocuSign } = useDocuSignAuth();
   const { refreshGmailStatus } = useIntegrations();
   const {
     isConnected: isDotloopConnected,
