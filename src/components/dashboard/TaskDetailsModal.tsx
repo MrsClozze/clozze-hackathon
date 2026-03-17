@@ -31,6 +31,11 @@ import { useTasks, Task } from "@/contexts/TasksContext";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
+import { SendWithDocuSignModal } from "@/components/integrations/SendWithDocuSignModal";
+import { DocuSignEnvelopeStatus } from "@/components/integrations/DocuSignEnvelopeStatus";
+import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 
 export default function TaskDetailsModal() {
   const {
