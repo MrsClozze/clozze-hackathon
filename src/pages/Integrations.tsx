@@ -448,6 +448,9 @@ export default function Integrations() {
     if (integrationId === "follow_up_boss") {
       return isFubConnected;
     }
+    if (integrationId === "docusign") {
+      return isDocuSignConnected;
+    }
     return false;
   };
 
