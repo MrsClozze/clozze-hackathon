@@ -768,12 +768,12 @@ export default function TaskDetailsModal() {
             const recipients: { name: string; email: string }[] = [];
             if (selectedTask.buyerId) {
               const buyer = buyers.find(b => b.id === selectedTask.buyerId);
-              if (buyer) recipients.push({ name: `${buyer.first_name} ${buyer.last_name}`, email: buyer.email });
+              if (buyer) recipients.push({ name: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email });
             }
             if (selectedTask.listingId) {
               const listing = listings.find(l => l.id === selectedTask.listingId);
-              if (listing?.seller_email && listing?.seller_first_name) {
-                recipients.push({ name: `${listing.seller_first_name} ${listing.seller_last_name || ''}`.trim(), email: listing.seller_email });
+              if (listing?.sellerEmail && listing?.sellerFirstName) {
+                recipients.push({ name: `${listing.sellerFirstName} ${listing.sellerLastName || ''}`.trim(), email: listing.sellerEmail });
               }
             }
             return recipients;
