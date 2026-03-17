@@ -1,8 +1,9 @@
 import { useDocuSignEnvelopes, DocuSignEnvelope } from "@/hooks/useDocuSignEnvelopes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, FileText, Loader2 } from "lucide-react";
+import { RefreshCw, FileText, Loader2, Download } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 
 interface DocuSignEnvelopeStatusProps {
@@ -21,8 +22,10 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 };
 
 export function DocuSignEnvelopeStatus({ taskId, buyerId, listingId }: DocuSignEnvelopeStatusProps) {
-  const { envelopes, loading, refreshStatus } = useDocuSignEnvelopes({ taskId, buyerId, listingId });
+  const { envelopes, loading, refreshStatus, downloadSignedDocument } = useDocuSignEnvelopes({ taskId, buyerId, listingId });
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   if (loading || envelopes.length === 0) return null;
 
@@ -32,6 +35,31 @@ export function DocuSignEnvelopeStatus({ taskId, buyerId, listingId }: DocuSignE
       await refreshStatus(envelopeId);
     } finally {
       setRefreshingId(null);
+    }
+  };
+
+  const handleDownload = async (env: DocuSignEnvelope) => {
+    setDownloadingId(env.envelope_id);
+    try {
+      const blob = await downloadSignedDocument(env.envelope_id);
+      if (!blob) {
+        toast({ title: "Download failed", description: "Could not retrieve the signed document", variant: "destructive" });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${env.document_name || env.subject || "signed-document"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Download complete", description: "Signed document has been downloaded" });
+    } catch (err) {
+      console.error("Download error:", err);
+      toast({ title: "Download failed", description: err instanceof Error ? err.message : "Could not download document", variant: "destructive" });
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -75,6 +103,22 @@ export function DocuSignEnvelopeStatus({ taskId, buyerId, listingId }: DocuSignE
             <Badge variant={config.variant} className="text-xs flex-shrink-0">
               {config.label}
             </Badge>
+            {env.status === "completed" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 flex-shrink-0"
+                onClick={() => handleDownload(env)}
+                disabled={downloadingId === env.envelope_id}
+                title="Download signed document"
+              >
+                {downloadingId === env.envelope_id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
