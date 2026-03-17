@@ -436,7 +436,7 @@ export default function Integrations() {
     }
   };
 
-  const handleDocuSignDigitalReferral = () => {
+  const handleDocuSignDigitalReferral = async () => {
     if (typeof DSDigitialSignup === "undefined") {
       toast({
         title: "Script not loaded",
@@ -446,14 +446,32 @@ export default function Integrations() {
       return;
     }
 
-    const firstName = user?.user_metadata?.first_name || "";
-    const lastName = user?.user_metadata?.last_name || "";
-    const email = user?.email || "";
-    const phone = "";
-    const partnerIK = import.meta.env.VITE_DOCUSIGN_INTEGRATION_KEY || "";
-    const loginRedirectUri = `${window.location.origin}/integrations`;
+    try {
+      // Fetch the integration key from the backend
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/docusign-auth?action=get_integration_key`
+      );
+      const data = await res.json();
+      if (!data.integrationKey) {
+        throw new Error("Integration key not available");
+      }
 
-    DSDigitialSignup.startSignup(firstName, lastName, email, phone, partnerIK, loginRedirectUri, "en");
+      const firstName = user?.user_metadata?.first_name || "";
+      const lastName = user?.user_metadata?.last_name || "";
+      const email = user?.email || "";
+      const phone = "";
+      const loginRedirectUri = `${window.location.origin}/integrations`;
+
+      DSDigitialSignup.startSignup(firstName, lastName, email, phone, data.integrationKey, loginRedirectUri, "en");
+    } catch (err) {
+      console.error("Digital Referral error:", err);
+      toast({
+        title: "Error",
+        description: "Could not start DocuSign trial signup. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
 
