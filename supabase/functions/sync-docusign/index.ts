@@ -63,6 +63,26 @@ async function docuSignFetch(accessToken: string, baseUri: string, endpoint: str
   return resp.json();
 }
 
+// Variant for binary responses (PDF download)
+async function docuSignFetchBinary(accessToken: string, baseUri: string, endpoint: string): Promise<ArrayBuffer> {
+  const url = `${baseUri}/restapi/v2.1${endpoint}`;
+  const resp = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/pdf',
+    },
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error(`[sync-docusign] Binary API error ${resp.status} for ${endpoint}:`, errText);
+    if (resp.status === 401) throw new Error('TOKEN_EXPIRED');
+    throw new Error(`DocuSign API error ${resp.status}: ${errText}`);
+  }
+
+  return resp.arrayBuffer();
+}
+
 async function getAuthenticatedContext(req: Request) {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -85,7 +105,6 @@ async function getAuthenticatedContext(req: Request) {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  // Get DocuSign credentials
   const { data: integration, error: intError } = await supabaseAdmin
     .from('service_integrations')
     .select('access_token_encrypted, refresh_token_encrypted, token_expires_at')
@@ -204,6 +223,7 @@ serve(async (req) => {
     const action = body.action || 'fetch_envelopes';
     let responseData: any = {};
 
+    // ===== FETCH ENVELOPES =====
     if (action === 'fetch_envelopes') {
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - 90);
@@ -226,6 +246,7 @@ serve(async (req) => {
       console.log(`[sync-docusign] Fetched ${responseData.envelopes.length} envelopes for user ${ctx.user.id}`);
     }
 
+    // ===== FETCH ENVELOPE DETAILS =====
     if (action === 'fetch_envelope_details') {
       const envelopeId = body.envelopeId;
       if (!envelopeId) {
@@ -255,9 +276,13 @@ serve(async (req) => {
       };
     }
 
-    // ===== SEND ENVELOPE =====
+    // ===== SEND ENVELOPE (multi-doc, responsive signing, reminders/expirations) =====
     if (action === 'send_envelope') {
-      const { recipients, documentBase64, documentName, emailSubject, emailBlurb, taskId, buyerId, listingId } = body;
+      const { recipients, documents, emailSubject, emailBlurb, taskId, buyerId, listingId, enableReminders, enableExpiration } = body;
+
+      // Support legacy single-document format
+      const documentBase64 = body.documentBase64;
+      const documentName = body.documentName;
 
       if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
         return new Response(
@@ -266,43 +291,89 @@ serve(async (req) => {
         );
       }
 
-      if (!documentBase64 || !documentName) {
-        return new Response(
-          JSON.stringify({ error: 'Document is required (documentBase64 and documentName)' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      // Build documents array (multi-doc or single-doc)
+      let envelopeDocuments: any[];
+      let primaryDocumentName: string;
 
-      // Build signers array with routing order
-      const signers = recipients.map((r: any, idx: number) => ({
-        email: r.email,
-        name: r.name,
-        recipientId: String(idx + 1),
-        routingOrder: String(idx + 1),
-        tabs: {
-          signHereTabs: [{
-            documentId: '1',
-            pageNumber: '1',
-            xPosition: '100',
-            yPosition: '700',
-          }],
-        },
-      }));
-
-      const envelopeDefinition = {
-        emailSubject: emailSubject || `Please sign: ${documentName}`,
-        emailBlurb: emailBlurb || 'Please review and sign the attached document.',
-        documents: [{
+      if (documents && Array.isArray(documents) && documents.length > 0) {
+        envelopeDocuments = documents.map((doc: any, idx: number) => ({
+          documentBase64: doc.documentBase64,
+          name: doc.documentName,
+          fileExtension: doc.documentName.split('.').pop() || 'pdf',
+          documentId: doc.documentId || String(idx + 1),
+        }));
+        primaryDocumentName = documents[0].documentName;
+      } else if (documentBase64 && documentName) {
+        envelopeDocuments = [{
           documentBase64,
           name: documentName,
           fileExtension: documentName.split('.').pop() || 'pdf',
           documentId: '1',
-        }],
+        }];
+        primaryDocumentName = documentName;
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'At least one document is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Build signers with tabs for each document
+      const signers = recipients.map((r: any, idx: number) => {
+        const signHereTabs = envelopeDocuments.map((doc: any) => ({
+          documentId: doc.documentId,
+          pageNumber: '1',
+          xPosition: '100',
+          yPosition: '700',
+        }));
+
+        return {
+          email: r.email,
+          name: r.name,
+          recipientId: String(idx + 1),
+          routingOrder: String(idx + 1),
+          tabs: { signHereTabs },
+        };
+      });
+
+      // Build envelope definition
+      const envelopeDefinition: any = {
+        emailSubject: emailSubject || `Please sign: ${primaryDocumentName}`,
+        emailBlurb: emailBlurb || 'Please review and sign the attached document.',
+        documents: envelopeDocuments,
         recipients: { signers },
-        status: 'sent', // Send immediately
+        status: 'sent',
       };
 
-      console.log(`[sync-docusign] Sending envelope "${emailSubject || documentName}" to ${recipients.length} recipients`);
+      // Enable responsive signing for mobile-optimized signing experience
+      envelopeDefinition.recipientViewRequest = { returnUrl: '' };
+      // Set envelope-level responsive signing
+      for (const signer of signers) {
+        signer.clientUserId = undefined; // Ensure remote signing (not embedded)
+      }
+
+      // Add notification settings (reminders & expirations)
+      const notification: any = { useAccountDefaults: 'false' };
+
+      if (enableReminders !== false) {
+        notification.reminders = {
+          reminderEnabled: 'true',
+          reminderDelay: '3',       // days before first reminder
+          reminderFrequency: '5',   // days between subsequent reminders
+        };
+      }
+
+      if (enableExpiration !== false) {
+        notification.expirations = {
+          expireEnabled: 'true',
+          expireAfter: '30',        // days until expiration
+          expireWarn: '3',          // days before expiration to warn
+        };
+      }
+
+      envelopeDefinition.notification = notification;
+
+      console.log(`[sync-docusign] Sending envelope "${emailSubject || primaryDocumentName}" with ${envelopeDocuments.length} doc(s) to ${recipients.length} recipients`);
 
       const result = await docuSignFetch(
         ctx.accessToken,
@@ -316,19 +387,19 @@ serve(async (req) => {
 
       console.log(`[sync-docusign] Envelope created: ${result.envelopeId}, status: ${result.status}`);
 
-      // Store in our tracking table
+      // Store in tracking table
       await ctx.supabaseAdmin
         .from('docusign_envelopes')
         .insert({
           user_id: ctx.user.id,
           envelope_id: result.envelopeId,
-          subject: emailSubject || `Please sign: ${documentName}`,
+          subject: emailSubject || `Please sign: ${primaryDocumentName}`,
           status: result.status || 'sent',
           task_id: taskId || null,
           buyer_id: buyerId || null,
           listing_id: listingId || null,
           recipients: recipients,
-          document_name: documentName,
+          document_name: envelopeDocuments.map((d: any) => d.name).join(', '),
           sent_at: new Date().toISOString(),
         });
 
@@ -357,7 +428,6 @@ serve(async (req) => {
 
       const status = envelopeDetail.status;
 
-      // Update our tracking table
       const updateData: any = { status };
       if (status === 'completed') updateData.completed_at = envelopeDetail.completedDateTime;
       if (status === 'voided') updateData.voided_at = envelopeDetail.voidedDateTime;
@@ -381,6 +451,36 @@ serve(async (req) => {
           signedDateTime: s.signedDateTime,
         })),
       };
+    }
+
+    // ===== DOWNLOAD SIGNED DOCUMENT (combined PDF) =====
+    if (action === 'download_document') {
+      const envelopeId = body.envelopeId;
+      if (!envelopeId) {
+        return new Response(
+          JSON.stringify({ error: 'envelopeId required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Download combined document (all documents merged into one PDF)
+      const pdfBuffer = await docuSignFetchBinary(
+        ctx.accessToken,
+        ctx.baseUri,
+        `/accounts/${ctx.accountId}/envelopes/${envelopeId}/documents/combined`
+      );
+
+      // Convert to base64 for JSON transport
+      const bytes = new Uint8Array(pdfBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const documentBase64 = btoa(binary);
+
+      console.log(`[sync-docusign] Downloaded combined PDF for envelope ${envelopeId} (${bytes.length} bytes)`);
+
+      responseData = { documentBase64 };
     }
 
     return new Response(

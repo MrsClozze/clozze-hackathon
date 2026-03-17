@@ -55,7 +55,6 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     fetchEnvelopes();
   }, [fetchEnvelopes]);
 
-  // Realtime subscription for status updates
   useEffect(() => {
     if (!user) return;
 
@@ -81,14 +80,15 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
   }, [user, fetchEnvelopes]);
 
   const sendEnvelope = useCallback(async (params: {
-    documentBase64: string;
-    documentName: string;
+    documents: { documentBase64: string; documentName: string; documentId: string }[];
     recipients: { name: string; email: string }[];
     emailSubject?: string;
     emailBlurb?: string;
     taskId?: string;
     buyerId?: string;
     listingId?: string;
+    enableReminders?: boolean;
+    enableExpiration?: boolean;
   }) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
@@ -120,5 +120,30 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     await fetchEnvelopes();
   }, [fetchEnvelopes]);
 
-  return { envelopes, loading, sendEnvelope, refreshStatus, refetch: fetchEnvelopes };
+  const downloadSignedDocument = useCallback(async (envelopeId: string): Promise<Blob | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await supabase.functions.invoke('sync-docusign', {
+      body: { action: 'download_document', envelopeId },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (response.error) throw new Error(response.error.message);
+    if (response.data?.error) throw new Error(response.data.error);
+
+    // The response contains base64 PDF
+    const base64 = response.data?.data?.documentBase64;
+    if (!base64) return null;
+
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: 'application/pdf' });
+  }, []);
+
+  return { envelopes, loading, sendEnvelope, refreshStatus, downloadSignedDocument, refetch: fetchEnvelopes };
 }

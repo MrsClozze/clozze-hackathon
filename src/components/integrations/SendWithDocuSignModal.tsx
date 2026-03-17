@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Upload, Plus, X, Send, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
@@ -21,10 +22,14 @@ interface Recipient {
   email: string;
 }
 
+interface UploadedFile {
+  file: File;
+  base64: string;
+}
+
 interface SendWithDocuSignModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // Pre-fill data from task/buyer/listing context
   defaultRecipients?: Recipient[];
   defaultSubject?: string;
   taskId?: string;
@@ -53,10 +58,11 @@ export function SendWithDocuSignModal({
   );
   const [subject, setSubject] = useState(defaultSubject);
   const [message, setMessage] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [sending, setSending] = useState(false);
+  const [enableReminders, setEnableReminders] = useState(true);
+  const [enableExpiration, setEnableExpiration] = useState(true);
 
-  // Reset state when modal opens
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       setRecipients(
@@ -64,21 +70,57 @@ export function SendWithDocuSignModal({
       );
       setSubject(defaultSubject);
       setMessage("");
-      setFile(null);
+      setFiles([]);
       setSending(false);
+      setEnableReminders(true);
+      setEnableExpiration(true);
     }
     onOpenChange(isOpen);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      if (selected.size > 25 * 1024 * 1024) {
-        toast({ title: "File too large", description: "Maximum file size is 25MB", variant: "destructive" });
-        return;
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+        );
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const validFiles: UploadedFile[] = [];
+
+    for (const file of selectedFiles) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast({ title: "File too large", description: `${file.name} exceeds the 25MB limit`, variant: "destructive" });
+        continue;
       }
-      setFile(selected);
+      if (files.length + validFiles.length >= 10) {
+        toast({ title: "Too many files", description: "Maximum of 10 documents per envelope", variant: "destructive" });
+        break;
+      }
+      try {
+        const base64 = await fileToBase64(file);
+        validFiles.push({ file, base64 });
+      } catch {
+        toast({ title: "Error reading file", description: `Could not read ${file.name}`, variant: "destructive" });
+      }
     }
+
+    setFiles((prev) => [...prev, ...validFiles]);
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const addRecipient = () => {
@@ -97,34 +139,34 @@ export function SendWithDocuSignModal({
   };
 
   const handleSend = async () => {
-    // Validate
     const validRecipients = recipients.filter(r => r.name.trim() && r.email.trim());
     if (validRecipients.length === 0) {
       toast({ title: "Recipients required", description: "Add at least one recipient with name and email", variant: "destructive" });
       return;
     }
-    if (!file) {
-      toast({ title: "Document required", description: "Please upload a document to send for signature", variant: "destructive" });
+    if (files.length === 0) {
+      toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
       return;
     }
 
     setSending(true);
     try {
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-      );
+      const documents = files.map((f, idx) => ({
+        documentBase64: f.base64,
+        documentName: f.file.name,
+        documentId: String(idx + 1),
+      }));
 
       const result = await sendEnvelope({
-        documentBase64: base64,
-        documentName: file.name,
+        documents,
         recipients: validRecipients,
-        emailSubject: subject || `Please sign: ${file.name}`,
+        emailSubject: subject || `Please sign: ${files.map(f => f.file.name).join(", ")}`,
         emailBlurb: message || undefined,
         taskId,
         buyerId,
         listingId,
+        enableReminders,
+        enableExpiration,
       });
 
       toast({
@@ -150,7 +192,6 @@ export function SendWithDocuSignModal({
     await authenticate();
   };
 
-  // Not connected view
   if (!isConnected) {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -184,46 +225,60 @@ export function SendWithDocuSignModal({
             Send with DocuSign
           </DialogTitle>
           <DialogDescription>
-            Upload a document and send it for signature via DocuSign
+            Upload documents and send them for signature via DocuSign
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-4">
           {/* Document Upload */}
           <div>
-            <Label className="text-sm font-medium mb-2 block">Document</Label>
-            {file ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFile(null)}
-                  className="flex-shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            <Label className="text-sm font-medium mb-2 block">
+              Documents {files.length > 0 && `(${files.length})`}
+            </Label>
+
+            {/* List uploaded files */}
+            {files.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {files.map((f, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{f.file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(f.file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(idx)}
+                      className="flex-shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ) : (
+            )}
+
+            {/* Upload button */}
+            {files.length < 10 && (
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors group"
               >
                 <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
-                <p className="text-sm font-medium">Click to upload document</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 25MB)</p>
+                <p className="text-sm font-medium">
+                  {files.length === 0 ? "Click to upload document(s)" : "Add another document"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 25MB each, up to 10 files)</p>
               </button>
             )}
             <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.doc,.docx"
+              multiple
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -235,7 +290,7 @@ export function SendWithDocuSignModal({
             <Input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder={file ? `Please sign: ${file.name}` : "Please sign the attached document"}
+              placeholder={files.length > 0 ? `Please sign: ${files[0].file.name}` : "Please sign the attached document"}
             />
           </div>
 
@@ -248,6 +303,25 @@ export function SendWithDocuSignModal({
               placeholder="Please review and sign the attached document."
               className="min-h-[80px]"
             />
+          </div>
+
+          {/* Notification Settings */}
+          <div className="space-y-3 p-3 rounded-lg border bg-muted/10">
+            <Label className="text-sm font-medium">Notification Settings</Label>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm">Reminders</p>
+                <p className="text-xs text-muted-foreground">Send reminder after 3 days, then every 5 days</p>
+              </div>
+              <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm">Expiration</p>
+                <p className="text-xs text-muted-foreground">Expire after 30 days, warn 3 days before</p>
+              </div>
+              <Switch checked={enableExpiration} onCheckedChange={setEnableExpiration} />
+            </div>
           </div>
 
           {/* Recipients */}
@@ -297,7 +371,7 @@ export function SendWithDocuSignModal({
             </Button>
             <Button
               onClick={handleSend}
-              disabled={sending || !file || recipients.every(r => !r.name.trim() || !r.email.trim())}
+              disabled={sending || files.length === 0 || recipients.every(r => !r.name.trim() || !r.email.trim())}
               className="flex-1 bg-primary text-primary-foreground"
             >
               {sending ? (
