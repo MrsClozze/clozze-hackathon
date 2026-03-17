@@ -81,7 +81,7 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { authenticate, isAuthenticating } = useDocuSignAuth();
+  const { authenticate, isAuthenticating, isConnected: isDocuSignConnected, disconnect: disconnectDocuSign } = useDocuSignAuth();
   const { refreshGmailStatus } = useIntegrations();
   const {
     isConnected: isDotloopConnected,
@@ -356,9 +356,13 @@ export default function Integrations() {
     }
 
     if (integrationId === "docusign") {
-      const success = await authenticate();
-      if (success) {
-        toast({ title: "DocuSign Connected", description: "Your DocuSign account is now connected." });
+      if (isDocuSignConnected) {
+        await disconnectDocuSign();
+      } else {
+        const success = await authenticate();
+        if (success) {
+          toast({ title: "DocuSign Connected", description: "Your DocuSign account is now connected." });
+        }
       }
       return;
     }
@@ -425,6 +429,49 @@ export default function Integrations() {
       await disconnectFub();
       return;
     }
+
+    if (integrationId === "docusign") {
+      await disconnectDocuSign();
+      return;
+    }
+  };
+
+  const handleDocuSignDigitalReferral = async () => {
+    if (typeof DSDigitialSignup === "undefined") {
+      toast({
+        title: "Script not loaded",
+        description: "Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Fetch the integration key from the backend
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/docusign-auth?action=get_integration_key`
+      );
+      const data = await res.json();
+      if (!data.integrationKey) {
+        throw new Error("Integration key not available");
+      }
+
+      const firstName = user?.user_metadata?.first_name || "";
+      const lastName = user?.user_metadata?.last_name || "";
+      const email = user?.email || "";
+      const phone = "";
+      const loginRedirectUri = `${window.location.origin}/integrations`;
+
+      DSDigitialSignup.startSignup(firstName, lastName, email, phone, data.integrationKey, loginRedirectUri, "en");
+    } catch (err) {
+      console.error("Digital Referral error:", err);
+      toast({
+        title: "Error",
+        description: "Could not start DocuSign trial signup. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -443,6 +490,9 @@ export default function Integrations() {
     }
     if (integrationId === "follow_up_boss") {
       return isFubConnected;
+    }
+    if (integrationId === "docusign") {
+      return isDocuSignConnected;
     }
     return false;
   };
@@ -548,20 +598,30 @@ export default function Integrations() {
                     Disconnect
                   </Button>
                 ) : (
-                  <Button
-                    onClick={() => handleConnect(integration.id)}
-                    disabled={connecting}
-                    className="mt-auto"
-                  >
-                    {connecting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      "Connect"
+                  <div className="mt-auto flex flex-col gap-2">
+                    <Button
+                      onClick={() => handleConnect(integration.id)}
+                      disabled={connecting}
+                    >
+                      {connecting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        "Connect"
+                      )}
+                    </Button>
+                    {integration.id === "docusign" && (
+                      <button
+                        type="button"
+                        onClick={handleDocuSignDigitalReferral}
+                        className="text-xs text-primary hover:underline text-center"
+                      >
+                        Don't have a DocuSign account? Start a free trial
+                      </button>
                     )}
-                  </Button>
+                  </div>
                 )}
               </Card>
             );
