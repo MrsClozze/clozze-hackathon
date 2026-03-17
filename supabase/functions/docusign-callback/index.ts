@@ -30,8 +30,10 @@ serve(async (req) => {
     const redirectBase = `${appOrigin}/integrations`;
 
     if (error) {
-      const redirectUrl = `${redirectBase}?docusign=error&message=${encodeURIComponent(error.substring(0, 200))}`;
-      return Response.redirect(redirectUrl, 302);
+      return new Response(
+        `<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb"><p>DocuSign error: ${error.substring(0, 200)}. You can close this window.</p><script>window.close();</script></body></html>`,
+        { headers: { 'Content-Type': 'text/html', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" } }
+      );
     }
 
     if (!code || !userId) {
