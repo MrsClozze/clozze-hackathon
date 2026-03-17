@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-
 export const useDocuSignAuth = () => {
   const { user } = useAuth();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -54,7 +53,7 @@ export const useDocuSignAuth = () => {
       if (error) throw error;
       if (!data?.authUrl) throw new Error('No authorization URL received');
 
-      // Open popup
+      // Open popup for DocuSign auth
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -70,58 +69,32 @@ export const useDocuSignAuth = () => {
         throw new Error('Popup blocked. Please allow popups for this site.');
       }
 
+      // The callback redirects back to /integrations?docusign=success|error
+      // which loads in the popup. We poll the DB after popup closes to detect success.
       return new Promise<boolean>((resolve) => {
         let resolved = false;
-        const cleanup = () => {
-          if (resolved) return;
-          resolved = true;
-          clearInterval(checkClosed);
-          clearTimeout(timeout);
-          window.removeEventListener('message', messageHandler);
-        };
 
-        const messageHandler = (event: MessageEvent) => {
-          if (event.data.type === 'docusign-success') {
-            cleanup();
-            setIsAuthenticating(false);
-            setIsConnected(true);
-            toast({
-              title: "DocuSign Connected",
-              description: "Successfully authenticated with DocuSign",
-            });
-            resolve(true);
-          } else if (event.data.type === 'docusign-error') {
-            cleanup();
-            setIsAuthenticating(false);
-            toast({
-              title: "Authentication Failed",
-              description: event.data.error || "Failed to authenticate with DocuSign",
-              variant: "destructive",
-            });
-            resolve(false);
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // When popup closes, poll DB as fallback in case postMessage was missed
         const checkClosed = setInterval(async () => {
-          if (popup.closed) {
-            cleanup();
-            // Give a moment for any in-flight DB writes to complete
-            await new Promise(r => setTimeout(r, 1500));
+          if (popup.closed && !resolved) {
+            resolved = true;
+            clearInterval(checkClosed);
+            clearTimeout(timeout);
+
+            // Wait for any in-flight DB writes to complete
+            await new Promise(r => setTimeout(r, 2000));
+
             // Check DB for connection status
             try {
-              const { data } = await supabase
+              const { data: dbData } = await supabase
                 .from('service_integrations')
                 .select('is_connected')
                 .eq('user_id', user!.id)
                 .eq('service_name', 'docusign')
                 .maybeSingle();
 
-              if (data?.is_connected) {
-                setIsAuthenticating(false);
+              if (dbData?.is_connected) {
                 setIsConnected(true);
+                setIsAuthenticating(false);
                 toast({
                   title: "DocuSign Connected",
                   description: "Successfully authenticated with DocuSign",
@@ -132,14 +105,17 @@ export const useDocuSignAuth = () => {
             } catch (err) {
               console.error('Error polling DocuSign status:', err);
             }
+
             setIsAuthenticating(false);
             resolve(false);
           }
         }, 1000);
 
+        // Timeout after 3 minutes
         const timeout = setTimeout(() => {
           if (!resolved) {
-            cleanup();
+            resolved = true;
+            clearInterval(checkClosed);
             setIsAuthenticating(false);
             try { popup.close(); } catch {}
             toast({
@@ -161,7 +137,7 @@ export const useDocuSignAuth = () => {
       setIsAuthenticating(false);
       return false;
     }
-  }, [toast]);
+  }, [toast, user]);
 
   const disconnect = useCallback(async () => {
     if (!user) return;
