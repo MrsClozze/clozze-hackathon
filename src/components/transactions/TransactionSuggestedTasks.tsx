@@ -130,7 +130,8 @@ export default function TransactionSuggestedTasks({ recordType, recordId, refres
     }
   };
 
-  if (loading || suggestedTasks.length === 0) return null;
+  const proposedCount = suggestedTasks.filter(t => t.status === "proposed").length;
+  if (loading || suggestedTasks.length === 0 || proposedCount === 0) return null;
 
   const proposedTasks = suggestedTasks.filter(t => t.status === "proposed");
   const acceptedTasks = suggestedTasks.filter(t => t.status === "accepted");
