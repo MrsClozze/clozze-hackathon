@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
-import { MessageSquare, Mail, RefreshCw, Loader2, Inbox } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { MessageSquare, Mail, RefreshCw, Loader2, Inbox, Send, FileSignature } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
@@ -34,7 +37,10 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const [textSubTab, setTextSubTab] = useState("needs-attention");
   const [attachEmailId, setAttachEmailId] = useState<string | null>(null);
   const [attachEmailSubject, setAttachEmailSubject] = useState<string | undefined>();
+  const [sentEnvelopes, setSentEnvelopes] = useState<any[]>([]);
+  const [sentLoading, setSentLoading] = useState(false);
 
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
   const { isPhoneConnected } = useIntegrations();
@@ -67,6 +73,30 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
       syncAndAnalyze();
     }
   }, [isGmailConnected, emailsLoading, hasAnyEmails, syncing, analyzing, syncAndAnalyze]);
+
+  // Fetch sent DocuSign envelopes for the Sent tab
+  const fetchSentEnvelopes = useCallback(async () => {
+    if (!user) return;
+    setSentLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("docusign_envelopes")
+        .select("id, envelope_id, subject, status, document_name, recipients, sent_at, completed_at, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setSentEnvelopes(data || []);
+    } catch (err) {
+      console.error("Error fetching sent envelopes:", err);
+    } finally {
+      setSentLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) fetchSentEnvelopes();
+  }, [user, fetchSentEnvelopes]);
 
   // Filter emails based on settings
   const filteredActionEmails = actionRequiredEmails.filter(email => 
@@ -110,6 +140,15 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   // Get counts for badges
   const emailNeedsAttentionCount = filteredActionEmails.length;
   const textNeedsAttentionCount = textActionRequired.length;
+
+  const getEnvelopeStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "bg-success/10 text-success border-success/30";
+      case "sent": case "delivered": return "bg-primary/10 text-primary border-primary/25";
+      case "voided": case "declined": return "bg-destructive/10 text-destructive border-destructive/30";
+      default: return "bg-muted/10 text-muted-foreground border-muted/30";
+    }
+  };
 
   const renderTextNotConnected = () => (
     <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
@@ -178,14 +217,12 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
 
   const renderEmailSection = (emails: SyncedEmail[], showIgnore: boolean = true) => (
     <div className="space-y-4">
-      {/* Loading state */}
       {(emailsLoading || gmailLoading) && (
         <div className="flex items-center justify-center py-12 bg-secondary rounded-lg border border-border">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       )}
 
-      {/* Syncing state */}
       {isGmailConnected && (syncing || analyzing) && emails.length === 0 && (
         <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
           <Loader2 className="h-10 w-10 mx-auto mb-3 animate-spin text-primary" />
@@ -193,7 +230,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
         </div>
       )}
 
-      {/* Emails list */}
       {!emailsLoading && !gmailLoading && isGmailConnected && !syncing && !analyzing && emails.length > 0 && (
         <div className="grid gap-4">
           {emails.map((email) => (
@@ -209,7 +245,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
         </div>
       )}
 
-      {/* No emails state */}
       {!emailsLoading && !gmailLoading && isGmailConnected && !syncing && !analyzing && emails.length === 0 && (
         <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
           <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -225,6 +260,69 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
               Sync & Analyze Emails
             </Button>
           )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSentSection = () => (
+    <div className="space-y-4">
+      {sentLoading ? (
+        <div className="flex items-center justify-center py-12 bg-secondary rounded-lg border border-border">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-text-muted">Loading sent items...</span>
+        </div>
+      ) : sentEnvelopes.length === 0 ? (
+        <div className="text-center py-12 text-text-muted text-sm bg-secondary rounded-lg border border-border">
+          <Send className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p className="font-medium mb-1">No sent documents yet</p>
+          <p className="text-xs">Documents sent via DocuSign will appear here</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {sentEnvelopes.map((env) => {
+            const recipients = Array.isArray(env.recipients) ? env.recipients : [];
+            const recipientNames = recipients.map((r: any) => r.name || r.email).join(", ");
+            const timestamp = env.sent_at || env.created_at;
+
+            return (
+              <div
+                key={env.id}
+                className="p-4 rounded-xl bg-secondary border border-border hover:border-primary/30 transition-all"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileSignature className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="text-sm font-semibold text-text-heading truncate">
+                      {env.document_name || env.subject}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${getEnvelopeStatusColor(env.status)}`}>
+                      {env.status}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                    {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
+                  </span>
+                </div>
+
+                <p className="text-xs font-medium text-text-body mb-1 line-clamp-1">{env.subject}</p>
+
+                {recipientNames && (
+                  <p className="text-xs text-text-subtle italic border-l-2 border-primary/40 pl-3">
+                    Sent to: {recipientNames}
+                  </p>
+                )}
+
+                {env.completed_at && (
+                  <div className="bg-success/10 border border-success/25 rounded-md p-2 mt-2">
+                    <p className="text-xs text-success">
+                      Completed {formatDistanceToNow(new Date(env.completed_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -280,7 +378,7 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
         <div className="flex items-center justify-between mb-6">
-          <TabsList className="grid w-auto grid-cols-2">
+          <TabsList className="grid w-auto grid-cols-3">
             <TabsTrigger value="text" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Text Messages
@@ -296,6 +394,15 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
               {isGmailConnected && emailNeedsAttentionCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
                   {emailNeedsAttentionCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="gap-2">
+              <Send className="h-4 w-4" />
+              Sent
+              {sentEnvelopes.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+                  {sentEnvelopes.length}
                 </span>
               )}
             </TabsTrigger>
@@ -388,6 +495,11 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
               }
             </>
           )}
+        </TabsContent>
+
+        {/* Sent Tab */}
+        <TabsContent value="sent" className="mt-0 space-y-4">
+          {renderSentSection()}
         </TabsContent>
       </Tabs>
 
