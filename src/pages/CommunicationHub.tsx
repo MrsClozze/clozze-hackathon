@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SendWithDocuSignModal } from "@/components/integrations/SendWithDocuSignModal";
-import { DocuSignEnvelopeStatus } from "@/components/integrations/DocuSignEnvelopeStatus";
 
 const CommunicationHub = () => {
   const [showWidget, setShowWidget] = useState(false);
@@ -59,9 +58,6 @@ const CommunicationHub = () => {
         <div className="max-w-5xl mx-auto space-y-6">
           <AIToneOnboarding onComplete={handleOnboardingComplete} />
           {showWidget && <HelpfulLinksWidget />}
-          
-          {/* Recent DocuSign Envelopes */}
-          <DocuSignEnvelopeStatus />
           
           <AICommunicationHub showTabs={true} />
         </div>
