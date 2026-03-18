@@ -105,8 +105,39 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     if (response.data?.error) throw new Error(response.data.error);
 
     await fetchEnvelopes();
+
+    // Log as a communication event in synced_emails so it appears in the client's Communication tab
+    const envelopeId = response.data?.data?.envelopeId;
+    if (user && (params.buyerId || params.listingId)) {
+      try {
+        const recipientNames = params.recipients.map(r => r.name).join(', ');
+        const recipientEmails = params.recipients.map(r => r.email).join(', ');
+        const docNames = params.documents.map(d => d.documentName).join(', ');
+        await supabase.from('synced_emails').insert({
+          user_id: user.id,
+          external_email_id: `docusign-${envelopeId || Date.now()}`,
+          sender_email: user.email || 'you',
+          sender_name: 'You (via DocuSign)',
+          subject: params.emailSubject || `DocuSign: ${docNames}`,
+          snippet: `Sent for signature to ${recipientNames} (${recipientEmails})`,
+          body_preview: `Document(s): ${docNames}. Sent via DocuSign for e-signature.`,
+          received_at: new Date().toISOString(),
+          is_read: true,
+          ai_analyzed: true,
+          ai_requires_action: false,
+          ai_category: 'docusign',
+          ai_priority: 'medium',
+          ai_action_item: 'Document sent for signature — awaiting completion',
+          buyer_id: params.buyerId || null,
+          listing_id: params.listingId || null,
+        });
+      } catch (logErr) {
+        console.error('Failed to log DocuSign send as communication event:', logErr);
+      }
+    }
+
     return response.data?.data;
-  }, [fetchEnvelopes]);
+  }, [fetchEnvelopes, user]);
 
   const refreshStatus = useCallback(async (envelopeId: string) => {
     const { data: { session } } = await supabase.auth.getSession();
