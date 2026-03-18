@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { MessageSquare, Mail, RefreshCw, Loader2, Inbox, Send, FileSignature } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { MessageSquare, Mail, RefreshCw, Loader2, Inbox, Send, FileSignature, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +12,8 @@ import { useSyncedEmails, SyncedEmail } from "@/hooks/useSyncedEmails";
 import { useSyncedMessages } from "@/hooks/useSyncedMessages";
 import { useGmailConnection } from "@/hooks/useGmailConnection";
 import { useIntegrations } from "@/contexts/IntegrationsContext";
+import { useDocuSignEnvelopes, DocuSignEnvelope } from "@/hooks/useDocuSignEnvelopes";
+import { useToast } from "@/hooks/use-toast";
 
 interface AICommunicationHubProps {
   limit?: number;
@@ -37,11 +37,11 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const [textSubTab, setTextSubTab] = useState("needs-attention");
   const [attachEmailId, setAttachEmailId] = useState<string | null>(null);
   const [attachEmailSubject, setAttachEmailSubject] = useState<string | undefined>();
-  const [sentEnvelopes, setSentEnvelopes] = useState<any[]>([]);
-  const [sentLoading, setSentLoading] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
   const { isPhoneConnected } = useIntegrations();
   const { 
@@ -64,6 +64,13 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     ignoreMessage,
   } = useSyncedMessages();
 
+  const {
+    envelopes: sentEnvelopes,
+    loading: sentLoading,
+    refreshStatus,
+    downloadSignedDocument,
+  } = useDocuSignEnvelopes();
+
   const isTextConnected = isPhoneConnected;
 
   // Auto-sync when Gmail is connected and we truly have no emails (including ignored ones)
@@ -73,31 +80,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
       syncAndAnalyze();
     }
   }, [isGmailConnected, emailsLoading, hasAnyEmails, syncing, analyzing, syncAndAnalyze]);
-
-  // Fetch sent DocuSign envelopes for the Sent tab
-  const fetchSentEnvelopes = useCallback(async () => {
-    if (!user) return;
-    setSentLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("docusign_envelopes")
-        .select("id, envelope_id, subject, status, document_name, recipients, sent_at, completed_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      setSentEnvelopes(data || []);
-    } catch (err) {
-      console.error("Error fetching sent envelopes:", err);
-    } finally {
-      setSentLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user) fetchSentEnvelopes();
-  }, [user, fetchSentEnvelopes]);
-
   // Filter emails based on settings
   const filteredActionEmails = actionRequiredEmails.filter(email => 
     !settings.excludeCategories.includes(email.ai_category || "other")
@@ -300,9 +282,70 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
                       {env.status}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                    {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
-                  </span>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
+                    </span>
+                    {env.status === "completed" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={async () => {
+                          setDownloadingId(env.envelope_id);
+                          try {
+                            const blob = await downloadSignedDocument(env.envelope_id);
+                            if (!blob) {
+                              toast({ title: "Download failed", description: "Could not retrieve the signed document", variant: "destructive" });
+                              return;
+                            }
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${env.document_name || env.subject || "signed-document"}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            toast({ title: "Download complete", description: "Signed document has been downloaded" });
+                          } catch (err) {
+                            toast({ title: "Download failed", description: err instanceof Error ? err.message : "Could not download", variant: "destructive" });
+                          } finally {
+                            setDownloadingId(null);
+                          }
+                        }}
+                        disabled={downloadingId === env.envelope_id}
+                        title="Download signed document"
+                      >
+                        {downloadingId === env.envelope_id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={async () => {
+                        setRefreshingId(env.envelope_id);
+                        try {
+                          await refreshStatus(env.envelope_id);
+                        } finally {
+                          setRefreshingId(null);
+                        }
+                      }}
+                      disabled={refreshingId === env.envelope_id}
+                      title="Refresh envelope status"
+                    >
+                      {refreshingId === env.envelope_id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-xs font-medium text-text-body mb-1 line-clamp-1">{env.subject}</p>
