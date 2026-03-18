@@ -609,14 +609,6 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
-            {/* DocuSign Envelope Status */}
-            {!isEditing && selectedTask && (
-              <DocuSignEnvelopeStatus
-                taskId={selectedTask.id}
-                buyerId={selectedTask.buyerId}
-                listingId={selectedTask.listingId}
-              />
-            )}
 
             {/* AI Assist Section */}
             {!isEditing && (
