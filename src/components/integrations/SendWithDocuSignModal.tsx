@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -67,10 +67,11 @@ export function SendWithDocuSignModal({
   const [enableReminders, setEnableReminders] = useState(true);
   const [enableExpiration, setEnableExpiration] = useState(true);
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
+  // Reset all state when the modal opens or when the client context changes
+  useEffect(() => {
+    if (open) {
       setRecipients(
-        defaultRecipients.length > 0 ? defaultRecipients : [{ name: "", email: "" }]
+        defaultRecipients.length > 0 ? [...defaultRecipients] : [{ name: "", email: "" }]
       );
       setSubject(defaultSubject);
       setMessage("");
@@ -80,6 +81,9 @@ export function SendWithDocuSignModal({
       setEnableExpiration(true);
       setStep("compose");
     }
+  }, [open, buyerId, listingId, taskId]);
+
+  const handleOpenChange = (isOpen: boolean) => {
     onOpenChange(isOpen);
   };
 
