@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
-import { MessageSquare, Mail, RefreshCw, Loader2, Inbox } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { MessageSquare, Mail, RefreshCw, Loader2, Inbox, Send, FileSignature } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
