@@ -32,7 +32,7 @@ import { useContacts } from "@/contexts/ContactsContext";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useCalendarConnections } from "@/hooks/useCalendarConnections";
 import { SendWithDocuSignModal } from "@/components/integrations/SendWithDocuSignModal";
-import { DocuSignEnvelopeStatus } from "@/components/integrations/DocuSignEnvelopeStatus";
+
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
@@ -609,14 +609,6 @@ export default function TaskDetailsModal() {
               </div>
             )}
 
-            {/* DocuSign Envelope Status */}
-            {!isEditing && selectedTask && (
-              <DocuSignEnvelopeStatus
-                taskId={selectedTask.id}
-                buyerId={selectedTask.buyerId}
-                listingId={selectedTask.listingId}
-              />
-            )}
 
             {/* AI Assist Section */}
             {!isEditing && (
