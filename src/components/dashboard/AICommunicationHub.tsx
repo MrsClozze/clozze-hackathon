@@ -282,9 +282,70 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
                       {env.status}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
-                    {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
-                  </span>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
+                    </span>
+                    {env.status === "completed" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={async () => {
+                          setDownloadingId(env.envelope_id);
+                          try {
+                            const blob = await downloadSignedDocument(env.envelope_id);
+                            if (!blob) {
+                              toast({ title: "Download failed", description: "Could not retrieve the signed document", variant: "destructive" });
+                              return;
+                            }
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `${env.document_name || env.subject || "signed-document"}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            toast({ title: "Download complete", description: "Signed document has been downloaded" });
+                          } catch (err) {
+                            toast({ title: "Download failed", description: err instanceof Error ? err.message : "Could not download", variant: "destructive" });
+                          } finally {
+                            setDownloadingId(null);
+                          }
+                        }}
+                        disabled={downloadingId === env.envelope_id}
+                        title="Download signed document"
+                      >
+                        {downloadingId === env.envelope_id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={async () => {
+                        setRefreshingId(env.envelope_id);
+                        try {
+                          await refreshStatus(env.envelope_id);
+                        } finally {
+                          setRefreshingId(null);
+                        }
+                      }}
+                      disabled={refreshingId === env.envelope_id}
+                      title="Refresh envelope status"
+                    >
+                      {refreshingId === env.envelope_id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <p className="text-xs font-medium text-text-body mb-1 line-clamp-1">{env.subject}</p>
