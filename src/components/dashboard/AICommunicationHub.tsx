@@ -37,11 +37,11 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
   const [textSubTab, setTextSubTab] = useState("needs-attention");
   const [attachEmailId, setAttachEmailId] = useState<string | null>(null);
   const [attachEmailSubject, setAttachEmailSubject] = useState<string | undefined>();
-  const [sentEnvelopes, setSentEnvelopes] = useState<any[]>([]);
-  const [sentLoading, setSentLoading] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { isConnected: isGmailConnected, loading: gmailLoading } = useGmailConnection();
   const { isPhoneConnected } = useIntegrations();
   const { 
@@ -64,6 +64,13 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
     ignoreMessage,
   } = useSyncedMessages();
 
+  const {
+    envelopes: sentEnvelopes,
+    loading: sentLoading,
+    refreshStatus,
+    downloadSignedDocument,
+  } = useDocuSignEnvelopes();
+
   const isTextConnected = isPhoneConnected;
 
   // Auto-sync when Gmail is connected and we truly have no emails (including ignored ones)
@@ -73,31 +80,6 @@ export default function AICommunicationHub({ limit, showTabs = true }: AICommuni
       syncAndAnalyze();
     }
   }, [isGmailConnected, emailsLoading, hasAnyEmails, syncing, analyzing, syncAndAnalyze]);
-
-  // Fetch sent DocuSign envelopes for the Sent tab
-  const fetchSentEnvelopes = useCallback(async () => {
-    if (!user) return;
-    setSentLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("docusign_envelopes")
-        .select("id, envelope_id, subject, status, document_name, recipients, sent_at, completed_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      setSentEnvelopes(data || []);
-    } catch (err) {
-      console.error("Error fetching sent envelopes:", err);
-    } finally {
-      setSentLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user) fetchSentEnvelopes();
-  }, [user, fetchSentEnvelopes]);
-
   // Filter emails based on settings
   const filteredActionEmails = actionRequiredEmails.filter(email => 
     !settings.excludeCategories.includes(email.ai_category || "other")
