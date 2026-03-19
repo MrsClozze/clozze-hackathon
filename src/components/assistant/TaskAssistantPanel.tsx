@@ -169,6 +169,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  const handleReplay = () => {
+    if (!isPlayingAudio && hasLastResponse) {
+      replayLastResponse();
+    }
+  };
+
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
   const taskContext = useMemo(() => ({
