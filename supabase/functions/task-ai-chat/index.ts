@@ -113,7 +113,7 @@ function buildContextPrompt(context: any): string {
 - Priority: ${context.task.priority || 'medium'}
 - Due Date: ${context.task.due_date || 'Not set'}
 - Notes: ${context.task.notes || 'None'}
-- Address: ${context.task.address || 'Not set'}`);
+- Address: ${context.task.address || (context.listing ? `${context.listing.address}, ${context.listing.city}` : 'Not set')}`);
   }
 
   if (context.listing) {
