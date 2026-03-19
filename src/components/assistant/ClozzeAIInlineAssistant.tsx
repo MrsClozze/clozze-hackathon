@@ -194,6 +194,22 @@ export default function ClozzeAIInlineAssistant({
           <span className="text-sm font-medium text-foreground">
             Clozze AI — {flowLabel.icon} {flowLabel.title}
           </span>
+          {isPlayingAudio && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10">
+              <div className="flex gap-0.5 items-end h-2.5">
+                <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" />
+                <div className="w-0.5 h-1.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+                <div className="w-0.5 h-2.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '300ms' }} />
+                <div className="w-0.5 h-1.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+              </div>
+            </div>
+          )}
+          {isRecording && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-destructive/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+              <span className="text-[10px] text-destructive font-medium">Listening</span>
+            </div>
+          )}
         </div>
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
