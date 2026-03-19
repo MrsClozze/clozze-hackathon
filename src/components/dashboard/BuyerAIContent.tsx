@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck } from "lucide-react";
+import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck, Home, FileText, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,12 +8,19 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { BuyerData } from "@/contexts/BuyersContext";
-import { computeBuyerCompletion, isBuyerActionReady, getBuyerTaskBundle, type CompletionItem } from "@/lib/completionTracking";
+import { computeBuyerCompletion, getBuyerPhase, getBuyerTaskBundle, type CompletionItem, type BuyerPhase } from "@/lib/completionTracking";
 
 interface BuyerAIContentProps {
   buyer: BuyerData;
   onBuyerUpdate?: (updatedBuyer: BuyerData) => void;
 }
+
+const PHASE_CONFIG: Record<BuyerPhase, { label: string; description: string; badge: string }> = {
+  profiling: { label: 'Profile Incomplete', description: 'Complete the buyer profile before moving to search.', badge: 'setup' },
+  search_ready: { label: 'Search-Ready', description: 'Contact and budget confirmed. Ready to start the property search.', badge: 'ready' },
+  showing: { label: 'Showing Phase', description: 'Profile is complete. Focus on showings, comparisons, and offer preparation.', badge: 'active' },
+  offer_ready: { label: 'Offer-Ready', description: 'Buyer is prepared to make offers. Focus on negotiations and closing.', badge: 'active' },
+};
 
 export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentProps) {
   const { toast } = useToast();
@@ -24,9 +31,16 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
   const [structuredResult, setStructuredResult] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
   const [creatingTasks, setCreatingTasks] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
   const completion = useMemo(() => computeBuyerCompletion(buyer), [buyer]);
-  const actionReady = useMemo(() => isBuyerActionReady(buyer), [buyer]);
+  const phase = useMemo(() => getBuyerPhase(buyer), [buyer]);
+  const phaseInfo = PHASE_CONFIG[phase];
+
+  const flashComplete = (key: string) => {
+    setJustCompleted(key);
+    setTimeout(() => setJustCompleted(null), 2000);
+  };
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -120,19 +134,22 @@ Organize into:
       const { error } = await supabase.from('buyers').update({ wants_needs: structuredResult }).eq('id', buyer.id);
       if (error) throw error;
       onBuyerUpdate?.({ ...buyer, wantsNeeds: structuredResult });
-      toast({ title: "Saved", description: "Structured wants/needs saved to buyer profile." });
+      flashComplete('wantsNeeds');
+      toast({ title: "✓ Saved", description: "Structured wants/needs saved to buyer profile." });
     } catch {
       toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
     }
   };
 
-  const handleGenerateDraft = async (type: 'follow_up' | 'next_steps' | 'showing') => {
+  const handleGenerateDraft = async (type: 'follow_up' | 'next_steps' | 'showing' | 'offer_prep' | 'send_listings') => {
     setGenerating(type);
     try {
       const prompts: Record<string, string> = {
         follow_up: `Write a professional follow-up message to buyer ${buyer.firstName} ${buyer.lastName}. Their needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Keep it warm, concise, and action-oriented.`,
         next_steps: `Write a brief next-steps summary for buyer ${buyer.firstName} ${buyer.lastName}. Status: ${buyer.status}. Needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Format as a clear action list.`,
-        showing: `Write a showing coordination message for buyer ${buyer.firstName} ${buyer.lastName}. Their preferences: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Include scheduling logistics.`,
+        showing: `Write a showing coordination message for buyer ${buyer.firstName} ${buyer.lastName}. Their preferences: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Include scheduling logistics and what to prepare.`,
+        offer_prep: `Write an offer preparation summary for buyer ${buyer.firstName} ${buyer.lastName}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Needs: ${buyer.wantsNeeds || 'not specified'}. Include key items to prepare before submitting an offer: pre-approval confirmation, earnest money, contingencies, and timeline.`,
+        send_listings: `Write a message to buyer ${buyer.firstName} ${buyer.lastName} introducing curated property listings that match their criteria. Their needs: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Keep it professional and include a call to action to schedule viewings.`,
       };
 
       const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
@@ -165,7 +182,7 @@ Organize into:
       }));
       const { error } = await supabase.from('tasks').insert(tasks);
       if (error) throw error;
-      toast({ title: "Tasks Created", description: `${tasks.length} tasks created based on current buyer state.` });
+      toast({ title: "✓ Tasks created", description: `${tasks.length} tasks created based on current buyer state.` });
     } catch (err) {
       console.error('Task creation error:', err);
       toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
@@ -194,20 +211,34 @@ Organize into:
         <Progress value={completion.percentage} className="h-2" />
       </div>
 
-      {/* Next Step Card — or Action Ready pivot */}
-      {actionReady ? (
+      {/* Phase Card — context-aware based on buyer state */}
+      {phase !== 'profiling' ? (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <FileCheck className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Buyer is Search-Ready</span>
-            <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">ready</Badge>
+            <span className="text-sm font-semibold text-foreground">{phaseInfo.label}</span>
+            <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">{phaseInfo.badge}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">Core profile is complete. Focus on showings, search, and offer preparation.</p>
+          <p className="text-xs text-muted-foreground">{phaseInfo.description}</p>
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
-              {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-              Showing Coordination
-            </Button>
+            {(phase === 'search_ready' || phase === 'showing') && (
+              <>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('send_listings')} disabled={!!generating}>
+                  {generating === 'send_listings' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Home className="h-3 w-3" />}
+                  Send Listings
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
+                  {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                  Schedule Showings
+                </Button>
+              </>
+            )}
+            {phase === 'showing' && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('offer_prep')} disabled={!!generating}>
+                {generating === 'offer_prep' ? <Loader2 className="h-3 w-3 animate-spin" /> : <DollarSign className="h-3 w-3" />}
+                Prepare Offer
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
               {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
               Next Steps
@@ -227,11 +258,21 @@ Organize into:
               {completion.nextStep.category === 'required' ? 'blocker' : completion.nextStep.category}
             </Badge>
           </div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{completion.nextStep.label}</p>
+          <p className="text-sm font-medium text-foreground">{completion.nextStep.label}</p>
+          {completion.nextStep.resolution && (
+            <p className="text-xs text-muted-foreground">{completion.nextStep.resolution}</p>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
             {completion.nextStep.actionType === 'structure_needs' && buyer.wantsNeeds && (
               <Button size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
-                {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Structure'}
+                {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                Structure
+              </Button>
+            )}
+            {!completion.nextStep.actionType && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleCreateContextTasks} disabled={creatingTasks}>
+                {creatingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
+                Create Task to Resolve
               </Button>
             )}
           </div>
@@ -249,9 +290,12 @@ Organize into:
           </div>
           <div className="space-y-1.5">
             {completion.blockers.map((item) => (
-              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-destructive/5 border border-destructive/20">
+              <div key={item.key} className={`flex items-center justify-between py-1.5 px-2.5 rounded-md border transition-colors ${justCompleted === item.key ? 'bg-primary/10 border-primary/30' : 'bg-destructive/5 border-destructive/20'}`}>
                 <div className="flex items-center gap-2">
-                  <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  {justCompleted === item.key
+                    ? <CheckCircle2 className="h-3.5 w-3.5 text-primary animate-in fade-in" />
+                    : <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  }
                   <span className="text-sm text-foreground">{item.label}</span>
                 </div>
               </div>
@@ -268,9 +312,12 @@ Organize into:
           </h4>
           <div className="space-y-1.5">
             {completion.improvements.map((item) => (
-              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-muted/30 border border-border/50">
+              <div key={item.key} className={`flex items-center justify-between py-1.5 px-2.5 rounded-md border transition-colors ${justCompleted === item.key ? 'bg-primary/10 border-primary/30' : 'bg-muted/30 border-border/50'}`}>
                 <div className="flex items-center gap-2">
-                  <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  {justCompleted === item.key
+                    ? <CheckCircle2 className="h-3.5 w-3.5 text-primary animate-in fade-in" />
+                    : <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  }
                   <span className="text-sm text-foreground">{item.label}</span>
                   <Badge variant="outline" className="text-[9px] h-4">{item.category}</Badge>
                 </div>
@@ -319,8 +366,8 @@ Organize into:
         </Button>
       </div>
 
-      {/* Quick Drafts — only when not action-ready (action-ready has drafts in the card above) */}
-      {!actionReady && (
+      {/* Quick Drafts — only in profiling phase */}
+      {phase === 'profiling' && (
         <div className="flex flex-wrap gap-2">
           {buyer.wantsNeeds && (
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>

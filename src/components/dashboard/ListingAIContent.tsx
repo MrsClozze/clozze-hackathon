@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2, RefreshCw, Wand2, Loader2, ClipboardList, CheckCircle2, Circle, ListChecks, ArrowRight, AlertTriangle } from "lucide-react";
+import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2, RefreshCw, Wand2, Loader2, ClipboardList, CheckCircle2, Circle, ListChecks, ArrowRight, AlertTriangle, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +28,15 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
   const [auditRunning, setAuditRunning] = useState(false);
   const [auditResult, setAuditResult] = useState<string | null>(null);
   const [creatingTasks, setCreatingTasks] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<string | null>(null);
 
   const completion = useMemo(() => computeListingCompletion(listing), [listing]);
+
+  // Flash a success indicator on a checklist item, then clear
+  const flashComplete = (key: string) => {
+    setJustCompleted(key);
+    setTimeout(() => setJustCompleted(null), 2000);
+  };
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -42,6 +49,7 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
       if (error) throw error;
       onListingUpdate?.({ ...listing, description: descriptionDraft });
       setEditingDescription(false);
+      flashComplete('description');
       toast({ title: "Saved", description: "Listing description updated." });
     } catch {
       toast({ title: "Error", description: "Failed to save description.", variant: "destructive" });
@@ -95,18 +103,21 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
         await supabase.from('listings').update({ description: cleaned } as any).eq('id', listing.id);
         onListingUpdate?.({ ...listing, description: cleaned });
         setDescriptionDraft(cleaned);
-        toast({ title: "Generated", description: "New listing description saved." });
+        flashComplete('description');
+        toast({ title: "✓ Description saved", description: "MLS-ready description generated and saved." });
       } else if (type === 'highlights') {
         const highlights = generated.split('\n').map((l: string) => l.trim().replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '')).filter((l: string) => l.length > 2 && l.length < 300);
         await supabase.from('listings').update({ highlights } as any).eq('id', listing.id);
         onListingUpdate?.({ ...listing, highlights });
-        toast({ title: "Generated", description: `${highlights.length} highlights saved.` });
+        flashComplete('highlights');
+        toast({ title: "✓ Highlights saved", description: `${highlights.length} highlights generated and saved.` });
       } else if (type === 'marketing') {
         const key = variant || 'social';
         const updatedCopy = { ...listing.marketingCopy, [key]: generated.trim() };
         await supabase.from('listings').update({ marketing_copy: updatedCopy } as any).eq('id', listing.id);
         onListingUpdate?.({ ...listing, marketingCopy: updatedCopy });
-        toast({ title: "Generated", description: `${key} marketing copy saved.` });
+        flashComplete('marketing');
+        toast({ title: "✓ Marketing copy saved", description: `${key} copy generated and saved.` });
       }
     } catch (err: any) {
       console.error('Regenerate error:', err);
@@ -173,7 +184,7 @@ Use this exact format:
       }));
       const { error } = await supabase.from('tasks').insert(tasks);
       if (error) throw error;
-      toast({ title: "Tasks Created", description: `${tasks.length} tasks created based on current listing state.` });
+      toast({ title: "✓ Tasks created", description: `${tasks.length} tasks created based on current listing state.` });
     } catch (err) {
       console.error('Task creation error:', err);
       toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
@@ -188,7 +199,6 @@ Use this exact format:
     else if (item.actionType === 'generate_marketing') handleRegenerate('marketing', 'social');
   };
 
-  const incompleteItems = completion.items.filter(i => !i.complete);
   const completeItems = completion.items.filter(i => i.complete);
 
   return (
@@ -219,14 +229,37 @@ Use this exact format:
               {completion.nextStep.category === 'required' ? 'blocker' : completion.nextStep.category}
             </Badge>
           </div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{completion.nextStep.label}</p>
+          <p className="text-sm font-medium text-foreground">{completion.nextStep.label}</p>
+          {completion.nextStep.resolution && (
+            <p className="text-xs text-muted-foreground">{completion.nextStep.resolution}</p>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
             {completion.nextStep.actionType && completion.nextStep.actionLabel && (
               <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleChecklistAction(completion.nextStep!)} disabled={!!regenerating}>
-                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : completion.nextStep.actionLabel}
+                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                {completion.nextStep.actionLabel}
+              </Button>
+            )}
+            {/* Suggest creating a task for non-generatable items */}
+            {!completion.nextStep.actionType && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleCreateContextTasks} disabled={creatingTasks}>
+                {creatingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
+                Create Task to Resolve
               </Button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 100% Complete state */}
+      {completion.percentage === 100 && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Listing Fully Ready</span>
+            <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">complete</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">All required, recommended, and optional fields are complete.</p>
         </div>
       )}
 
@@ -241,9 +274,12 @@ Use this exact format:
           </div>
           <div className="space-y-1.5">
             {completion.blockers.map((item) => (
-              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-destructive/5 border border-destructive/20">
+              <div key={item.key} className={`flex items-center justify-between py-1.5 px-2.5 rounded-md border transition-colors ${justCompleted === item.key ? 'bg-primary/10 border-primary/30' : 'bg-destructive/5 border-destructive/20'}`}>
                 <div className="flex items-center gap-2">
-                  <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  {justCompleted === item.key
+                    ? <CheckCircle2 className="h-3.5 w-3.5 text-primary animate-in fade-in" />
+                    : <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  }
                   <span className="text-sm text-foreground">{item.label}</span>
                 </div>
                 {item.actionType && item.actionLabel && (
@@ -265,9 +301,12 @@ Use this exact format:
           </h4>
           <div className="space-y-1.5">
             {completion.improvements.map((item) => (
-              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-muted/30 border border-border/50">
+              <div key={item.key} className={`flex items-center justify-between py-1.5 px-2.5 rounded-md border transition-colors ${justCompleted === item.key ? 'bg-primary/10 border-primary/30' : 'bg-muted/30 border-border/50'}`}>
                 <div className="flex items-center gap-2">
-                  <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  {justCompleted === item.key
+                    ? <CheckCircle2 className="h-3.5 w-3.5 text-primary animate-in fade-in" />
+                    : <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  }
                   <span className="text-sm text-foreground">{item.label}</span>
                   <Badge variant="outline" className="text-[9px] h-4">{item.category}</Badge>
                 </div>
