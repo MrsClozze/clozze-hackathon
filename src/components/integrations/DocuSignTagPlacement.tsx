@@ -55,11 +55,11 @@ interface DocuSignTagPlacementProps {
 }
 
 const TAG_TYPES = [
-  { type: "signHere" as const, label: "Signature", icon: PenTool, color: "bg-yellow-500" },
-  { type: "initialHere" as const, label: "Initials", icon: Type, color: "bg-blue-500" },
-  { type: "dateSigned" as const, label: "Date Signed", icon: Calendar, color: "bg-green-500" },
-  { type: "fullName" as const, label: "Full Name", icon: User, color: "bg-purple-500" },
-  { type: "email" as const, label: "Email", icon: Mail, color: "bg-orange-500" },
+  { type: "signHere" as const, label: "Signature", icon: PenTool, borderColor: "border-yellow-500", bgColor: "bg-yellow-500/20", textColor: "text-yellow-700", dotColor: "bg-yellow-500" },
+  { type: "initialHere" as const, label: "Initials", icon: Type, borderColor: "border-blue-500", bgColor: "bg-blue-500/20", textColor: "text-blue-700", dotColor: "bg-blue-500" },
+  { type: "dateSigned" as const, label: "Date Signed", icon: Calendar, borderColor: "border-green-500", bgColor: "bg-green-500/20", textColor: "text-green-700", dotColor: "bg-green-500" },
+  { type: "fullName" as const, label: "Full Name", icon: User, borderColor: "border-purple-500", bgColor: "bg-purple-500/20", textColor: "text-purple-700", dotColor: "bg-purple-500" },
+  { type: "email" as const, label: "Email", icon: Mail, borderColor: "border-orange-500", bgColor: "bg-orange-500/20", textColor: "text-orange-700", dotColor: "bg-orange-500" },
 ];
 
 const RECIPIENT_COLORS = [
