@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
+import ClozzeAIInlineAssistant from "@/components/assistant/ClozzeAIInlineAssistant";
+import type { ParsedBuyerData } from "@/hooks/useClozzeAICreate";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useBuyers } from "@/contexts/BuyersContext";
