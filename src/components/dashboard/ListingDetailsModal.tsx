@@ -730,6 +730,10 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         </div>
           </TabsContent>
 
+          <TabsContent value="ai-content">
+            <ListingAIContent listing={currentListing} onListingUpdate={onListingUpdate} />
+          </TabsContent>
+
           <TabsContent value="contacts">
             <ProfileContactsTab recordType="listing" recordId={listing.id} />
           </TabsContent>
