@@ -115,7 +115,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         status: listing.status,
         daysOnMarket: listing.days_on_market || 0,
         commission: listing.agent_commission || 0,
-        image: property1, // Default image for now
+        image: property1,
         sellerFirstName: listing.seller_first_name || '',
         sellerLastName: listing.seller_last_name || '',
         sellerEmail: listing.seller_email || '',
@@ -137,6 +137,10 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         totalCommission: (listing.agent_commission || 0) * 2,
         agentCommission: listing.agent_commission || 0,
         brokerageCommission: listing.agent_commission || 0,
+        description: (listing as any).description || '',
+        highlights: (listing as any).highlights || [],
+        internalNotes: Array.isArray((listing as any).internal_notes) ? (listing as any).internal_notes : [],
+        marketingCopy: (listing as any).marketing_copy && typeof (listing as any).marketing_copy === 'object' ? (listing as any).marketing_copy : {},
         isDemo: false,
       }));
 
