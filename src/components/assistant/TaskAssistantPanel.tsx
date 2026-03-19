@@ -202,6 +202,41 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  const handleMarkComplete = () => {
+    setConfirmAction({
+      type: 'mark_complete',
+      label: 'Mark Task Complete',
+      description: `Are you sure you want to mark "${task.title}" as completed? You can undo this later.`,
+    });
+  };
+
+  const handleUpdatePriority = (priority: string) => {
+    setConfirmAction({
+      type: 'update_priority',
+      label: `Set Priority to ${priority.charAt(0).toUpperCase() + priority.slice(1)}`,
+      description: `Change the priority of "${task.title}" to ${priority}?`,
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    try {
+      if (confirmAction.type === 'mark_complete') {
+        await executeAction("mark_complete", {});
+        toast({ title: "Task Completed", description: "Task has been marked as complete." });
+      } else if (confirmAction.type === 'update_priority') {
+        const priority = confirmAction.label.split(' ').pop()?.toLowerCase() || 'medium';
+        await executeAction("update_priority", { priority });
+        toast({ title: "Priority Updated", description: `Priority set to ${priority}.` });
+      }
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Action failed.", variant: "destructive" });
+    } finally {
+      setConfirmAction(null);
+    }
+  };
+
   const handlePlayLastResponse = () => {
     const lastAssistantMsg = [...messages].reverse().find(m => m.role === "assistant");
     if (lastAssistantMsg?.content) {
