@@ -3,12 +3,14 @@ import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
 import { useTasks } from "@/contexts/TasksContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays, parse } from "date-fns";
 import TaskDetailsModal from "./TaskDetailsModal";
 
 export default function UrgentTasksSidebar() {
   const { tasks, openTaskModal } = useTasks();
+  const { listings } = useListings();
   const navigate = useNavigate();
 
   // Get the 5 most urgent tasks sorted by due date
@@ -73,7 +75,13 @@ export default function UrgentTasksSidebar() {
                           {task.title}
                         </h4>
                         <p className="text-xs text-text-muted mt-1">
-                          {task.address || "No address"}
+                          {task.address || (() => {
+                            if (task.listingId) {
+                              const listing = listings.find(l => l.id === task.listingId);
+                              if (listing) return `${listing.address}, ${listing.city}`;
+                            }
+                            return "No address";
+                          })()}
                         </p>
                       </div>
                     </div>

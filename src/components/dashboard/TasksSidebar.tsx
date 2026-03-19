@@ -152,7 +152,14 @@ export default function TasksSidebar() {
                   <Clock className="h-3 w-3" />
                   {task.dueDate || task.date}
                 </div>
-                {task.address && <div>{task.address}</div>}
+                {(task.address || task.listingId) && (
+                  <div>
+                    {task.address || (() => {
+                      const listing = listings.find(l => l.id === task.listingId);
+                      return listing ? `${listing.address}, ${listing.city}` : null;
+                    })()}
+                  </div>
+                )}
                 {task.assignee && <div>{task.assignee}</div>}
                 {(() => {
                   const source = getTaskSourceLabel(task);

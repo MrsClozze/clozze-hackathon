@@ -346,9 +346,24 @@ export default function TaskDetailsModal() {
                     setEditedTask(editedTask ? { ...editedTask, address: e.target.value } : null)
                   }
                   className="mt-1"
+                  placeholder={(() => {
+                    if (currentTask.listingId) {
+                      const listing = listings.find(l => l.id === currentTask.listingId);
+                      if (listing) return `${listing.address}, ${listing.city}`;
+                    }
+                    return "Enter address";
+                  })()}
                 />
               ) : (
-                <div className="text-sm mt-1">{currentTask.address || "N/A"}</div>
+                <div className="text-sm mt-1">
+                  {currentTask.address || (() => {
+                    if (currentTask.listingId) {
+                      const listing = listings.find(l => l.id === currentTask.listingId);
+                      if (listing) return `${listing.address}, ${listing.city}`;
+                    }
+                    return "No address";
+                  })()}
+                </div>
               )}
             </div>
 
