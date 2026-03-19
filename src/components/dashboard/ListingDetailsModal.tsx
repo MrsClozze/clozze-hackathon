@@ -20,6 +20,7 @@ import { ListingData, useListings } from "@/contexts/ListingsContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 import TransactionSuggestedTasks from "@/components/transactions/TransactionSuggestedTasks";
+import ListingAIContent from "./ListingAIContent";
 
 const LISTING_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
