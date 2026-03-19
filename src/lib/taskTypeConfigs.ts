@@ -220,12 +220,13 @@ export function buildAutoContextMessage(ctx: AutoContextData): string {
  * Uses smarter heuristics to differentiate output types and avoid duplicates.
  */
 export interface ParsedAction {
-  type: 'save_notes' | 'create_tasks' | 'save_draft' | 'copy_text';
+  type: 'save_notes' | 'create_tasks' | 'create_follow_up' | 'save_draft' | 'save_to_listing' | 'copy_text';
   label: string;
   content: string;
+  metadata?: Record<string, any>;
 }
 
-export function parseResponseActions(content: string): ParsedAction[] {
+export function parseResponseActions(content: string, taskContext?: { listingId?: string | null }): ParsedAction[] {
   const actions: ParsedAction[] = [];
   const detectedTypes = new Set<string>();
 
@@ -239,14 +240,25 @@ export function parseResponseActions(content: string): ParsedAction[] {
     if (taskItems.length >= 2) {
       actions.push({
         type: 'create_tasks',
-        label: 'Create Tasks',
+        label: `Create ${taskItems.length} Tasks`,
         content: taskItems.join('\n'),
       });
       detectedTypes.add('create_tasks');
     }
   }
 
-  // 2. Check for draft-like content (email drafts, descriptions, message templates)
+  // 2. Check for follow-up suggestions (explicit follow-up language)
+  const followUpPattern = /follow[- ]?up|remind|check back|circle back|revisit/i;
+  if (followUpPattern.test(content) && !detectedTypes.has('create_tasks')) {
+    actions.push({
+      type: 'create_follow_up',
+      label: 'Create Follow-Up',
+      content,
+    });
+    detectedTypes.add('create_follow_up');
+  }
+
+  // 3. Check for draft-like content (email drafts, descriptions, message templates)
   const draftPatterns = [
     /subject:/i, /dear\s/i, /hi\s/i, /hello\s/i,
     /draft/i, /template/i, /description:/i,
@@ -262,7 +274,24 @@ export function parseResponseActions(content: string): ParsedAction[] {
     detectedTypes.add('save_draft');
   }
 
-  // 3. For summaries and analysis (substantial content without being a draft)
+  // 4. Check for listing-specific content (descriptions, highlights)
+  if (taskContext?.listingId) {
+    const listingContentPatterns = [
+      /listing description/i, /mls description/i, /property description/i,
+      /key features/i, /highlights/i, /selling points/i,
+    ];
+    if (listingContentPatterns.some(p => p.test(content))) {
+      actions.push({
+        type: 'save_to_listing',
+        label: 'Save to Listing',
+        content,
+        metadata: { listingId: taskContext.listingId },
+      });
+      detectedTypes.add('save_to_listing');
+    }
+  }
+
+  // 5. For summaries and analysis (substantial content without being a draft)
   if (!detectedTypes.has('save_draft') && content.length > 150) {
     actions.push({
       type: 'save_notes',
@@ -272,7 +301,7 @@ export function parseResponseActions(content: string): ParsedAction[] {
     detectedTypes.add('save_notes');
   }
 
-  // 4. If we have a draft, also offer save to notes (different label to distinguish)
+  // 6. If we have a draft, also offer save to notes
   if (detectedTypes.has('save_draft') && content.length > 150) {
     actions.push({
       type: 'save_notes',
