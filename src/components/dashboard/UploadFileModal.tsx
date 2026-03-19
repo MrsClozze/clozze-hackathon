@@ -205,6 +205,10 @@ export default function UploadFileModal({ open, onOpenChange }: UploadFileModalP
           totalCommission: agentCommission * 2,
           agentCommission,
           brokerageCommission: agentCommission,
+          description: '',
+          highlights: [],
+          internalNotes: [],
+          marketingCopy: {},
         });
         createdId = result?.id;
       } else if (cardType === "buyer") {

@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
@@ -23,6 +24,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   const typeConfig = getTaskTypeConfig(task.title);
   const { buyers } = useBuyers();
   const { listings } = useListings();
+  const [confirmAction, setConfirmAction] = useState<{ type: string; label: string; description: string } | null>(null);
 
   // Build context info for display
   const contextInfo = useMemo(() => {
@@ -200,6 +202,41 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  const handleMarkComplete = () => {
+    setConfirmAction({
+      type: 'mark_complete',
+      label: 'Mark Task Complete',
+      description: `Are you sure you want to mark "${task.title}" as completed? You can undo this later.`,
+    });
+  };
+
+  const handleUpdatePriority = (priority: string) => {
+    setConfirmAction({
+      type: 'update_priority',
+      label: `Set Priority to ${priority.charAt(0).toUpperCase() + priority.slice(1)}`,
+      description: `Change the priority of "${task.title}" to ${priority}?`,
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    try {
+      if (confirmAction.type === 'mark_complete') {
+        await executeAction("mark_complete", {});
+        toast({ title: "Task Completed", description: "Task has been marked as complete." });
+      } else if (confirmAction.type === 'update_priority') {
+        const priority = confirmAction.label.split(' ').pop()?.toLowerCase() || 'medium';
+        await executeAction("update_priority", { priority });
+        toast({ title: "Priority Updated", description: `Priority set to ${priority}.` });
+      }
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Action failed.", variant: "destructive" });
+    } finally {
+      setConfirmAction(null);
+    }
+  };
+
   const handlePlayLastResponse = () => {
     const lastAssistantMsg = [...messages].reverse().find(m => m.role === "assistant");
     if (lastAssistantMsg?.content) {
@@ -348,6 +385,22 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         onStopRecording={stopRecording}
         onTranscriptChange={setTranscript}
       />
+
+      {/* Confirmation Dialog for Direct Execution */}
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmAction?.label}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmAction?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

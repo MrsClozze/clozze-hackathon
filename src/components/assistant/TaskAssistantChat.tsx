@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions } from "@/lib/taskTypeConfigs";
@@ -25,6 +25,8 @@ interface TaskAssistantChatProps {
   onSaveToListingHighlights?: (content: string) => void;
   onSaveToListingNotes?: (content: string) => void;
   onSaveToListingMarketing?: (content: string) => void;
+  onMarkComplete?: () => void;
+  onUpdatePriority?: (priority: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
@@ -60,6 +62,8 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   save_to_listing_highlights: Tag,
   save_to_listing_notes: Save,
   save_to_listing_marketing: Megaphone,
+  mark_complete: CheckCircle2,
+  update_priority: ArrowUpCircle,
   copy_text: Copy,
 };
 

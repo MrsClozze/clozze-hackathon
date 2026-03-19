@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
 import ProfileContactsTab from "./ProfileContactsTab";
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
@@ -20,6 +20,7 @@ import { ListingData, useListings } from "@/contexts/ListingsContext";
 import TransactionGuidanceBanner from "@/components/transactions/TransactionGuidanceBanner";
 import TransactionPromptModal from "@/components/transactions/TransactionPromptModal";
 import TransactionSuggestedTasks from "@/components/transactions/TransactionSuggestedTasks";
+import ListingAIContent from "./ListingAIContent";
 
 const LISTING_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -219,8 +220,12 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-11 bg-card-elevated border border-card-border rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-11 bg-card-elevated border border-card-border rounded-lg p-1">
             <TabsTrigger value="details" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Details</TabsTrigger>
+            <TabsTrigger value="ai-content" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Content
+            </TabsTrigger>
             <TabsTrigger value="contacts" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Contacts</TabsTrigger>
             <TabsTrigger value="communication" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Communication</TabsTrigger>
           </TabsList>
@@ -723,6 +728,10 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="ai-content">
+            <ListingAIContent listing={currentListing} onListingUpdate={onListingUpdate} />
           </TabsContent>
 
           <TabsContent value="contacts">
