@@ -106,7 +106,7 @@ export function DocuSignTagPlacement({
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d")!;
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
       setPageImage(canvas.toDataURL());
       setPageDimensions({ width: viewport.width, height: viewport.height });
     } catch (err) {
