@@ -81,11 +81,13 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     isRecording,
     isPlayingAudio,
     transcript,
+    hasLastResponse,
     setTranscript,
     startRecording,
     stopRecording,
     playResponse,
     stopPlayback,
+    replayLastResponse,
   } = useTaskVoice();
 
   // Show suggested actions from config when no server suggestions yet
