@@ -22,6 +22,19 @@ export interface CompletionResult {
   improvements: CompletionItem[];
 }
 
+/** Grouped action definition — chains multiple completion items into one flow */
+export interface GroupedAction {
+  id: string;
+  label: string;
+  description: string;
+  /** Keys of the completion items this action resolves */
+  resolves: string[];
+  /** What action types it chains */
+  actionTypes: string[];
+  /** Only show when all resolved keys are incomplete */
+  applicableWhenAllMissing: boolean;
+}
+
 const CATEGORY_WEIGHTS: Record<CompletionItem['category'], number> = {
   required: 3,
   recommended: 2,
@@ -39,25 +52,57 @@ function computeWeightedPercentage(items: CompletionItem[]): number {
   return totalWeight === 0 ? 100 : Math.round((completedWeight / totalWeight) * 100);
 }
 
-export function computeListingCompletion(listing: {
-  description?: string;
-  highlights?: string[];
-  sellerFirstName?: string;
-  sellerLastName?: string;
-  sellerEmail?: string;
-  sellerPhone?: string;
-  address?: string;
-  city?: string;
-  zipcode?: string;
-  price?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  sqFeet?: number;
-  marketingCopy?: Record<string, string>;
-  internalNotes?: any[];
-  listingStartDate?: string;
-  commissionPercentage?: number;
-}): CompletionResult {
+/**
+ * Compute the next step with workflow-awareness.
+ * Considers the last completed action to prefer adjacent/related steps
+ * over jumping to unrelated fields.
+ */
+function computeNextStep(
+  items: CompletionItem[],
+  lastCompletedActionKey: string | null,
+): CompletionItem | null {
+  const incomplete = items.filter(i => !i.complete);
+  if (incomplete.length === 0) return null;
+
+  // If we just completed an action, prefer the next item in the same category
+  // to maintain workflow momentum
+  if (lastCompletedActionKey) {
+    const lastItem = items.find(i => i.key === lastCompletedActionKey);
+    if (lastItem) {
+      // Find the next incomplete item in the same category with higher priority number
+      const sameCategoryNext = incomplete.find(
+        i => i.category === lastItem.category && i.priority > lastItem.priority
+      );
+      if (sameCategoryNext) return sameCategoryNext;
+    }
+  }
+
+  // Default: highest priority incomplete item
+  return incomplete[0];
+}
+
+export function computeListingCompletion(
+  listing: {
+    description?: string;
+    highlights?: string[];
+    sellerFirstName?: string;
+    sellerLastName?: string;
+    sellerEmail?: string;
+    sellerPhone?: string;
+    address?: string;
+    city?: string;
+    zipcode?: string;
+    price?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    sqFeet?: number;
+    marketingCopy?: Record<string, string>;
+    internalNotes?: any[];
+    listingStartDate?: string;
+    commissionPercentage?: number;
+  },
+  lastCompletedActionKey?: string | null,
+): CompletionResult {
   const items: CompletionItem[] = [
     // Required — blockers (priority 1-7)
     { key: 'address', label: 'Property address', complete: !!(listing.address && listing.city), category: 'required', priority: 1, resolution: 'Add the property address and city in the listing details.' },
@@ -87,21 +132,24 @@ export function computeListingCompletion(listing: {
   const incompleteItems = items.filter(i => !i.complete);
   const blockers = incompleteItems.filter(i => i.category === 'required');
   const improvements = incompleteItems.filter(i => i.category !== 'required');
-  const nextStep = incompleteItems[0] || null;
+  const nextStep = computeNextStep(items, lastCompletedActionKey ?? null);
 
   return { percentage, items, completeCount, totalCount, nextStep, blockers, improvements };
 }
 
-export function computeBuyerCompletion(buyer: {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-  wantsNeeds?: string;
-  preApprovedAmount?: number;
-  commissionPercentage?: number;
-  status?: string;
-}): CompletionResult {
+export function computeBuyerCompletion(
+  buyer: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    wantsNeeds?: string;
+    preApprovedAmount?: number;
+    commissionPercentage?: number;
+    status?: string;
+  },
+  lastCompletedActionKey?: string | null,
+): CompletionResult {
   const hasStructuredNeeds = !!(buyer.wantsNeeds && buyer.wantsNeeds.length > 10);
 
   const items: CompletionItem[] = [
@@ -122,7 +170,7 @@ export function computeBuyerCompletion(buyer: {
   const incompleteItems = items.filter(i => !i.complete);
   const blockers = incompleteItems.filter(i => i.category === 'required');
   const improvements = incompleteItems.filter(i => i.category !== 'required');
-  const nextStep = incompleteItems[0] || null;
+  const nextStep = computeNextStep(items, lastCompletedActionKey ?? null);
 
   return { percentage, items, completeCount, totalCount, nextStep, blockers, improvements };
 }
@@ -145,6 +193,94 @@ export function getBuyerPhase(buyer: {
   if (!hasContact || !hasPreApproval) return 'profiling';
   if (!hasNeeds) return 'search_ready';
   return 'showing'; // has contact + budget + structured needs
+}
+
+// ── Grouped Actions ──
+
+export function getListingGroupedActions(completion: CompletionResult): GroupedAction[] {
+  const actions: GroupedAction[] = [];
+  const missingKeys = new Set(completion.items.filter(i => !i.complete).map(i => i.key));
+
+  // Content bundle: description + highlights
+  if (missingKeys.has('description') && missingKeys.has('highlights')) {
+    actions.push({
+      id: 'complete_listing_content',
+      label: 'Complete Listing Content',
+      description: 'Generate and save both description and highlights in one step.',
+      resolves: ['description', 'highlights'],
+      actionTypes: ['generate_description', 'generate_highlights'],
+      applicableWhenAllMissing: true,
+    });
+  }
+
+  // Marketing bundle: marketing + research
+  if (missingKeys.has('marketing') && missingKeys.has('research')) {
+    actions.push({
+      id: 'prepare_marketing',
+      label: 'Prepare Marketing & Research',
+      description: 'Generate marketing copy and run property research.',
+      resolves: ['marketing', 'research'],
+      actionTypes: ['generate_marketing', 'run_research'],
+      applicableWhenAllMissing: true,
+    });
+  }
+
+  // Single marketing if only that is missing
+  if (missingKeys.has('marketing') && !missingKeys.has('research')) {
+    actions.push({
+      id: 'generate_marketing_only',
+      label: 'Generate Marketing Copy',
+      description: 'Create social media and email marketing content.',
+      resolves: ['marketing'],
+      actionTypes: ['generate_marketing'],
+      applicableWhenAllMissing: false,
+    });
+  }
+
+  return actions;
+}
+
+export function getBuyerGroupedActions(completion: CompletionResult, phase: BuyerPhase): GroupedAction[] {
+  const actions: GroupedAction[] = [];
+  const missingKeys = new Set(completion.items.filter(i => !i.complete).map(i => i.key));
+
+  if (phase === 'profiling') {
+    // Intake bundle: structure needs if available
+    if (missingKeys.has('wantsNeeds')) {
+      actions.push({
+        id: 'complete_buyer_intake',
+        label: 'Complete Buyer Intake',
+        description: 'Structure wants/needs and prepare the buyer profile for search.',
+        resolves: ['wantsNeeds'],
+        actionTypes: ['structure_needs'],
+        applicableWhenAllMissing: false,
+      });
+    }
+  }
+
+  if (phase === 'search_ready' || phase === 'showing') {
+    actions.push({
+      id: 'prepare_for_search',
+      label: 'Prepare for Search',
+      description: 'Generate curated listings draft and create showing tasks.',
+      resolves: [],
+      actionTypes: ['send_listings', 'create_showing_tasks'],
+      applicableWhenAllMissing: false,
+    });
+  }
+
+  if (phase === 'showing') {
+    actions.push({
+      id: 'prepare_offer',
+      label: 'Prepare for Offer',
+      description: 'Generate offer prep summary and comparison worksheet tasks.',
+      resolves: [],
+      actionTypes: ['offer_prep', 'create_offer_tasks'],
+      applicableWhenAllMissing: false,
+    });
+  }
+
+  return actions;
 }
 
 // Context-aware task bundles based on what's actually missing
