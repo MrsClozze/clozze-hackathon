@@ -461,108 +461,16 @@ export function SendWithDocuSignModal({
         </DialogHeader>
 
         <div className="space-y-5 py-4">
-          {/* Data mapping indicator when auto-filled */}
-          {defaultRecipients.length > 0 && (
-            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
-              <p className="text-xs font-medium text-primary flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Client data auto-filled
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Recipient details have been pre-populated from the selected client profile. You can edit them below.
-              </p>
-            </div>
-          )}
-
-          {/* Document Upload */}
+          {/* Recipients — shown first, right after auto-fill indicator */}
           <div>
-            <Label className="text-sm font-medium mb-2 block">
-              Documents {files.length > 0 && `(${files.length})`}
-            </Label>
-
-            {files.length > 0 && (
-              <div className="space-y-2 mb-3">
-                {files.map((f, idx) => (
-                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{f.file.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(f.file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeFile(idx)} className="flex-shrink-0">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {files.length < 10 && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors group"
-              >
-                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
-                <p className="text-sm font-medium">
-                  {files.length === 0 ? "Click to upload document(s)" : "Add another document"}
+            {defaultRecipients.length > 0 && (
+              <div className="p-3 rounded-lg border border-primary/30 bg-primary/5 mb-3">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Client data auto-filled
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 25MB each, up to 10 files)</p>
-              </button>
+              </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx"
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
-
-          {/* Email Subject */}
-          <div>
-            <Label className="text-sm font-medium mb-1.5 block">Email Subject</Label>
-            <Input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder={files.length > 0 ? `Please sign: ${files[0].file.name}` : "Please sign the attached document"}
-            />
-          </div>
-
-          {/* Message */}
-          <div>
-            <Label className="text-sm font-medium mb-1.5 block">Message (optional)</Label>
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Please review and sign the attached document."
-              className="min-h-[80px]"
-            />
-          </div>
-
-          {/* Notification Settings */}
-          <div className="space-y-3 p-3 rounded-lg border bg-muted/10">
-            <Label className="text-sm font-medium">Notification Settings</Label>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm">Reminders</p>
-                <p className="text-xs text-muted-foreground">Send reminder after 3 days, then every 5 days</p>
-              </div>
-              <Switch checked={enableReminders} onCheckedChange={setEnableReminders} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm">Expiration</p>
-                <p className="text-xs text-muted-foreground">Expire after 30 days, warn 3 days before</p>
-              </div>
-              <Switch checked={enableExpiration} onCheckedChange={setEnableExpiration} />
-            </div>
-          </div>
-
-          {/* Recipients */}
-          <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-sm font-medium">Recipients</Label>
               <Button variant="ghost" size="sm" onClick={addRecipient} className="h-7 text-xs gap-1">
@@ -600,6 +508,8 @@ export function SendWithDocuSignModal({
               ))}
             </div>
           </div>
+
+          {/* Document Upload */}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
