@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions } from "@/lib/taskTypeConfigs";
