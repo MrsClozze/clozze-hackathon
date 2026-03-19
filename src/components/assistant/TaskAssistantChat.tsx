@@ -56,6 +56,10 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   create_follow_up: CalendarPlus,
   save_draft: FileText,
   save_to_listing: Home,
+  save_to_listing_description: FileEdit,
+  save_to_listing_highlights: Tag,
+  save_to_listing_notes: Save,
+  save_to_listing_marketing: Megaphone,
   copy_text: Copy,
 };
 
