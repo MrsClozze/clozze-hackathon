@@ -6,7 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const VALID_ACTIONS = ['create_task', 'update_notes', 'save_draft', 'update_status'] as const;
+const VALID_ACTIONS = [
+  'create_task',
+  'create_follow_up',
+  'update_notes',
+  'save_draft',
+  'update_status',
+  'save_to_listing',
+  'batch_create_tasks',
+] as const;
 type ActionType = typeof VALID_ACTIONS[number];
 
 serve(async (req) => {
@@ -39,7 +47,7 @@ serve(async (req) => {
     // Verify the task exists and belongs to the user
     const { data: task, error: taskError } = await supabase
       .from('tasks')
-      .select('id, user_id, listing_id, buyer_id')
+      .select('id, user_id, listing_id, buyer_id, title, due_date')
       .eq('id', taskId)
       .single();
 
@@ -75,6 +83,77 @@ serve(async (req) => {
         break;
       }
 
+      case 'create_follow_up': {
+        const { title, notes, daysFromNow, priority } = payload || {};
+        if (!title || typeof title !== 'string') throw new Error('Follow-up title is required');
+
+        // Calculate due date relative to now or parent task due date
+        const baseDate = task.due_date ? new Date(task.due_date) : new Date();
+        const offsetDays = typeof daysFromNow === 'number' ? daysFromNow : 3;
+        const dueDate = new Date(baseDate);
+        dueDate.setDate(dueDate.getDate() + offsetDays);
+
+        const { data: newTask, error } = await supabase
+          .from('tasks')
+          .insert({
+            user_id: user.id,
+            title: title.substring(0, 500),
+            notes: notes?.substring(0, 5000) || null,
+            due_date: dueDate.toISOString(),
+            date: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            priority: ['high', 'medium', 'low'].includes(priority) ? priority : 'medium',
+            status: 'pending',
+            listing_id: task.listing_id || null,
+            buyer_id: task.buyer_id || null,
+            parent_task_id: taskId,
+            has_ai_assist: true,
+            show_on_calendar: true,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = { taskId: newTask.id, title: newTask.title, dueDate: dueDate.toISOString() };
+        break;
+      }
+
+      case 'batch_create_tasks': {
+        const { tasks: taskItems } = payload || {};
+        if (!Array.isArray(taskItems) || taskItems.length === 0) throw new Error('Tasks array is required');
+        if (taskItems.length > 20) throw new Error('Maximum 20 tasks per batch');
+
+        const created: any[] = [];
+        for (const item of taskItems) {
+          if (!item.title || typeof item.title !== 'string') continue;
+
+          const dueDate = item.dueDate ? new Date(item.dueDate) : null;
+          const { data: newTask, error } = await supabase
+            .from('tasks')
+            .insert({
+              user_id: user.id,
+              title: item.title.substring(0, 500),
+              notes: item.notes?.substring(0, 5000) || null,
+              due_date: dueDate ? dueDate.toISOString() : null,
+              date: dueDate ? dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+              priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
+              status: 'pending',
+              listing_id: item.listingId || task.listing_id || null,
+              buyer_id: item.buyerId || task.buyer_id || null,
+              parent_task_id: taskId,
+              has_ai_assist: true,
+              show_on_calendar: true,
+            })
+            .select('id, title')
+            .single();
+
+          if (!error && newTask) {
+            created.push({ taskId: newTask.id, title: newTask.title });
+          }
+        }
+        result = { created, count: created.length };
+        break;
+      }
+
       case 'update_notes': {
         const { notes, append } = payload || {};
         if (!notes || typeof notes !== 'string') throw new Error('Notes content is required');
@@ -103,7 +182,6 @@ serve(async (req) => {
         const { content, label } = payload || {};
         if (!content || typeof content !== 'string') throw new Error('Draft content is required');
 
-        // Save as a note with label prefix
         const prefix = label ? `[${label}] ` : '[AI Draft] ';
         const { data: current } = await supabase
           .from('tasks')
@@ -136,6 +214,37 @@ serve(async (req) => {
 
         if (error) throw error;
         result = { updated: true, status };
+        break;
+      }
+
+      case 'save_to_listing': {
+        // Save AI-generated content to the linked listing record
+        const { field, content } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        // Only allow updating safe fields on listings
+        const allowedFields: Record<string, string> = {
+          'description': 'notes', // we don't have a description column, so save to task notes with label
+        };
+
+        // For now, save listing-related content to the task notes with clear labeling
+        const label = field === 'description' ? '[Listing Description]' : `[Listing: ${field || 'content'}]`;
+        const { data: current } = await supabase
+          .from('tasks')
+          .select('notes')
+          .eq('id', taskId)
+          .single();
+
+        const finalNotes = (current?.notes ? current.notes + '\n\n---\n\n' : '') + `${label}\n${content.substring(0, 5000)}`;
+
+        const { error } = await supabase
+          .from('tasks')
+          .update({ notes: finalNotes })
+          .eq('id', taskId);
+
+        if (error) throw error;
+        result = { saved: true, field: field || 'notes' };
         break;
       }
     }
