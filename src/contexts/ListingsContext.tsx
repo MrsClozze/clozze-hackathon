@@ -86,7 +86,7 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
 
     // In demo mode, show the demo listing
     if (isDemo) {
-      setListings([{ ...DEMO_LISTING, isDemo: true }]);
+      setListings([{ ...DEMO_LISTING, description: '', highlights: [], internalNotes: [], marketingCopy: {}, isDemo: true }]);
       setLoading(false);
       return;
     }
