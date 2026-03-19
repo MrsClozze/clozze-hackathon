@@ -3,6 +3,7 @@ import BentoCard from "./BentoCard";
 import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
 import { useTasks } from "@/contexts/TasksContext";
+import { useListings } from "@/contexts/ListingsContext";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays, parse } from "date-fns";
 import TaskDetailsModal from "./TaskDetailsModal";
