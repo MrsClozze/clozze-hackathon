@@ -25,6 +25,8 @@ interface TaskAssistantChatProps {
   onSaveToListingHighlights?: (content: string) => void;
   onSaveToListingNotes?: (content: string) => void;
   onSaveToListingMarketing?: (content: string) => void;
+  onMarkComplete?: () => void;
+  onUpdatePriority?: (priority: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
