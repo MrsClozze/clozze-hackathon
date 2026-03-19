@@ -86,6 +86,7 @@ export function DocuSignTagPlacement({
   const [selectedRecipientIndex, setSelectedRecipientIndex] = useState(0);
   const [draggingTagId, setDraggingTagId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const justFinishedDrag = useRef(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
 
