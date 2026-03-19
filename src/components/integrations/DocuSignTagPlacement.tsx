@@ -124,7 +124,11 @@ export function DocuSignTagPlacement({
   }, [currentDocIndex, currentPage, files, renderPage]);
 
   const handlePageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (draggingTagId) return;
+    // Prevent placing a tag right after finishing a drag or deleting
+    if (draggingTagId || justFinishedDrag.current) {
+      justFinishedDrag.current = false;
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
