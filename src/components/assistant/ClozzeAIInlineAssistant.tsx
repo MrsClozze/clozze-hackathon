@@ -73,6 +73,17 @@ export default function ClozzeAIInlineAssistant({
 
   const flowLabel = FLOW_LABELS[flow];
 
+  // Reset conversation when flow changes (context isolation)
+  useEffect(() => {
+    if (prevFlowRef.current !== flow) {
+      clearConversation();
+      setInput("");
+      setApplied(false);
+      setIsExpanded(false);
+      prevFlowRef.current = flow;
+    }
+  }, [flow, clearConversation]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {

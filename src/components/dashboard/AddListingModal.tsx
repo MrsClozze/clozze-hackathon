@@ -328,10 +328,10 @@ export default function AddListingModal({ open, onOpenChange, onCreated }: AddLi
                 if (listing.city) updateFormField("city", listing.city);
                 if (listing.zipcode) updateFormField("zipcode", listing.zipcode);
                 if (listing.county) updateFormField("county", listing.county);
-                if (listing.bedrooms) updateFormField("bedrooms", String(listing.bedrooms));
-                if (listing.bathrooms) updateFormField("bathrooms", String(listing.bathrooms));
-                if (listing.sqFeet) updateFormField("sqFeet", String(listing.sqFeet));
-                if (listing.listingPrice) updateFormField("listingPrice", String(listing.listingPrice));
+                if (listing.bedrooms != null) updateFormField("bedrooms", String(listing.bedrooms));
+                if (listing.bathrooms != null) updateFormField("bathrooms", String(listing.bathrooms));
+                if (listing.sqFeet != null) updateFormField("sqFeet", String(listing.sqFeet));
+                if (listing.listingPrice != null) updateFormField("listingPrice", String(listing.listingPrice));
               }}
             />
 
