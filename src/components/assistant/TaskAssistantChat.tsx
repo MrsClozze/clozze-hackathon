@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions } from "@/lib/taskTypeConfigs";
@@ -15,8 +15,12 @@ interface TaskAssistantChatProps {
   loadingPhase?: LoadingPhase;
   researchSources: { title: string; url: string }[];
   autoContextMessage?: string;
+  taskContext?: { listingId?: string | null; buyerId?: string | null };
   onSaveToNotes?: (content: string) => void;
   onCreateTasks?: (content: string) => void;
+  onCreateFollowUp?: (content: string) => void;
+  onSaveToListing?: (content: string) => void;
+  onSaveDraft?: (content: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
@@ -42,6 +46,15 @@ const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string
   },
 };
 
+const ACTION_ICONS: Record<string, typeof Save> = {
+  save_notes: Save,
+  create_tasks: ListTodo,
+  create_follow_up: CalendarPlus,
+  save_draft: FileText,
+  save_to_listing: Home,
+  copy_text: Copy,
+};
+
 export default function TaskAssistantChat({
   messages,
   isLoading,
@@ -49,8 +62,12 @@ export default function TaskAssistantChat({
   loadingPhase = 'idle',
   researchSources,
   autoContextMessage,
+  taskContext,
   onSaveToNotes,
   onCreateTasks,
+  onCreateFollowUp,
+  onSaveToListing,
+  onSaveDraft,
 }: TaskAssistantChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -64,6 +81,29 @@ export default function TaskAssistantChat({
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({ title: "Copied", description: "Content copied to clipboard." });
+  };
+
+  const handleAction = (actionType: string, content: string) => {
+    switch (actionType) {
+      case 'save_notes':
+        onSaveToNotes?.(content);
+        break;
+      case 'create_tasks':
+        onCreateTasks?.(content);
+        break;
+      case 'create_follow_up':
+        onCreateFollowUp?.(content);
+        break;
+      case 'save_to_listing':
+        onSaveToListing?.(content);
+        break;
+      case 'save_draft':
+        onSaveDraft?.(content);
+        break;
+      case 'copy_text':
+        handleCopy(content);
+        break;
+    }
   };
 
   // Auto-context empty state with contextual message
@@ -112,7 +152,7 @@ export default function TaskAssistantChat({
       <div className="p-4 space-y-4">
         {messages.map((msg) => {
           const actions = msg.role === "assistant" && msg.content && !isLoading
-            ? parseResponseActions(msg.content)
+            ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId } : undefined)
             : [];
 
           return (
@@ -150,28 +190,21 @@ export default function TaskAssistantChat({
                           <Copy className="h-3 w-3 mr-1" />
                           Copy
                         </Button>
-                        {actions.map((action, i) => (
-                          <Button
-                            key={`${action.type}-${i}`}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              if (action.type === 'save_notes' || action.type === 'save_draft') {
-                                onSaveToNotes?.(action.content);
-                              } else if (action.type === 'create_tasks') {
-                                onCreateTasks?.(action.content);
-                              } else if (action.type === 'copy_text') {
-                                handleCopy(action.content);
-                              }
-                            }}
-                          >
-                            {action.type === 'create_tasks' && <ListTodo className="h-3 w-3 mr-1" />}
-                            {action.type === 'save_draft' && <FileText className="h-3 w-3 mr-1" />}
-                            {action.type === 'save_notes' && <Save className="h-3 w-3 mr-1" />}
-                            {action.label}
-                          </Button>
-                        ))}
+                        {actions.map((action, i) => {
+                          const Icon = ACTION_ICONS[action.type] || Save;
+                          return (
+                            <Button
+                              key={`${action.type}-${i}`}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => handleAction(action.type, action.content)}
+                            >
+                              <Icon className="h-3 w-3 mr-1" />
+                              {action.label}
+                            </Button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

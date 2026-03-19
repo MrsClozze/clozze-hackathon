@@ -117,13 +117,44 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   const handleCreateTasks = async (content: string) => {
     try {
       const lines = content.split('\n').filter(l => l.trim());
-      for (const line of lines.slice(0, 10)) {
-        await executeAction("create_task", { title: line.trim() });
-      }
-      toast({ title: "Tasks Created", description: `Created ${Math.min(lines.length, 10)} follow-up tasks.` });
+      const tasks = lines.slice(0, 10).map(line => ({ title: line.trim() }));
+      await executeAction("batch_create_tasks", { tasks });
+      toast({ title: "Tasks Created", description: `Created ${tasks.length} follow-up tasks.` });
       onRefreshTask?.();
     } catch {
       toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
+    }
+  };
+
+  const handleCreateFollowUp = async (content: string) => {
+    try {
+      // Extract a reasonable title from the content
+      const firstLine = content.split('\n').find(l => l.trim())?.trim().substring(0, 100) || 'Follow up';
+      await executeAction("create_follow_up", { title: firstLine, daysFromNow: 3, priority: 'medium' });
+      toast({ title: "Follow-Up Created", description: "Follow-up task created with a 3-day deadline." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to create follow-up.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveToListing = async (content: string) => {
+    try {
+      await executeAction("save_to_listing", { content, field: 'description' });
+      toast({ title: "Saved", description: "Content saved to listing notes." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save to listing.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveDraft = async (content: string) => {
+    try {
+      await executeAction("save_draft", { content, label: "Draft" });
+      toast({ title: "Draft Saved", description: "Draft saved to task notes." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save draft.", variant: "destructive" });
     }
   };
 
@@ -139,6 +170,11 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   };
 
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
+
+  const taskContext = useMemo(() => ({
+    listingId: task.listingId || null,
+    buyerId: task.buyerId || null,
+  }), [task.listingId, task.buyerId]);
 
   return (
     <div className="flex flex-col h-full border-l border-border bg-background">
@@ -208,8 +244,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         loadingPhase={loadingPhase}
         researchSources={researchSources}
         autoContextMessage={messages.length === 0 ? autoContextMessage : undefined}
+        taskContext={taskContext}
         onSaveToNotes={handleSaveToNotes}
         onCreateTasks={handleCreateTasks}
+        onCreateFollowUp={handleCreateFollowUp}
+        onSaveToListing={handleSaveToListing}
+        onSaveDraft={handleSaveDraft}
       />
 
       {/* Suggestions */}

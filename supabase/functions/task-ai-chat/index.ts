@@ -263,12 +263,14 @@ serve(async (req) => {
 
     // ====== LAYER 2: Determine if Firecrawl research is needed ======
     let researchResults: any[] = [];
+    let researchCategories: string[] = [];
     const needsResearch = shouldDoResearch(message, taskType);
 
     if (needsResearch && FIRECRAWL_API_KEY) {
-      const queries = buildResearchQueries(message, context, taskType);
+      const queryPlan = buildResearchQueries(message, context, taskType);
+      researchCategories = queryPlan.map(q => q.category);
       
-      const searchPromises = queries.map(async (query: string) => {
+      const searchPromises = queryPlan.map(async (plan) => {
         try {
           const response = await fetch('https://api.firecrawl.dev/v1/search', {
             method: 'POST',
@@ -277,7 +279,7 @@ serve(async (req) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              query,
+              query: plan.query,
               limit: 5,
               scrapeOptions: { formats: ['markdown'] },
             }),
@@ -285,11 +287,12 @@ serve(async (req) => {
 
           if (response.ok) {
             const data = await response.json();
-            return data.data?.map((r: any) => ({
+            return (data.data?.map((r: any) => ({
               title: r.title,
               url: r.url,
               snippet: r.markdown?.substring(0, 500) || r.description || '',
-            })) || [];
+              category: plan.category,
+            })) || []);
           }
           return [];
         } catch (err) {
@@ -299,7 +302,7 @@ serve(async (req) => {
       });
 
       const results = await Promise.all(searchPromises);
-      researchResults = results.flat().slice(0, 10);
+      researchResults = results.flat().slice(0, 12);
     }
 
     // ====== LAYER 3: LLM reasoning ======
@@ -312,10 +315,44 @@ serve(async (req) => {
 
     let researchContext = '';
     if (researchResults.length > 0) {
-      researchContext = `\n\n## External Research Results
-${researchResults.map((r, i) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}
+      // Group results by category for structured presentation
+      const grouped: Record<string, typeof researchResults> = {};
+      for (const r of researchResults) {
+        const cat = r.category || 'general';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(r);
+      }
 
-Use these research results to provide accurate, current information. Cite sources when referencing external data.`;
+      const categoryLabels: Record<string, string> = {
+        comps: 'Comparable Sales',
+        neighborhood: 'Neighborhood Context',
+        schools: 'Schools',
+        utilities: 'Utilities',
+        hoa: 'HOA Details',
+        inspectors: 'Home Inspectors',
+        property_records: 'Property Records',
+        tax: 'Tax Records',
+        zoning: 'Zoning & Permits',
+        flood: 'Flood Zone',
+        county: 'County Records',
+        general: 'General Research',
+      };
+
+      const sections = Object.entries(grouped).map(([cat, items]) => {
+        const label = categoryLabels[cat] || cat;
+        return `### ${label}\n${items.map((r, i) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
+      });
+
+      researchContext = `\n\n## External Research Results
+${sections.join('\n\n')}
+
+IMPORTANT RULES FOR USING RESEARCH:
+- Clearly label information from external research with "Based on external research:" or "According to [Source]:"
+- Separate your own analysis and assumptions from externally sourced findings
+- When presenting research findings, structure them into clear categories (e.g., "## Comparable Sales", "## Neighborhood Context")
+- If research data seems outdated or unreliable, flag it with a caveat
+- Never present external findings as Clozze internal data
+- When research supports a recommendation, cite the source`;
     }
 
     const baseSystemPrompt = typeConfig?.systemContext || 
@@ -330,7 +367,7 @@ You have access to the agent's task details, property information, buyer/seller 
 RULES:
 - Always stay scoped to the current task and its related records
 - Never reference or leak data from other clients or transactions
-- When you use external research, clearly indicate the source
+- When you use external research, clearly indicate the source and separate it from your analysis
 - Be PROACTIVE — suggest next steps, flag missing info, offer to create follow-ups
 - Format responses with markdown for readability
 - Use bullet lists and checklists (- [ ]) for actionable items
@@ -338,6 +375,15 @@ RULES:
 - When listing tasks or action items, use bullet points starting with - so they can be parsed into tasks
 - Keep outputs structured: use headers (##), bold (**), and lists
 - When you identify missing information, list it clearly as a checklist
+
+STRUCTURED OUTPUT GUIDELINES:
+- When presenting research findings, use these section headers:
+  ## Key Findings (from research)
+  ## My Analysis (your interpretation)
+  ## Recommended Actions (next steps)
+  ## Missing Information (what still needs investigation)
+- When generating follow-up tasks, include suggested deadlines relative to today or the task's due date
+- When drafting communications, clearly label them as drafts and indicate the intended recipient
 ${toneContext}
 
 ${contextPrompt}
@@ -349,7 +395,6 @@ ${researchContext}`;
     ];
 
     if (conversationHistory && Array.isArray(conversationHistory)) {
-      // Only include last 20 messages for context window management
       const recentHistory = conversationHistory.slice(-20);
       for (const msg of recentHistory) {
         if (msg.role === 'user' || msg.role === 'assistant') {
@@ -403,20 +448,17 @@ ${researchContext}`;
       taskType,
       suggestedActions: typeConfig?.suggestedActions || ['How can I help?', 'Summarize context', 'What is missing?'],
       usedResearch: researchResults.length > 0,
-      researchSources: researchResults.map(r => ({ title: r.title, url: r.url })),
+      researchCategories,
+      researchSources: researchResults.map(r => ({ title: r.title, url: r.url, category: r.category })),
     };
 
     const metadataEvent = `data: ${JSON.stringify({ metadata })}\n\n`;
     const encoder = new TextEncoder();
     const metadataChunk = encoder.encode(metadataEvent);
 
-    // Combine metadata event with the AI stream
     const combinedStream = new ReadableStream({
       async start(controller) {
-        // Send metadata first
         controller.enqueue(metadataChunk);
-
-        // Then pipe through the AI stream
         const reader = response.body!.getReader();
         try {
           while (true) {
@@ -446,13 +488,13 @@ ${researchContext}`;
 function shouldDoResearch(message: string, taskType: string): boolean {
   const researchKeywords = [
     'research', 'find', 'search', 'look up', 'comps', 'comparable',
-    'neighborhood', 'school', 'utility', 'hoa', 'inspector', 'inspection',
+    'neighborhood', 'school', 'utility', 'utilities', 'hoa', 'inspector', 'inspection',
     'county', 'zoning', 'flood', 'tax', 'market', 'pricing', 'price',
     'builder', 'permit', 'walkability', 'transit', 'crime',
+    'what am i missing', 'missing information', 'what else',
   ];
   const lowerMessage = message.toLowerCase();
   
-  // Always research for certain task types with relevant prompts
   if (['comps_pricing', 'home_inspection'].includes(taskType)) {
     if (researchKeywords.some(kw => lowerMessage.includes(kw))) return true;
   }
@@ -460,63 +502,84 @@ function shouldDoResearch(message: string, taskType: string): boolean {
   return researchKeywords.some(kw => lowerMessage.includes(kw));
 }
 
-function buildResearchQueries(message: string, context: any, taskType: string): string[] {
-  const queries: string[] = [];
+interface ResearchQuery {
+  query: string;
+  category: string;
+}
+
+function buildResearchQueries(message: string, context: any, taskType: string): ResearchQuery[] {
+  const queries: ResearchQuery[] = [];
   const address = context.listing?.address || context.task?.address || '';
   const city = context.listing?.city || '';
+  const zipcode = context.listing?.zipcode || '';
   const location = [address, city].filter(Boolean).join(', ');
 
   if (!location) {
-    // Without a location, do a general search based on the message
-    queries.push(message);
+    queries.push({ query: message, category: 'general' });
     return queries;
   }
 
   const lowerMessage = message.toLowerCase();
 
-  if (lowerMessage.includes('comp') || lowerMessage.includes('pricing') || lowerMessage.includes('price')) {
+  if (lowerMessage.includes('comp') || lowerMessage.includes('pricing') || lowerMessage.includes('price') || lowerMessage.includes('cma')) {
     const beds = context.listing?.bedrooms || '';
     const baths = context.listing?.bathrooms || '';
     const sqft = context.listing?.sq_feet || '';
-    queries.push(`comparable homes recently sold near ${location} ${beds ? beds + ' bed' : ''} ${baths ? baths + ' bath' : ''} ${sqft ? sqft + ' sqft' : ''}`);
+    queries.push({
+      query: `comparable homes recently sold near ${location} ${beds ? beds + ' bed' : ''} ${baths ? baths + ' bath' : ''} ${sqft ? sqft + ' sqft' : ''}`,
+      category: 'comps',
+    });
   }
 
   if (lowerMessage.includes('school')) {
-    queries.push(`schools near ${location} ratings reviews`);
+    queries.push({ query: `schools near ${location} ratings reviews`, category: 'schools' });
   }
 
-  if (lowerMessage.includes('neighborhood') || lowerMessage.includes('area')) {
-    queries.push(`${location} neighborhood guide amenities walkability`);
+  if (lowerMessage.includes('neighborhood') || lowerMessage.includes('area') || lowerMessage.includes('community')) {
+    queries.push({ query: `${location} neighborhood guide amenities walkability safety`, category: 'neighborhood' });
   }
 
-  if (lowerMessage.includes('hoa')) {
-    queries.push(`HOA homeowners association ${location}`);
+  if (lowerMessage.includes('hoa') || lowerMessage.includes('homeowner')) {
+    queries.push({ query: `HOA homeowners association ${location} fees rules`, category: 'hoa' });
   }
 
   if (lowerMessage.includes('inspector') || lowerMessage.includes('inspection')) {
-    queries.push(`home inspectors near ${city || location} reviews ratings`);
+    queries.push({ query: `home inspectors near ${city || location} reviews ratings`, category: 'inspectors' });
   }
 
   if (lowerMessage.includes('utility') || lowerMessage.includes('utilities')) {
-    queries.push(`utility providers ${city || location} electric water gas`);
+    queries.push({ query: `utility providers ${city || location} electric water gas sewer`, category: 'utilities' });
   }
 
   if (lowerMessage.includes('zoning') || lowerMessage.includes('permit')) {
-    queries.push(`zoning permits ${location} county`);
+    queries.push({ query: `zoning permits ${location} county regulations`, category: 'zoning' });
   }
 
   if (lowerMessage.includes('flood')) {
-    queries.push(`flood zone map ${location}`);
+    queries.push({ query: `flood zone map ${location} FEMA`, category: 'flood' });
   }
 
   if (lowerMessage.includes('tax')) {
-    queries.push(`property tax records ${location}`);
+    queries.push({ query: `property tax records ${location} ${zipcode} county assessor`, category: 'tax' });
   }
 
-  // If no specific category matched, do a general property research query
+  if (lowerMessage.includes('county')) {
+    queries.push({ query: `${city || location} county property records assessor`, category: 'county' });
+  }
+
+  // "What am I missing" triggers multi-category research
+  if (lowerMessage.includes('missing') || lowerMessage.includes('what else')) {
+    if (!queries.some(q => q.category === 'neighborhood')) {
+      queries.push({ query: `${location} neighborhood overview amenities`, category: 'neighborhood' });
+    }
+    if (!queries.some(q => q.category === 'schools')) {
+      queries.push({ query: `schools near ${location} district ratings`, category: 'schools' });
+    }
+  }
+
   if (queries.length === 0) {
-    queries.push(`${location} real estate ${message.substring(0, 100)}`);
+    queries.push({ query: `${location} real estate ${message.substring(0, 100)}`, category: 'general' });
   }
 
-  return queries.slice(0, 3); // Max 3 queries
+  return queries.slice(0, 3);
 }
