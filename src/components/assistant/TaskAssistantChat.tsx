@@ -76,6 +76,10 @@ export default function TaskAssistantChat({
   onCreateFollowUp,
   onSaveToListing,
   onSaveDraft,
+  onSaveToListingDescription,
+  onSaveToListingHighlights,
+  onSaveToListingNotes,
+  onSaveToListingMarketing,
 }: TaskAssistantChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
