@@ -62,6 +62,8 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   save_to_listing_highlights: Tag,
   save_to_listing_notes: Save,
   save_to_listing_marketing: Megaphone,
+  mark_complete: CheckCircle2,
+  update_priority: ArrowUpCircle,
   copy_text: Copy,
 };
 
