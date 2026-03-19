@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save } from "lucide-react";
+import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { BuyerData } from "@/contexts/BuyersContext";
-import { computeBuyerCompletion, BUYER_ONBOARDING_TASKS, type CompletionItem } from "@/lib/completionTracking";
+import { computeBuyerCompletion, isBuyerActionReady, getBuyerTaskBundle, type CompletionItem } from "@/lib/completionTracking";
 
 interface BuyerAIContentProps {
   buyer: BuyerData;
@@ -26,6 +26,7 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
   const [creatingTasks, setCreatingTasks] = useState(false);
 
   const completion = useMemo(() => computeBuyerCompletion(buyer), [buyer]);
+  const actionReady = useMemo(() => isBuyerActionReady(buyer), [buyer]);
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -150,11 +151,12 @@ Organize into:
     }
   };
 
-  const handleCreateOnboardingTasks = async () => {
+  const handleCreateContextTasks = async () => {
     if (!user) return;
     setCreatingTasks(true);
     try {
-      const tasks = BUYER_ONBOARDING_TASKS.map(t => ({
+      const taskBundle = getBuyerTaskBundle(completion, buyer);
+      const tasks = taskBundle.map(t => ({
         user_id: user.id,
         title: `${t.title} — ${buyer.firstName} ${buyer.lastName}`,
         priority: t.priority,
@@ -163,7 +165,7 @@ Organize into:
       }));
       const { error } = await supabase.from('tasks').insert(tasks);
       if (error) throw error;
-      toast({ title: "Tasks Created", description: `${tasks.length} buyer onboarding tasks created.` });
+      toast({ title: "Tasks Created", description: `${tasks.length} tasks created based on current buyer state.` });
     } catch (err) {
       console.error('Task creation error:', err);
       toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
@@ -172,7 +174,6 @@ Organize into:
     }
   };
 
-  const incompleteItems = completion.items.filter(i => !i.complete);
   const completeItems = completion.items.filter(i => i.complete);
 
   return (
@@ -193,12 +194,80 @@ Organize into:
         <Progress value={completion.percentage} className="h-2" />
       </div>
 
-      {/* Proactive Suggestions (incomplete items) */}
-      {incompleteItems.length > 0 && (
+      {/* Next Step Card — or Action Ready pivot */}
+      {actionReady ? (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <FileCheck className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Buyer is Search-Ready</span>
+            <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">ready</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Core profile is complete. Focus on showings, search, and offer preparation.</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
+              {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+              Showing Coordination
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
+              {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
+              Next Steps
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
+              {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+              Draft Follow-Up
+            </Button>
+          </div>
+        </div>
+      ) : completion.nextStep ? (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <ArrowRight className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Next Step</span>
+            <Badge variant={completion.nextStep.category === 'required' ? 'destructive' : 'outline'} className="text-[9px] h-4">
+              {completion.nextStep.category === 'required' ? 'blocker' : completion.nextStep.category}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{completion.nextStep.label}</p>
+            {completion.nextStep.actionType === 'structure_needs' && buyer.wantsNeeds && (
+              <Button size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
+                {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Structure'}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Blockers */}
+      {completion.blockers.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Missing Items</h4>
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+            <h4 className="text-xs font-semibold text-destructive uppercase tracking-wide">
+              Blockers ({completion.blockers.length})
+            </h4>
+          </div>
           <div className="space-y-1.5">
-            {incompleteItems.map((item) => (
+            {completion.blockers.map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-destructive/5 border border-destructive/20">
+                <div className="flex items-center gap-2">
+                  <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  <span className="text-sm text-foreground">{item.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Improvements */}
+      {completion.improvements.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Improvements ({completion.improvements.length})
+          </h4>
+          <div className="space-y-1.5">
+            {completion.improvements.map((item) => (
               <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-muted/30 border border-border/50">
                 <div className="flex items-center gap-2">
                   <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -244,33 +313,31 @@ Organize into:
         <Button size="sm" onClick={handleProfileAudit} disabled={auditRunning} className="gap-1.5">
           {auditRunning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</> : <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>}
         </Button>
-        <Button variant="outline" size="sm" onClick={handleCreateOnboardingTasks} disabled={creatingTasks} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={handleCreateContextTasks} disabled={creatingTasks} className="gap-1.5">
           {creatingTasks ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
-          Create Onboarding Tasks
+          Create Tasks ({getBuyerTaskBundle(completion, buyer).length})
         </Button>
       </div>
 
-      {/* Quick Drafts */}
-      <div className="flex flex-wrap gap-2">
-        {buyer.wantsNeeds && (
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
-            {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
-            Structure Wants/Needs
+      {/* Quick Drafts — only when not action-ready (action-ready has drafts in the card above) */}
+      {!actionReady && (
+        <div className="flex flex-wrap gap-2">
+          {buyer.wantsNeeds && (
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
+              {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
+              Structure Wants/Needs
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
+            {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+            Draft Follow-Up
           </Button>
-        )}
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
-          {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-          Draft Follow-Up
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
-          {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
-          Next Steps
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
-          {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-          Showing Coordination
-        </Button>
-      </div>
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
+            {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
+            Next Steps
+          </Button>
+        </div>
+      )}
 
       {/* Audit Results */}
       {auditResult && (

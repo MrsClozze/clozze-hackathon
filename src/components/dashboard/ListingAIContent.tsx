@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2, RefreshCw, Wand2, Loader2, ClipboardList, CheckCircle2, Circle, ListChecks } from "lucide-react";
+import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2, RefreshCw, Wand2, Loader2, ClipboardList, CheckCircle2, Circle, ListChecks, ArrowRight, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ListingData, ListingInternalNote } from "@/contexts/ListingsContext";
-import { computeListingCompletion, LISTING_PREP_TASKS, type CompletionItem } from "@/lib/completionTracking";
+import { computeListingCompletion, getListingTaskBundle, type CompletionItem } from "@/lib/completionTracking";
 
 interface ListingAIContentProps {
   listing: ListingData;
@@ -29,7 +29,6 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
   const [auditResult, setAuditResult] = useState<string | null>(null);
   const [creatingTasks, setCreatingTasks] = useState(false);
 
-  // Completion tracking
   const completion = useMemo(() => computeListingCompletion(listing), [listing]);
 
   const handleCopy = (text: string, label: string) => {
@@ -39,10 +38,7 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
 
   const handleSaveDescription = async () => {
     try {
-      const { error } = await supabase
-        .from('listings')
-        .update({ description: descriptionDraft } as any)
-        .eq('id', listing.id);
+      const { error } = await supabase.from('listings').update({ description: descriptionDraft } as any).eq('id', listing.id);
       if (error) throw error;
       onListingUpdate?.({ ...listing, description: descriptionDraft });
       setEditingDescription(false);
@@ -56,10 +52,7 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     try {
       const updatedNotes = [...listing.internalNotes];
       updatedNotes.splice(index, 1);
-      const { error } = await supabase
-        .from('listings')
-        .update({ internal_notes: updatedNotes } as any)
-        .eq('id', listing.id);
+      const { error } = await supabase.from('listings').update({ internal_notes: updatedNotes } as any).eq('id', listing.id);
       if (error) throw error;
       onListingUpdate?.({ ...listing, internalNotes: updatedNotes });
       toast({ title: "Deleted", description: "Note removed." });
@@ -72,10 +65,7 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     try {
       const updatedCopy = { ...listing.marketingCopy };
       delete updatedCopy[key];
-      const { error } = await supabase
-        .from('listings')
-        .update({ marketing_copy: updatedCopy } as any)
-        .eq('id', listing.id);
+      const { error } = await supabase.from('listings').update({ marketing_copy: updatedCopy } as any).eq('id', listing.id);
       if (error) throw error;
       onListingUpdate?.({ ...listing, marketingCopy: updatedCopy });
       toast({ title: "Deleted", description: `"${key}" variant removed.` });
@@ -168,11 +158,12 @@ Use this exact format:
     }
   };
 
-  const handleCreatePrepTasks = async () => {
+  const handleCreateContextTasks = async () => {
     if (!user) return;
     setCreatingTasks(true);
     try {
-      const tasks = LISTING_PREP_TASKS.map(t => ({
+      const taskBundle = getListingTaskBundle(completion, listing);
+      const tasks = taskBundle.map(t => ({
         user_id: user.id,
         title: `${t.title} — ${listing.address}`,
         priority: t.priority,
@@ -182,7 +173,7 @@ Use this exact format:
       }));
       const { error } = await supabase.from('tasks').insert(tasks);
       if (error) throw error;
-      toast({ title: "Tasks Created", description: `${tasks.length} listing prep tasks created.` });
+      toast({ title: "Tasks Created", description: `${tasks.length} tasks created based on current listing state.` });
     } catch (err) {
       console.error('Task creation error:', err);
       toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
@@ -218,12 +209,62 @@ Use this exact format:
         <Progress value={completion.percentage} className="h-2" />
       </div>
 
-      {/* Proactive Suggestions */}
-      {incompleteItems.length > 0 && (
+      {/* Next Step Card */}
+      {completion.nextStep && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <ArrowRight className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Next Step</span>
+            <Badge variant={completion.nextStep.category === 'required' ? 'destructive' : 'outline'} className="text-[9px] h-4">
+              {completion.nextStep.category === 'required' ? 'blocker' : completion.nextStep.category}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{completion.nextStep.label}</p>
+            {completion.nextStep.actionType && completion.nextStep.actionLabel && (
+              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => handleChecklistAction(completion.nextStep!)} disabled={!!regenerating}>
+                {regenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : completion.nextStep.actionLabel}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Blockers */}
+      {completion.blockers.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Missing Items</h4>
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+            <h4 className="text-xs font-semibold text-destructive uppercase tracking-wide">
+              Blockers ({completion.blockers.length})
+            </h4>
+          </div>
           <div className="space-y-1.5">
-            {incompleteItems.map((item) => (
+            {completion.blockers.map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-destructive/5 border border-destructive/20">
+                <div className="flex items-center gap-2">
+                  <Circle className="h-3.5 w-3.5 text-destructive/50" />
+                  <span className="text-sm text-foreground">{item.label}</span>
+                </div>
+                {item.actionType && item.actionLabel && (
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary" onClick={() => handleChecklistAction(item)} disabled={!!regenerating}>
+                    {item.actionLabel}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Improvements */}
+      {completion.improvements.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Improvements ({completion.improvements.length})
+          </h4>
+          <div className="space-y-1.5">
+            {completion.improvements.map((item) => (
               <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-muted/30 border border-border/50">
                 <div className="flex items-center gap-2">
                   <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -231,13 +272,7 @@ Use this exact format:
                   <Badge variant="outline" className="text-[9px] h-4">{item.category}</Badge>
                 </div>
                 {item.actionType && item.actionLabel && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs text-primary hover:text-primary"
-                    onClick={() => handleChecklistAction(item)}
-                    disabled={!!regenerating}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary" onClick={() => handleChecklistAction(item)} disabled={!!regenerating}>
                     {regenerating && (item.actionType === 'generate_description' && regenerating === 'description' || item.actionType === 'generate_highlights' && regenerating === 'highlights' || item.actionType === 'generate_marketing' && regenerating === 'marketing')
                       ? <Loader2 className="h-3 w-3 animate-spin" />
                       : item.actionLabel}
@@ -277,9 +312,9 @@ Use this exact format:
         <Button size="sm" onClick={handlePrepareAudit} disabled={auditRunning} className="gap-1.5">
           {auditRunning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</> : <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>}
         </Button>
-        <Button variant="outline" size="sm" onClick={handleCreatePrepTasks} disabled={creatingTasks} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={handleCreateContextTasks} disabled={creatingTasks} className="gap-1.5">
           {creatingTasks ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
-          Create Prep Tasks
+          Create Tasks ({getListingTaskBundle(completion, listing).length})
         </Button>
       </div>
 
@@ -307,7 +342,6 @@ Use this exact format:
               return null;
             })}
           </div>
-          {/* Quick actions from audit */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
             {!listing.description && (
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleRegenerate('description')} disabled={!!regenerating}>
