@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ClozzeAIInlineAssistant from "@/components/assistant/ClozzeAIInlineAssistant";
+import type { ParsedTaskData } from "@/hooks/useClozzeAICreate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,24 +66,25 @@ export default function AddTaskModal({
   const [notes, setNotes] = useState("");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [dueTime, setDueTime] = useState<string>(""); // Start time in HH:mm format
-  const [endTime, setEndTime] = useState<string>(""); // End time in HH:mm format
+  const [dueTime, setDueTime] = useState<string>("");
+  const [endTime, setEndTime] = useState<string>("");
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]); // Changed to array
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedBuyerId, setSelectedBuyerId] = useState(initialBuyerId || "");
   const [selectedListingId, setSelectedListingId] = useState(initialListingId || "");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dueDateError, setDueDateError] = useState(false);
-  const [showOnCalendar, setShowOnCalendar] = useState(true); // Default ON
+  const [showOnCalendar, setShowOnCalendar] = useState(true);
   const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
   const [syncTargetMode, setSyncTargetMode] = useState<"mine" | "all" | "selected">("mine");
   const [selectedSyncUserIds, setSelectedSyncUserIds] = useState<string[]>([]);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | undefined>(undefined);
   const [includeWeekends, setIncludeWeekends] = useState(false);
+  const [aiGeneratedTasks, setAiGeneratedTasks] = useState<ParsedTaskData[]>([]);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
@@ -255,6 +258,56 @@ export default function AddTaskModal({
     }
   };
 
+  const handleApplyAITasks = async (tasks: ParsedTaskData[]) => {
+    if (tasks.length === 1) {
+      // Single task: populate the form
+      const t = tasks[0];
+      setTitle(t.title);
+      if (t.notes) setNotes(t.notes);
+      setPriority(t.priority);
+      if (t.dueDate) {
+        try { setDueDate(new Date(t.dueDate)); setDueDateError(false); } catch {}
+      }
+      if (t.buyerId) setSelectedBuyerId(t.buyerId);
+      if (t.listingId) setSelectedListingId(t.listingId);
+    } else {
+      // Multi-task: show preview for batch creation
+      setAiGeneratedTasks(tasks);
+    }
+  };
+
+  const handleBatchCreateTasks = async () => {
+    if (aiGeneratedTasks.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      for (const t of aiGeneratedTasks) {
+        const selectedListing = listings.find(l => l.id === t.listingId);
+        await addTask({
+          title: t.title,
+          notes: t.notes || '',
+          dueDate: t.dueDate || format(new Date(), "yyyy-MM-dd"),
+          priority: t.priority,
+          status: "pending",
+          date: t.dueDate ? format(new Date(t.dueDate), "MMM d, yyyy") : format(new Date(), "MMM d, yyyy"),
+          address: t.address || selectedListing?.address || '',
+          assignee: '',
+          hasAIAssist: true,
+          buyerId: t.buyerId || undefined,
+          listingId: t.listingId || undefined,
+          showOnCalendar: true,
+          syncToExternalCalendar: false,
+        }, { silent: true });
+      }
+      setAiGeneratedTasks([]);
+      resetForm();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating batch tasks:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-background">
@@ -264,6 +317,67 @@ export default function AddTaskModal({
             Create a new task with all required details.
           </DialogDescription>
         </DialogHeader>
+
+        {/* AI Task Preview for batch creation */}
+        {aiGeneratedTasks.length > 1 && (
+          <div className="space-y-3 mb-4">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+              <h4 className="text-sm font-semibold text-foreground mb-2">
+                ✨ AI Generated {aiGeneratedTasks.length} Tasks — Review before creating
+              </h4>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {aiGeneratedTasks.map((t, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm bg-background rounded p-2 border border-border">
+                    <span className={`inline-block w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                      t.priority === 'high' ? 'bg-destructive' : t.priority === 'low' ? 'bg-muted-foreground' : 'bg-primary'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{t.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.priority} priority
+                        {t.dueDate && ` · Due ${t.dueDate}`}
+                      </p>
+                      {t.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{t.notes}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAiGeneratedTasks(prev => prev.filter((_, j) => j !== i))}
+                      className="text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleBatchCreateTasks}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                >
+                  {isSubmitting ? "Creating..." : `Create ${aiGeneratedTasks.length} Tasks`}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAiGeneratedTasks([])}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Clozze AI Inline Assistant */}
+        <ClozzeAIInlineAssistant
+          flow="create_task"
+          existingFormData={{ title, notes, priority, buyerId: selectedBuyerId, listingId: selectedListingId }}
+          onApplyTasks={handleApplyAITasks}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Task Title */}
