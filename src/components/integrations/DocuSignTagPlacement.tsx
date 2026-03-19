@@ -324,7 +324,7 @@ export function DocuSignTagPlacement({
                 return (
                   <div
                     key={tag.id}
-                    className={`absolute flex items-center gap-1 px-1.5 py-0.5 rounded border-2 text-xs font-medium cursor-grab active:cursor-grabbing shadow-md ${recipientColor} ${
+                    className={`absolute flex items-center gap-1 px-1.5 py-0.5 rounded border-2 text-xs font-medium cursor-grab active:cursor-grabbing shadow-md ${config.borderColor} ${config.bgColor} ${config.textColor} ${
                       draggingTagId === tag.id ? "opacity-70 z-50" : "z-10"
                     }`}
                     style={{
@@ -334,14 +334,12 @@ export function DocuSignTagPlacement({
                     }}
                     onMouseDown={(e) => handleTagMouseDown(e, tag.id)}
                   >
-                    <GripVertical className="h-3 w-3 text-muted-foreground" />
-                    <Icon className="h-3 w-3" />
-                    <span className="text-[10px]">{config.label}</span>
+                    <GripVertical className="h-3 w-3 opacity-50" />
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-semibold whitespace-nowrap">{config.label}</span>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeTag(tag.id);
-                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => removeTag(tag.id, e)}
                       className="ml-0.5 hover:text-destructive"
                     >
                       <Trash2 className="h-3 w-3" />
