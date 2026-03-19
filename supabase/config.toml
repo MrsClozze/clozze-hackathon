@@ -92,3 +92,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-docusign]
+
+[functions.task-ai-chat]
+
+[functions.task-ai-action]
+
+[functions.elevenlabs-scribe-token]
+
+[functions.elevenlabs-tts]
+verify_jwt = false

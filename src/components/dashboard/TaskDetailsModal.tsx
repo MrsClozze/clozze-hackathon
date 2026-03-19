@@ -6,6 +6,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+
+import TaskAssistantPanel from "@/components/assistant/TaskAssistantPanel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -193,7 +195,10 @@ export default function TaskDetailsModal() {
   return (
     <>
       <Dialog open={isTaskDetailsModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+          <div className="flex h-[85vh] max-h-[85vh]">
+            {/* Left Panel - Task Details */}
+            <div className="flex-1 overflow-y-auto p-6 min-w-0">
           <DialogHeader>
             <div className="flex items-center justify-between pr-8">
               <div className="flex-1">
@@ -701,6 +706,20 @@ export default function TaskDetailsModal() {
                     Assign a team member or contact to enable AI Assist messaging
                   </p>
                 )}
+              </div>
+            )}
+            </div>
+            </div>
+
+            {/* Right Panel - AI Assistant */}
+            {!isEditing && selectedTask && !selectedTask.isDemo && (
+              <div className="w-[400px] flex-shrink-0 hidden lg:flex">
+                <TaskAssistantPanel
+                  task={selectedTask}
+                  onRefreshTask={() => {
+                    // Trigger refetch of the task
+                  }}
+                />
               </div>
             )}
           </div>
