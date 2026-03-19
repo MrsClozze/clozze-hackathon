@@ -290,7 +290,7 @@ export default function AddBuyerModal({ open, onOpenChange, onCreated }: AddBuye
                 if (buyer.lastName) updateFormField("buyerLastName", buyer.lastName);
                 if (buyer.email) updateFormField("buyerEmail", buyer.email);
                 if (buyer.phone) updateFormField("buyerPhone", buyer.phone);
-                if (buyer.preApprovedAmount) updateFormField("preApprovedAmount", String(buyer.preApprovedAmount));
+                if (buyer.preApprovedAmount != null) updateFormField("preApprovedAmount", String(buyer.preApprovedAmount));
                 if (buyer.wantsNeeds) updateFormField("wantsNeeds", buyer.wantsNeeds);
                 // If structured preferences, build a formatted wants/needs string
                 if (buyer.preferences) {
