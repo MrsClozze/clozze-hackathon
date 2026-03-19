@@ -322,6 +322,10 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         onCreateFollowUp={handleCreateFollowUp}
         onSaveToListing={handleSaveToListing}
         onSaveDraft={handleSaveDraft}
+        onSaveToListingDescription={handleSaveToListingDescription}
+        onSaveToListingHighlights={handleSaveToListingHighlights}
+        onSaveToListingNotes={handleSaveToListingNotes}
+        onSaveToListingMarketing={handleSaveToListingMarketing}
       />
 
       {/* Suggestions */}
