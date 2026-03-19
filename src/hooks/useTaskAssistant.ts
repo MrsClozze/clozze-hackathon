@@ -14,6 +14,8 @@ export interface AssistantMessage {
   timestamp: Date;
 }
 
+export type LoadingPhase = 'idle' | 'context' | 'research' | 'generating';
+
 interface UseTaskAssistantOptions {
   taskId: string;
 }
@@ -21,6 +23,7 @@ interface UseTaskAssistantOptions {
 export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle');
   const [isResearching, setIsResearching] = useState(false);
   const [suggestedActions, setSuggestedActions] = useState<string[]>([]);
   const [researchSources, setResearchSources] = useState<{ title: string; url: string }[]>([]);
@@ -41,6 +44,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
 
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
+    setLoadingPhase('context');
 
     const assistantMessageId = crypto.randomUUID();
     let assistantContent = "";
@@ -122,16 +126,20 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
           try {
             const parsed = JSON.parse(jsonStr);
 
-            // Handle metadata event
+            // Handle metadata event — arrives after context fetch, before LLM streaming
             if (parsed.metadata && !metadataProcessed) {
               metadataProcessed = true;
               setSuggestedActions(parsed.metadata.suggestedActions || []);
               if (parsed.metadata.researchSources) {
                 setResearchSources(parsed.metadata.researchSources);
               }
-              // Set researching state based on metadata
+              // Transition phase based on whether research was done
               if (parsed.metadata.usedResearch) {
                 setIsResearching(true);
+                // Research already completed by now, so move to generating
+                setLoadingPhase('generating');
+              } else {
+                setLoadingPhase('generating');
               }
               continue;
             }
@@ -139,8 +147,8 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
             // Handle regular content delta
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
-              // Once content starts flowing, research is done
-              if (isResearching) setIsResearching(false);
+              setIsResearching(false);
+              setLoadingPhase('generating');
               assistantContent += content;
               setMessages(prev =>
                 prev.map(m =>
@@ -151,7 +159,6 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
               );
             }
           } catch {
-            // Incomplete JSON, put back
             buffer = line + "\n" + buffer;
             break;
           }
@@ -187,22 +194,23 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
       if (err.name === "AbortError") return;
       console.error("Task assistant error:", err);
       setError(err.message || "Failed to get response");
-      // Remove empty assistant message on error
       if (!assistantContent) {
         setMessages(prev => prev.filter(m => m.id !== assistantMessageId));
       }
     } finally {
       setIsLoading(false);
       setIsResearching(false);
+      setLoadingPhase('idle');
       abortControllerRef.current = null;
     }
-  }, [taskId, messages, isLoading, isResearching]);
+  }, [taskId, messages, isLoading]);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsLoading(false);
       setIsResearching(false);
+      setLoadingPhase('idle');
     }
   }, []);
 
@@ -211,6 +219,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
     setError(null);
     setResearchSources([]);
     setSuggestedActions([]);
+    setLoadingPhase('idle');
   }, []);
 
   const executeAction = useCallback(async (action: string, payload: any) => {
@@ -230,6 +239,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
     messages,
     isLoading,
     isResearching,
+    loadingPhase,
     suggestedActions,
     researchSources,
     error,

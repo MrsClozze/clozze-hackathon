@@ -2,26 +2,51 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions } from "@/lib/taskTypeConfigs";
-import type { AssistantMessage } from "@/hooks/useTaskAssistant";
+import type { AssistantMessage, LoadingPhase } from "@/hooks/useTaskAssistant";
 
 interface TaskAssistantChatProps {
   messages: AssistantMessage[];
   isLoading: boolean;
   isResearching?: boolean;
+  loadingPhase?: LoadingPhase;
   researchSources: { title: string; url: string }[];
   autoContextMessage?: string;
   onSaveToNotes?: (content: string) => void;
   onCreateTasks?: (content: string) => void;
 }
 
+const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
+  context: {
+    icon: Database,
+    label: 'Analyzing Clozze context…',
+    className: 'text-muted-foreground',
+  },
+  research: {
+    icon: Search,
+    label: 'Researching external data…',
+    className: 'text-primary',
+  },
+  generating: {
+    icon: Sparkles,
+    label: 'Generating response…',
+    className: 'text-primary',
+  },
+  idle: {
+    icon: Loader2,
+    label: '',
+    className: 'text-muted-foreground',
+  },
+};
+
 export default function TaskAssistantChat({
   messages,
   isLoading,
   isResearching,
+  loadingPhase = 'idle',
   researchSources,
   autoContextMessage,
   onSaveToNotes,
@@ -34,14 +59,14 @@ export default function TaskAssistantChat({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, loadingPhase]);
 
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
     toast({ title: "Copied", description: "Content copied to clipboard." });
   };
 
-  // Auto-context empty state
+  // Auto-context empty state with contextual message
   if (messages.length === 0 && autoContextMessage) {
     return (
       <ScrollArea className="flex-1">
@@ -63,7 +88,7 @@ export default function TaskAssistantChat({
     );
   }
 
-  // Fallback empty state (no auto-context available)
+  // Fallback empty state
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -125,10 +150,9 @@ export default function TaskAssistantChat({
                           <Copy className="h-3 w-3 mr-1" />
                           Copy
                         </Button>
-                        {/* Dynamic action buttons */}
                         {actions.map((action, i) => (
                           <Button
-                            key={i}
+                            key={`${action.type}-${i}`}
                             variant="ghost"
                             size="sm"
                             className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
@@ -164,20 +188,27 @@ export default function TaskAssistantChat({
           );
         })}
 
-        {/* Enhanced thinking/researching state */}
-        {isLoading && (
+        {/* Three-phase loading indicator */}
+        {isLoading && loadingPhase !== 'idle' && (
+          <div className="flex items-center gap-2 text-xs pl-10">
+            {(() => {
+              const phase = PHASE_DISPLAY[loadingPhase];
+              const Icon = phase.icon;
+              return (
+                <>
+                  <Icon className={`h-3 w-3 ${loadingPhase === 'context' ? 'animate-spin' : 'animate-pulse'} ${phase.className}`} />
+                  <span className={phase.className}>{phase.label}</span>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Fallback loading when phase is idle but still loading */}
+        {isLoading && loadingPhase === 'idle' && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
           <div className="flex items-center gap-2 text-muted-foreground text-xs pl-10">
-            {isResearching ? (
-              <>
-                <Search className="h-3 w-3 animate-pulse text-primary" />
-                <span className="text-primary">Researching property data…</span>
-              </>
-            ) : messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Analyzing task context…
-              </>
-            ) : null}
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Preparing…
           </div>
         )}
 
