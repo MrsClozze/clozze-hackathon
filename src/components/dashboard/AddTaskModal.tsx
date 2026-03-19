@@ -66,24 +66,25 @@ export default function AddTaskModal({
   const [notes, setNotes] = useState("");
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [dueTime, setDueTime] = useState<string>(""); // Start time in HH:mm format
-  const [endTime, setEndTime] = useState<string>(""); // End time in HH:mm format
+  const [dueTime, setDueTime] = useState<string>("");
+  const [endTime, setEndTime] = useState<string>("");
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [selectedContactId, setSelectedContactId] = useState("");
-  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]); // Changed to array
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [selectedBuyerId, setSelectedBuyerId] = useState(initialBuyerId || "");
   const [selectedListingId, setSelectedListingId] = useState(initialListingId || "");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dueDateError, setDueDateError] = useState(false);
-  const [showOnCalendar, setShowOnCalendar] = useState(true); // Default ON
+  const [showOnCalendar, setShowOnCalendar] = useState(true);
   const [syncToExternalCalendar, setSyncToExternalCalendar] = useState(false);
   const [syncTargetMode, setSyncTargetMode] = useState<"mine" | "all" | "selected">("mine");
   const [selectedSyncUserIds, setSelectedSyncUserIds] = useState<string[]>([]);
   const [recurrencePattern, setRecurrencePattern] = useState<string>("");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Date | undefined>(undefined);
   const [includeWeekends, setIncludeWeekends] = useState(false);
+  const [aiGeneratedTasks, setAiGeneratedTasks] = useState<ParsedTaskData[]>([]);
 
   // Update state when initial props change (e.g., opening from a buyer/listing profile)
   useEffect(() => {
