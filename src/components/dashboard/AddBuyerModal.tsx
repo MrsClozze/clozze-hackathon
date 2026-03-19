@@ -281,6 +281,37 @@ export default function AddBuyerModal({ open, onOpenChange, onCreated }: AddBuye
 
         {view === "manual" && (
           <form onSubmit={handleManualSubmit} className="space-y-6 py-4">
+            {/* Clozze AI Inline Assistant */}
+            <ClozzeAIInlineAssistant
+              flow="add_buyer"
+              existingFormData={formData}
+              onApplyBuyer={(buyer: ParsedBuyerData) => {
+                if (buyer.firstName) updateFormField("buyerFirstName", buyer.firstName);
+                if (buyer.lastName) updateFormField("buyerLastName", buyer.lastName);
+                if (buyer.email) updateFormField("buyerEmail", buyer.email);
+                if (buyer.phone) updateFormField("buyerPhone", buyer.phone);
+                if (buyer.preApprovedAmount) updateFormField("preApprovedAmount", String(buyer.preApprovedAmount));
+                if (buyer.wantsNeeds) updateFormField("wantsNeeds", buyer.wantsNeeds);
+                // If structured preferences, build a formatted wants/needs string
+                if (buyer.preferences) {
+                  const p = buyer.preferences;
+                  const parts: string[] = [];
+                  if (p.mustHaves?.length) parts.push(`Must-haves: ${p.mustHaves.join(', ')}`);
+                  if (p.niceToHaves?.length) parts.push(`Nice-to-haves: ${p.niceToHaves.join(', ')}`);
+                  if (p.dealbreakers?.length) parts.push(`Dealbreakers: ${p.dealbreakers.join(', ')}`);
+                  if (p.budgetContext) parts.push(`Budget: ${p.budgetContext}`);
+                  if (p.locationPreferences?.length) parts.push(`Location: ${p.locationPreferences.join(', ')}`);
+                  if (p.followUpQuestions?.length) parts.push(`Follow-up: ${p.followUpQuestions.join('; ')}`);
+                  const structured = parts.join('\n');
+                  if (structured && !buyer.wantsNeeds) {
+                    updateFormField("wantsNeeds", structured);
+                  } else if (structured && buyer.wantsNeeds) {
+                    updateFormField("wantsNeeds", buyer.wantsNeeds + '\n\n' + structured);
+                  }
+                }
+              }}
+            />
+
             {/* Show banner if form was prefilled from document */}
             {uploadedFileName && (
               <div className="bg-success/10 border border-success/20 rounded-lg p-4">

@@ -315,6 +315,26 @@ export default function AddListingModal({ open, onOpenChange, onCreated }: AddLi
 
         {view === "manual" && (
           <form onSubmit={handleManualSubmit} className="space-y-6 py-4">
+            {/* Clozze AI Inline Assistant */}
+            <ClozzeAIInlineAssistant
+              flow="add_listing"
+              existingFormData={formData}
+              onApplyListing={(listing: ParsedListingData) => {
+                if (listing.sellerFirstName) updateFormField("sellerFirstName", listing.sellerFirstName);
+                if (listing.sellerLastName) updateFormField("sellerLastName", listing.sellerLastName);
+                if (listing.sellerEmail) updateFormField("sellerEmail", listing.sellerEmail);
+                if (listing.sellerPhone) updateFormField("sellerPhone", listing.sellerPhone);
+                if (listing.address) updateFormField("address", listing.address);
+                if (listing.city) updateFormField("city", listing.city);
+                if (listing.zipcode) updateFormField("zipcode", listing.zipcode);
+                if (listing.county) updateFormField("county", listing.county);
+                if (listing.bedrooms) updateFormField("bedrooms", String(listing.bedrooms));
+                if (listing.bathrooms) updateFormField("bathrooms", String(listing.bathrooms));
+                if (listing.sqFeet) updateFormField("sqFeet", String(listing.sqFeet));
+                if (listing.listingPrice) updateFormField("listingPrice", String(listing.listingPrice));
+              }}
+            />
+
             {/* Show banner if form was prefilled from document */}
             {uploadedFileName && (
               <div className="bg-success/10 border border-success/20 rounded-lg p-4">
