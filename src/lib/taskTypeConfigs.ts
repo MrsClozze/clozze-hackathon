@@ -226,7 +226,7 @@ export interface ParsedAction {
   metadata?: Record<string, any>;
 }
 
-export function parseResponseActions(content: string, taskContext?: { listingId?: string | null }): ParsedAction[] {
+export function parseResponseActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {
   const actions: ParsedAction[] = [];
   const detectedTypes = new Set<string>();
 
