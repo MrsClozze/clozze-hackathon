@@ -150,16 +150,22 @@ export function SendWithDocuSignModal({
   };
 
   const validRecipients = recipients.filter(r => r.name.trim() && r.email.trim());
-  const canProceedToTags = validRecipients.length > 0 && files.length > 0;
+  const incompleteRecipients = recipients.filter(r => (r.name.trim() || r.email.trim()) && !(r.name.trim() && r.email.trim()));
+  const allRecipientsValid = recipients.length > 0 && recipients.every(r => r.name.trim() && r.email.trim());
+  const canProceedToTags = allRecipientsValid && files.length > 0;
   const resolvedSubject = subject || (files.length > 0 ? `Please sign: ${files[0].file.name}` : "Please sign the attached document");
 
   const handleGoToTagPlacement = () => {
-    if (!canProceedToTags) {
-      if (files.length === 0) {
-        toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
-      } else {
-        toast({ title: "Recipients required", description: "Add at least one recipient with name and email", variant: "destructive" });
-      }
+    if (files.length === 0) {
+      toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
+      return;
+    }
+    if (validRecipients.length === 0) {
+      toast({ title: "Recipients required", description: "Add at least one recipient with name and email", variant: "destructive" });
+      return;
+    }
+    if (incompleteRecipients.length > 0) {
+      toast({ title: "Incomplete recipients", description: "Please fill in both name and email for all recipients, or remove empty ones", variant: "destructive" });
       return;
     }
     setStep("place_tags");
