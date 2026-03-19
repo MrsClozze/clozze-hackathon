@@ -21,6 +21,7 @@ interface UseTaskAssistantOptions {
 export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResearching, setIsResearching] = useState(false);
   const [suggestedActions, setSuggestedActions] = useState<string[]>([]);
   const [researchSources, setResearchSources] = useState<{ title: string; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,12 +129,18 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
               if (parsed.metadata.researchSources) {
                 setResearchSources(parsed.metadata.researchSources);
               }
+              // Set researching state based on metadata
+              if (parsed.metadata.usedResearch) {
+                setIsResearching(true);
+              }
               continue;
             }
 
             // Handle regular content delta
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
+              // Once content starts flowing, research is done
+              if (isResearching) setIsResearching(false);
               assistantContent += content;
               setMessages(prev =>
                 prev.map(m =>
@@ -186,14 +193,16 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
       }
     } finally {
       setIsLoading(false);
+      setIsResearching(false);
       abortControllerRef.current = null;
     }
-  }, [taskId, messages, isLoading]);
+  }, [taskId, messages, isLoading, isResearching]);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsLoading(false);
+      setIsResearching(false);
     }
   }, []);
 
@@ -201,6 +210,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
     setMessages([]);
     setError(null);
     setResearchSources([]);
+    setSuggestedActions([]);
   }, []);
 
   const executeAction = useCallback(async (action: string, payload: any) => {
@@ -219,6 +229,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
   return {
     messages,
     isLoading,
+    isResearching,
     suggestedActions,
     researchSources,
     error,

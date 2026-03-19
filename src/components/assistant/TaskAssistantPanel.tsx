@@ -1,14 +1,16 @@
-import { useEffect } from "react";
-import { Bot, Volume2, VolumeX, Trash2, Sparkles } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { Volume2, VolumeX, Trash2, Zap, Database, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
-import { getTaskTypeConfig } from "@/lib/taskTypeConfigs";
+import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
 import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
 import TaskAssistantSuggestions from "./TaskAssistantSuggestions";
 import type { Task } from "@/contexts/TasksContext";
+import { useBuyers } from "@/contexts/BuyersContext";
+import { useListings } from "@/contexts/ListingsContext";
 
 interface TaskAssistantPanelProps {
   task: Task;
@@ -18,12 +20,37 @@ interface TaskAssistantPanelProps {
 export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistantPanelProps) {
   const { toast } = useToast();
   const typeConfig = getTaskTypeConfig(task.title);
-  
+  const { buyers } = useBuyers();
+  const { listings } = useListings();
+
+  // Build context info for display
+  const contextInfo = useMemo(() => {
+    const parts: string[] = ['Task'];
+    const buyer = task.buyerId ? buyers.find(b => b.id === task.buyerId) : null;
+    const listing = task.listingId ? listings.find(l => l.id === task.listingId) : null;
+    if (buyer) parts.push('Client');
+    if (listing) parts.push('Property');
+    if (task.notes) parts.push('Notes');
+    return parts;
+  }, [task, buyers, listings]);
+
+  // Build auto-context message
+  const autoContextMessage = useMemo(() => {
+    const buyer = task.buyerId ? buyers.find(b => b.id === task.buyerId) : null;
+    const listing = task.listingId ? listings.find(l => l.id === task.listingId) : null;
+    return buildAutoContextMessage(task, {
+      buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : undefined,
+      listingAddress: listing ? `${listing.address}, ${listing.city}` : undefined,
+      sellerName: listing?.sellerFirstName ? `${listing.sellerFirstName} ${listing.sellerLastName || ''}`.trim() : undefined,
+    });
+  }, [task, buyers, listings]);
+
   const {
     messages,
     isLoading,
     suggestedActions,
     researchSources,
+    isResearching,
     error,
     sendMessage,
     cancelStream,
@@ -51,7 +78,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   useEffect(() => {
     if (error) {
       toast({
-        title: "Assistant Error",
+        title: "Clozze AI Error",
         description: error,
         variant: "destructive",
       });
@@ -60,11 +87,25 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
 
   const handleSaveToNotes = async (content: string) => {
     try {
-      await executeAction("save_draft", { content, label: "AI Assistant" });
+      await executeAction("save_draft", { content, label: "Clozze AI" });
       toast({ title: "Saved", description: "Content saved to task notes." });
       onRefreshTask?.();
     } catch {
       toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
+    }
+  };
+
+  const handleCreateTasks = async (content: string) => {
+    try {
+      // Parse lines into individual tasks
+      const lines = content.split('\n').filter(l => l.trim());
+      for (const line of lines.slice(0, 10)) {
+        await executeAction("create_task", { title: line.trim() });
+      }
+      toast({ title: "Tasks Created", description: `Created ${Math.min(lines.length, 10)} follow-up tasks.` });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
     }
   };
 
@@ -87,10 +128,10 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
       <div className="flex items-center justify-between p-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <Zap className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Task Assistant</h3>
+            <h3 className="text-sm font-semibold text-foreground">Clozze AI</h3>
             <p className="text-xs text-muted-foreground">
               {typeConfig.icon} {typeConfig.label}
             </p>
@@ -126,12 +167,30 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         </div>
       </div>
 
+      {/* Context Indicator */}
+      <div className="px-3 py-1.5 border-b border-border/50 bg-muted/10">
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Database className="h-3 w-3" />
+          <span>Using: {contextInfo.join(' + ')}</span>
+          {isResearching && (
+            <>
+              <span className="text-muted-foreground/50">•</span>
+              <Globe className="h-3 w-3 text-primary animate-pulse" />
+              <span className="text-primary">Live Research</span>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Chat Messages */}
       <TaskAssistantChat
         messages={messages}
         isLoading={isLoading}
+        isResearching={isResearching}
         researchSources={researchSources}
+        autoContextMessage={messages.length === 0 ? autoContextMessage : undefined}
         onSaveToNotes={handleSaveToNotes}
+        onCreateTasks={handleCreateTasks}
       />
 
       {/* Suggestions */}
