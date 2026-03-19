@@ -125,7 +125,11 @@ function buildContextPrompt(context: any): string {
 - Status: ${l.status || 'N/A'}
 - Days on Market: ${l.days_on_market ?? 'N/A'}
 - Listing Start: ${l.listing_start_date || 'N/A'} | End: ${l.listing_end_date || 'N/A'}
-- Seller: ${l.seller_first_name || ''} ${l.seller_last_name || ''} | Email: ${l.seller_email || 'N/A'} | Phone: ${l.seller_phone || 'N/A'}`);
+- Seller: ${l.seller_first_name || ''} ${l.seller_last_name || ''} | Email: ${l.seller_email || 'N/A'} | Phone: ${l.seller_phone || 'N/A'}
+- Description: ${l.description ? l.description.substring(0, 500) + (l.description.length > 500 ? '…' : '') : 'Not yet written'}
+- Highlights: ${l.highlights && l.highlights.length > 0 ? l.highlights.join(', ') : 'None set'}
+- Marketing Copy: ${l.marketing_copy && Object.keys(l.marketing_copy).length > 0 ? Object.keys(l.marketing_copy).join(', ') + ' variants' : 'None'}
+- Internal Notes: ${Array.isArray(l.internal_notes) && l.internal_notes.length > 0 ? l.internal_notes.length + ' entries' : 'None'}`);
   }
 
   if (context.buyer) {
