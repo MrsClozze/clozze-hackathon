@@ -148,6 +148,10 @@ export default function AddListingModal({ open, onOpenChange, onCreated }: AddLi
         totalCommission,
         agentCommission,
         brokerageCommission,
+        description: '',
+        highlights: [],
+        internalNotes: [],
+        marketingCopy: {},
       };
 
       // Call the addListing function from context - this handles:
