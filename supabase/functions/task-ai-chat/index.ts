@@ -210,14 +210,14 @@ serve(async (req) => {
 
     if (task.listing_id) {
       promises.push(
-        supabase.from('listings').select('*').eq('id', task.listing_id).single()
+        supabase.from('listings').select('*').eq('id', task.listing_id).eq('user_id', user.id).single()
           .then(({ data }) => { if (data) context.listing = data; })
       );
     }
 
     if (task.buyer_id) {
       promises.push(
-        supabase.from('buyers').select('*').eq('id', task.buyer_id).single()
+        supabase.from('buyers').select('*').eq('id', task.buyer_id).eq('user_id', user.id).single()
           .then(({ data }) => { if (data) context.buyer = data; })
       );
     }
