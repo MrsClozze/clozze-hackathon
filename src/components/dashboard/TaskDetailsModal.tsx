@@ -361,13 +361,6 @@ export default function TaskDetailsModal() {
                       const listing = listings.find(l => l.id === currentTask.listingId);
                       if (listing) return `${listing.address}, ${listing.city}`;
                     }
-                    if (currentTask.buyerId) {
-                      const buyer = buyers.find(b => b.id === currentTask.buyerId);
-                      if (buyer) {
-                        const linkedListing = listings.find(l => l.sellerEmail === buyer.email || l.userId === currentTask.userId);
-                        if (linkedListing) return `${linkedListing.address}, ${linkedListing.city}`;
-                      }
-                    }
                     return "No address";
                   })()}
                 </div>
