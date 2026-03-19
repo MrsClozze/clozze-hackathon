@@ -7,6 +7,13 @@ import { useToast } from "@/hooks/use-toast";
 import { trackQualifyLead, trackCloseConvertLead } from "@/lib/analytics";
 import property1 from "@/assets/property-1.jpg";
 
+export interface ListingInternalNote {
+  content: string;
+  source: string;
+  created_at: string;
+  label: string;
+}
+
 export interface ListingData {
   id: string;
   address: string;
@@ -37,6 +44,11 @@ export interface ListingData {
   totalCommission: number;
   agentCommission: number;
   brokerageCommission: number;
+  // AI content fields
+  description: string;
+  highlights: string[];
+  internalNotes: ListingInternalNote[];
+  marketingCopy: Record<string, string>;
   isDemo?: boolean;
 }
 
