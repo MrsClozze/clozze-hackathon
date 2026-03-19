@@ -65,10 +65,13 @@ export default function ClozzeAIInlineAssistant({
 
   const {
     isRecording,
+    isPlayingAudio,
     transcript,
     setTranscript,
     startRecording,
     stopRecording,
+    playResponse,
+    stopPlayback,
   } = useTaskVoice();
 
   const flowLabel = FLOW_LABELS[flow];
