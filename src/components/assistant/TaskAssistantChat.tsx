@@ -21,6 +21,10 @@ interface TaskAssistantChatProps {
   onCreateFollowUp?: (content: string) => void;
   onSaveToListing?: (content: string) => void;
   onSaveDraft?: (content: string) => void;
+  onSaveToListingDescription?: (content: string) => void;
+  onSaveToListingHighlights?: (content: string) => void;
+  onSaveToListingNotes?: (content: string) => void;
+  onSaveToListingMarketing?: (content: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
