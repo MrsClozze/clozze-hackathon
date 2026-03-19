@@ -143,10 +143,50 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   const handleSaveToListing = async (content: string) => {
     try {
       await executeAction("save_to_listing", { content, field: 'description' });
-      toast({ title: "Saved", description: "Content saved to listing notes." });
+      toast({ title: "Saved", description: "Content saved to listing." });
       onRefreshTask?.();
     } catch {
       toast({ title: "Error", description: "Failed to save to listing.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveToListingDescription = async (content: string) => {
+    try {
+      await executeAction("save_to_listing_description", { content });
+      toast({ title: "Saved", description: "Listing description updated." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save description.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveToListingHighlights = async (content: string) => {
+    try {
+      await executeAction("save_to_listing_highlights", { content });
+      toast({ title: "Saved", description: "Property highlights updated." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save highlights.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveToListingNotes = async (content: string) => {
+    try {
+      await executeAction("save_to_listing_notes", { content, label: "AI Research" });
+      toast({ title: "Saved", description: "Notes added to listing." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save notes.", variant: "destructive" });
+    }
+  };
+
+  const handleSaveToListingMarketing = async (content: string) => {
+    try {
+      await executeAction("save_to_listing_marketing", { content, variant: "primary" });
+      toast({ title: "Saved", description: "Marketing copy saved to listing." });
+      onRefreshTask?.();
+    } catch {
+      toast({ title: "Error", description: "Failed to save marketing copy.", variant: "destructive" });
     }
   };
 
@@ -282,6 +322,10 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         onCreateFollowUp={handleCreateFollowUp}
         onSaveToListing={handleSaveToListing}
         onSaveDraft={handleSaveDraft}
+        onSaveToListingDescription={handleSaveToListingDescription}
+        onSaveToListingHighlights={handleSaveToListingHighlights}
+        onSaveToListingNotes={handleSaveToListingNotes}
+        onSaveToListingMarketing={handleSaveToListingMarketing}
       />
 
       {/* Suggestions */}

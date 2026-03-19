@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions } from "@/lib/taskTypeConfigs";
@@ -21,6 +21,10 @@ interface TaskAssistantChatProps {
   onCreateFollowUp?: (content: string) => void;
   onSaveToListing?: (content: string) => void;
   onSaveDraft?: (content: string) => void;
+  onSaveToListingDescription?: (content: string) => void;
+  onSaveToListingHighlights?: (content: string) => void;
+  onSaveToListingNotes?: (content: string) => void;
+  onSaveToListingMarketing?: (content: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
@@ -52,6 +56,10 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   create_follow_up: CalendarPlus,
   save_draft: FileText,
   save_to_listing: Home,
+  save_to_listing_description: FileEdit,
+  save_to_listing_highlights: Tag,
+  save_to_listing_notes: Save,
+  save_to_listing_marketing: Megaphone,
   copy_text: Copy,
 };
 
@@ -68,6 +76,10 @@ export default function TaskAssistantChat({
   onCreateFollowUp,
   onSaveToListing,
   onSaveDraft,
+  onSaveToListingDescription,
+  onSaveToListingHighlights,
+  onSaveToListingNotes,
+  onSaveToListingMarketing,
 }: TaskAssistantChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -96,6 +108,18 @@ export default function TaskAssistantChat({
         break;
       case 'save_to_listing':
         onSaveToListing?.(content);
+        break;
+      case 'save_to_listing_description':
+        onSaveToListingDescription?.(content);
+        break;
+      case 'save_to_listing_highlights':
+        onSaveToListingHighlights?.(content);
+        break;
+      case 'save_to_listing_notes':
+        onSaveToListingNotes?.(content);
+        break;
+      case 'save_to_listing_marketing':
+        onSaveToListingMarketing?.(content);
         break;
       case 'save_draft':
         onSaveDraft?.(content);

@@ -446,9 +446,13 @@ export type Database = {
           county: string | null
           created_at: string
           days_on_market: number | null
+          description: string | null
+          highlights: string[] | null
           id: string
+          internal_notes: Json | null
           listing_end_date: string | null
           listing_start_date: string | null
+          marketing_copy: Json | null
           price: number
           seller_email: string | null
           seller_first_name: string | null
@@ -470,9 +474,13 @@ export type Database = {
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          internal_notes?: Json | null
           listing_end_date?: string | null
           listing_start_date?: string | null
+          marketing_copy?: Json | null
           price: number
           seller_email?: string | null
           seller_first_name?: string | null
@@ -494,9 +502,13 @@ export type Database = {
           county?: string | null
           created_at?: string
           days_on_market?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          internal_notes?: Json | null
           listing_end_date?: string | null
           listing_start_date?: string | null
+          marketing_copy?: Json | null
           price?: number
           seller_email?: string | null
           seller_first_name?: string | null

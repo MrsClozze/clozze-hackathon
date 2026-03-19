@@ -125,7 +125,11 @@ function buildContextPrompt(context: any): string {
 - Status: ${l.status || 'N/A'}
 - Days on Market: ${l.days_on_market ?? 'N/A'}
 - Listing Start: ${l.listing_start_date || 'N/A'} | End: ${l.listing_end_date || 'N/A'}
-- Seller: ${l.seller_first_name || ''} ${l.seller_last_name || ''} | Email: ${l.seller_email || 'N/A'} | Phone: ${l.seller_phone || 'N/A'}`);
+- Seller: ${l.seller_first_name || ''} ${l.seller_last_name || ''} | Email: ${l.seller_email || 'N/A'} | Phone: ${l.seller_phone || 'N/A'}
+- Description: ${l.description ? l.description.substring(0, 500) + (l.description.length > 500 ? '…' : '') : 'Not yet written'}
+- Highlights: ${l.highlights && l.highlights.length > 0 ? l.highlights.join(', ') : 'None set'}
+- Marketing Copy: ${l.marketing_copy && Object.keys(l.marketing_copy).length > 0 ? Object.keys(l.marketing_copy).join(', ') + ' variants' : 'None'}
+- Internal Notes: ${Array.isArray(l.internal_notes) && l.internal_notes.length > 0 ? l.internal_notes.length + ' entries' : 'None'}`);
   }
 
   if (context.buyer) {
@@ -384,6 +388,44 @@ STRUCTURED OUTPUT GUIDELINES:
   ## Missing Information (what still needs investigation)
 - When generating follow-up tasks, include suggested deadlines relative to today or the task's due date
 - When drafting communications, clearly label them as drafts and indicate the intended recipient
+
+LISTING READINESS AUDIT FORMAT:
+When the user asks "what am I missing", "readiness check", "audit", or similar:
+Use this exact structured format:
+## ✅ Complete Information
+- List what data is already available
+
+## ⚠️ Missing Information
+- List each missing item as a checkbox: - [ ] Item description
+
+## 📋 Recommended Actions
+- Specific next steps the agent should take, each as actionable bullet
+
+## 🔍 Research Insights
+- Any relevant external data or context found
+
+## 📌 Suggested Next Steps
+- Prioritized list of what to do next, each as a clear action item
+
+COMPARABLE PROPERTIES FORMAT:
+When presenting comps or comparable sales:
+- Use a consistent format for each comp:
+  **Address** | Price | Beds/Baths | Sq Ft | DOM | Sold Date
+- Clearly label data source: "Based on external research" or "AI interpretation"
+- Include price-per-sqft comparison when possible
+- Add a summary analysis section after the comp list
+- Flag any data that may be outdated with a caveat
+
+LISTING DESCRIPTION GUIDELINES:
+When writing listing descriptions:
+- Generate MLS-ready content with proper formatting
+- Include a headline/hook, property details, lifestyle appeal, and call-to-action
+- Content will be saved directly to the listing's description field
+
+DIRECT TASK EXECUTION:
+When the user asks to mark a task complete, change priority, or similar:
+- Confirm the action clearly before suggesting it
+- Use language like "I can mark this task as complete for you"
 ${toneContext}
 
 ${contextPrompt}
