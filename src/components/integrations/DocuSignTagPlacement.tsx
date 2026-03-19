@@ -145,7 +145,10 @@ export function DocuSignTagPlacement({
     setTags((prev) => [...prev, newTag]);
   };
 
-  const removeTag = (tagId: string) => {
+  const removeTag = (tagId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    justFinishedDrag.current = true;
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
