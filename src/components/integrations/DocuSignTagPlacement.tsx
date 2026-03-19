@@ -176,8 +176,11 @@ export function DocuSignTagPlacement({
   );
 
   const handleMouseUp = useCallback(() => {
+    if (draggingTagId) {
+      justFinishedDrag.current = true;
+    }
     setDraggingTagId(null);
-  }, []);
+  }, [draggingTagId]);
 
   useEffect(() => {
     if (draggingTagId) {
