@@ -816,6 +816,82 @@ export type Database = {
         }
         Relationships: []
       }
+      task_ai_actions_log: {
+        Row: {
+          action_payload: Json | null
+          action_type: string
+          created_at: string
+          id: string
+          result: Json | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type: string
+          created_at?: string
+          id?: string
+          result?: Json | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          result?: Json | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_ai_actions_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_ai_conversations: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_ai_conversations_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_assignees: {
         Row: {
           assigned_at: string
