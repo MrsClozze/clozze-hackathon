@@ -109,6 +109,18 @@ export default function TaskAssistantChat({
       case 'save_to_listing':
         onSaveToListing?.(content);
         break;
+      case 'save_to_listing_description':
+        onSaveToListingDescription?.(content);
+        break;
+      case 'save_to_listing_highlights':
+        onSaveToListingHighlights?.(content);
+        break;
+      case 'save_to_listing_notes':
+        onSaveToListingNotes?.(content);
+        break;
+      case 'save_to_listing_marketing':
+        onSaveToListingMarketing?.(content);
+        break;
       case 'save_draft':
         onSaveDraft?.(content);
         break;
