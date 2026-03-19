@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
 import ProfileContactsTab from "./ProfileContactsTab";
+import BuyerAIContent from "./BuyerAIContent";
 
 const BUYER_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -16,7 +17,7 @@ const BUYER_STATUSES = [
   { value: "Closed", label: "Closed", color: "bg-secondary" },
   { value: "Off-Market", label: "Off-Market", color: "bg-muted-foreground" },
 ] as const;
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
