@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck, Home, FileText, DollarSign } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck, Home, FileText, DollarSign, Layers, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { BuyerData } from "@/contexts/BuyersContext";
-import { computeBuyerCompletion, getBuyerPhase, getBuyerTaskBundle, type CompletionItem, type BuyerPhase } from "@/lib/completionTracking";
+import { computeBuyerCompletion, getBuyerPhase, getBuyerTaskBundle, getBuyerGroupedActions, type CompletionItem, type BuyerPhase } from "@/lib/completionTracking";
+import { getWorkflowState, recordAction, setLastNextStep, setGroupedFlowInProgress, getResumeSummary } from "@/lib/workflowState";
 
 interface BuyerAIContentProps {
   buyer: BuyerData;
@@ -32,10 +33,25 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
   const [generating, setGenerating] = useState<string | null>(null);
   const [creatingTasks, setCreatingTasks] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
+  const [groupedFlowRunning, setGroupedFlowRunning] = useState<string | null>(null);
+  const [groupedFlowProgress, setGroupedFlowProgress] = useState<{ total: number; done: number; current: string } | null>(null);
 
-  const completion = useMemo(() => computeBuyerCompletion(buyer), [buyer]);
+  // Workflow state
+  const workflowState = useMemo(() => getWorkflowState('buyer', buyer.id), [buyer.id]);
+  const resumeSummary = useMemo(() => getResumeSummary('buyer', buyer.id), [buyer.id]);
+
+  const completion = useMemo(
+    () => computeBuyerCompletion(buyer, workflowState.lastCompletedActionKey),
+    [buyer, workflowState.lastCompletedActionKey]
+  );
   const phase = useMemo(() => getBuyerPhase(buyer), [buyer]);
   const phaseInfo = PHASE_CONFIG[phase];
+  const groupedActions = useMemo(() => getBuyerGroupedActions(completion, phase), [completion, phase]);
+
+  // Persist next step
+  useEffect(() => {
+    setLastNextStep('buyer', buyer.id, completion.nextStep?.key ?? null);
+  }, [completion.nextStep, buyer.id]);
 
   const flashComplete = (key: string) => {
     setJustCompleted(key);
@@ -82,6 +98,7 @@ Use this exact format:
       });
       if (error) throw error;
       setAuditResult(data?.response || data?.content || 'No audit results generated.');
+      recordAction('buyer', buyer.id, 'run_audit', 'Ran buyer profile audit');
     } catch (err) {
       console.error('Audit error:', err);
       toast({ title: "Error", description: "Failed to run audit.", variant: "destructive" });
@@ -90,7 +107,7 @@ Use this exact format:
     }
   };
 
-  const handleStructureNeeds = async () => {
+  const handleStructureNeeds = useCallback(async () => {
     setStructuring(true);
     setStructuredResult(null);
     try {
@@ -120,13 +137,14 @@ Organize into:
       });
       if (error) throw error;
       setStructuredResult(data?.response || data?.content || 'No structured output generated.');
+      recordAction('buyer', buyer.id, 'structure_needs', 'Structured buyer wants/needs');
     } catch (err) {
       console.error('Structure error:', err);
       toast({ title: "Error", description: "Failed to structure needs.", variant: "destructive" });
     } finally {
       setStructuring(false);
     }
-  };
+  }, [buyer, toast]);
 
   const handleSaveStructuredNeeds = async () => {
     if (!structuredResult) return;
@@ -135,13 +153,14 @@ Organize into:
       if (error) throw error;
       onBuyerUpdate?.({ ...buyer, wantsNeeds: structuredResult });
       flashComplete('wantsNeeds');
+      recordAction('buyer', buyer.id, 'save_structured_needs', 'Saved structured wants/needs');
       toast({ title: "✓ Saved", description: "Structured wants/needs saved to buyer profile." });
     } catch {
       toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
     }
   };
 
-  const handleGenerateDraft = async (type: 'follow_up' | 'next_steps' | 'showing' | 'offer_prep' | 'send_listings') => {
+  const handleGenerateDraft = useCallback(async (type: 'follow_up' | 'next_steps' | 'showing' | 'offer_prep' | 'send_listings') => {
     setGenerating(type);
     try {
       const prompts: Record<string, string> = {
@@ -159,6 +178,7 @@ Organize into:
       const content = data?.response || data?.content || '';
       if (content) {
         setStructuredResult(content);
+        recordAction('buyer', buyer.id, `generate_${type}`, `Generated ${type.replace(/_/g, ' ')} draft`);
         toast({ title: "Draft Generated", description: "Review the draft below." });
       }
     } catch {
@@ -166,7 +186,7 @@ Organize into:
     } finally {
       setGenerating(null);
     }
-  };
+  }, [buyer, toast]);
 
   const handleCreateContextTasks = async () => {
     if (!user) return;
@@ -182,6 +202,7 @@ Organize into:
       }));
       const { error } = await supabase.from('tasks').insert(tasks);
       if (error) throw error;
+      recordAction('buyer', buyer.id, 'create_tasks', `Created ${tasks.length} tasks`);
       toast({ title: "✓ Tasks created", description: `${tasks.length} tasks created based on current buyer state.` });
     } catch (err) {
       console.error('Task creation error:', err);
@@ -191,10 +212,55 @@ Organize into:
     }
   };
 
+  // Grouped action execution
+  const handleGroupedAction = async (actionId: string) => {
+    const action = groupedActions.find(a => a.id === actionId);
+    if (!action) return;
+
+    setGroupedFlowRunning(actionId);
+    setGroupedFlowInProgress('buyer', buyer.id, actionId);
+
+    const steps = action.actionTypes;
+    for (let i = 0; i < steps.length; i++) {
+      setGroupedFlowProgress({ total: steps.length, done: i, current: steps[i] });
+
+      if (steps[i] === 'structure_needs') {
+        await handleStructureNeeds();
+      } else if (steps[i] === 'send_listings') {
+        await handleGenerateDraft('send_listings');
+      } else if (steps[i] === 'create_showing_tasks') {
+        await handleCreateContextTasks();
+      } else if (steps[i] === 'offer_prep') {
+        await handleGenerateDraft('offer_prep');
+      } else if (steps[i] === 'create_offer_tasks') {
+        await handleCreateContextTasks();
+      }
+    }
+
+    setGroupedFlowProgress(null);
+    setGroupedFlowRunning(null);
+    setGroupedFlowInProgress('buyer', buyer.id, null);
+    recordAction('buyer', buyer.id, `grouped_${actionId}`, `Completed: ${action.label}`);
+    toast({ title: "✓ Flow complete", description: `${action.label} — all steps finished.` });
+  };
+
   const completeItems = completion.items.filter(i => i.complete);
 
   return (
     <div className="space-y-5 py-4">
+      {/* Resume Banner */}
+      {resumeSummary.hasHistory && resumeSummary.lastAction && !groupedFlowRunning && (
+        <div className="rounded-lg border border-border bg-muted/30 p-2.5 flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <p className="text-xs text-muted-foreground">
+            Last action: <span className="font-medium text-foreground">{resumeSummary.lastAction.label}</span>
+            {resumeSummary.lastInteraction && (
+              <> · {new Date(resumeSummary.lastInteraction).toLocaleDateString()}</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -211,8 +277,24 @@ Organize into:
         <Progress value={completion.percentage} className="h-2" />
       </div>
 
+      {/* Grouped Flow Progress */}
+      {groupedFlowProgress && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 text-primary animate-spin" />
+            <span className="text-sm font-semibold text-foreground">
+              Running flow… ({groupedFlowProgress.done + 1}/{groupedFlowProgress.total})
+            </span>
+          </div>
+          <Progress value={(groupedFlowProgress.done / groupedFlowProgress.total) * 100} className="h-1.5" />
+          <p className="text-xs text-muted-foreground">
+            Current step: {groupedFlowProgress.current.replace(/_/g, ' ')}
+          </p>
+        </div>
+      )}
+
       {/* Phase Card — context-aware based on buyer state */}
-      {phase !== 'profiling' ? (
+      {phase !== 'profiling' && !groupedFlowRunning ? (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <FileCheck className="h-4 w-4 text-primary" />
@@ -249,7 +331,7 @@ Organize into:
             </Button>
           </div>
         </div>
-      ) : completion.nextStep ? (
+      ) : !groupedFlowRunning && completion.nextStep ? (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
           <div className="flex items-center gap-2">
             <ArrowRight className="h-4 w-4 text-primary" />
@@ -278,6 +360,32 @@ Organize into:
           </div>
         </div>
       ) : null}
+
+      {/* Grouped Actions */}
+      {groupedActions.length > 0 && !groupedFlowRunning && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5" /> Quick Flows
+          </h4>
+          <div className="space-y-1.5">
+            {groupedActions.map(action => (
+              <button
+                key={action.id}
+                className="w-full text-left rounded-lg border border-border bg-muted/20 hover:bg-muted/40 p-2.5 transition-colors"
+                onClick={() => handleGroupedAction(action.id)}
+                disabled={!!generating || !!groupedFlowRunning}
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground">{action.label}</span>
+                  <Badge variant="outline" className="text-[9px] h-4 ml-auto">{action.actionTypes.length} steps</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 ml-5">{action.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Blockers */}
       {completion.blockers.length > 0 && (
@@ -367,7 +475,7 @@ Organize into:
       </div>
 
       {/* Quick Drafts — only in profiling phase */}
-      {phase === 'profiling' && (
+      {phase === 'profiling' && !groupedFlowRunning && (
         <div className="flex flex-wrap gap-2">
           {buyer.wantsNeeds && (
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
