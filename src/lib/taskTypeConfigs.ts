@@ -217,10 +217,10 @@ export function buildAutoContextMessage(ctx: AutoContextData): string {
 
 /**
  * Parse AI response content to determine which action buttons to show.
- * Uses smarter heuristics to differentiate output types and avoid duplicates.
+ * Smart auto-detection: defaults to the most likely save destination.
  */
 export interface ParsedAction {
-  type: 'save_notes' | 'create_tasks' | 'create_follow_up' | 'save_draft' | 'save_to_listing' | 'copy_text';
+  type: string;
   label: string;
   content: string;
   metadata?: Record<string, any>;
@@ -230,7 +230,7 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
   const actions: ParsedAction[] = [];
   const detectedTypes = new Set<string>();
 
-  // 1. Check for checklist / task list items (bullet points with actionable text)
+  // 1. Check for checklist / task list items
   const taskListPattern = /(?:^|\n)\s*[-•✓☐*]\s+(?:\[[ x]\]\s+)?.+/gm;
   const taskMatches = content.match(taskListPattern);
   if (taskMatches && taskMatches.length >= 2) {
@@ -247,7 +247,7 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
     }
   }
 
-  // 2. Check for follow-up suggestions (explicit follow-up language)
+  // 2. Check for follow-up suggestions
   const followUpPattern = /follow[- ]?up|remind|check back|circle back|revisit/i;
   if (followUpPattern.test(content) && !detectedTypes.has('create_tasks')) {
     actions.push({
@@ -258,29 +258,68 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
     detectedTypes.add('create_follow_up');
   }
 
-  // 3. Check for draft-like content (email drafts, descriptions, message templates)
-  const draftPatterns = [
-    /subject:/i, /dear\s/i, /hi\s/i, /hello\s/i,
-    /draft/i, /template/i, /description:/i,
-    /^#{1,3}\s+.*(description|draft|email|message|template)/im,
-  ];
-  const hasDraftContent = draftPatterns.some(p => p.test(content));
-  if (hasDraftContent && content.length > 100) {
-    actions.push({
-      type: 'save_draft',
-      label: 'Save Draft',
-      content,
-    });
-    detectedTypes.add('save_draft');
-  }
-
-  // 4. Check for listing-specific content (descriptions, highlights)
+  // 3. Smart listing destination detection (only if linked to listing)
   if (taskContext?.listingId) {
-    const listingContentPatterns = [
-      /listing description/i, /mls description/i, /property description/i,
-      /key features/i, /highlights/i, /selling points/i,
-    ];
-    if (listingContentPatterns.some(p => p.test(content))) {
+    const lower = content.toLowerCase();
+
+    // Description detection
+    const isDescription = /listing description|mls description|property description/i.test(lower) &&
+      content.length > 100;
+    // Highlights detection
+    const isHighlights = /key features|property highlights|selling points|feature list/i.test(lower);
+    // Marketing detection
+    const isMarketing = /marketing copy|social media post|email campaign|ad copy|promotional/i.test(lower);
+    // Research/analysis detection
+    const isResearch = /comparable|comps|market analysis|research|findings|based on external/i.test(lower);
+
+    if (isDescription) {
+      // Default: Save to Listing Description (primary action)
+      actions.push({
+        type: 'save_to_listing_description',
+        label: 'Save to Description',
+        content,
+        metadata: { listingId: taskContext.listingId },
+      });
+      detectedTypes.add('save_to_listing');
+    } else if (isHighlights) {
+      actions.push({
+        type: 'save_to_listing_highlights',
+        label: 'Save to Highlights',
+        content,
+        metadata: { listingId: taskContext.listingId },
+      });
+      detectedTypes.add('save_to_listing');
+    } else if (isMarketing) {
+      actions.push({
+        type: 'save_to_listing_marketing',
+        label: 'Save Marketing Copy',
+        content,
+        metadata: { listingId: taskContext.listingId },
+      });
+      detectedTypes.add('save_to_listing');
+    } else if (isResearch) {
+      actions.push({
+        type: 'save_to_listing_notes',
+        label: 'Save to Listing Notes',
+        content,
+        metadata: { listingId: taskContext.listingId },
+      });
+      detectedTypes.add('save_to_listing');
+    }
+
+    // If we detected a specific type, also offer the generic save as secondary
+    if (detectedTypes.has('save_to_listing') && content.length > 150) {
+      // Add a secondary "Save to Notes" option
+      actions.push({
+        type: 'save_notes',
+        label: 'Save to Task Notes',
+        content,
+      });
+      detectedTypes.add('save_notes');
+    }
+
+    // If linked to listing but no specific type detected, offer generic save
+    if (!detectedTypes.has('save_to_listing') && content.length > 100) {
       actions.push({
         type: 'save_to_listing',
         label: 'Save to Listing',
@@ -291,23 +330,30 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
     }
   }
 
-  // 5. For summaries and analysis (substantial content without being a draft)
-  if (!detectedTypes.has('save_draft') && content.length > 150) {
+  // 4. Draft-like content
+  const draftPatterns = [
+    /subject:/i, /dear\s/i, /hi\s/i, /hello\s/i,
+    /draft/i, /template/i,
+    /^#{1,3}\s+.*(draft|email|message|template)/im,
+  ];
+  const hasDraftContent = draftPatterns.some(p => p.test(content));
+  if (hasDraftContent && content.length > 100 && !detectedTypes.has('save_to_listing')) {
+    actions.push({
+      type: 'save_draft',
+      label: 'Save Draft',
+      content,
+    });
+    detectedTypes.add('save_draft');
+  }
+
+  // 5. Save to notes (for substantial content not already captured)
+  if (!detectedTypes.has('save_notes') && !detectedTypes.has('save_draft') && content.length > 150) {
     actions.push({
       type: 'save_notes',
       label: 'Save to Notes',
       content,
     });
     detectedTypes.add('save_notes');
-  }
-
-  // 6. If we have a draft, also offer save to notes
-  if (detectedTypes.has('save_draft') && content.length > 150) {
-    actions.push({
-      type: 'save_notes',
-      label: 'Save to Notes',
-      content,
-    });
   }
 
   return actions;
