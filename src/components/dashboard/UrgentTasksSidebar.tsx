@@ -10,6 +10,7 @@ import TaskDetailsModal from "./TaskDetailsModal";
 
 export default function UrgentTasksSidebar() {
   const { tasks, openTaskModal } = useTasks();
+  const { listings } = useListings();
   const navigate = useNavigate();
 
   // Get the 5 most urgent tasks sorted by due date
