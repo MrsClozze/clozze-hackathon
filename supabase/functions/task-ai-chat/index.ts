@@ -198,8 +198,10 @@ serve(async (req) => {
 
     if (taskError || !task) throw new Error('Task not found');
 
-    // Verify task belongs to user (or shared team)
-    // For simplicity, we trust RLS on the client side already filtered
+    // STRICT CONTEXT ISOLATION: Verify task belongs to this user
+    if (task.user_id !== user.id) {
+      throw new Error('Unauthorized: task does not belong to this user');
+    }
     
     const context: any = { task };
 
