@@ -582,6 +582,10 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         </div>
           </TabsContent>
 
+          <TabsContent value="ai-content">
+            <BuyerAIContent buyer={currentBuyer} onBuyerUpdate={onBuyerUpdate} />
+          </TabsContent>
+
           <TabsContent value="contacts">
             <ProfileContactsTab recordType="buyer" recordId={buyer.id} />
           </TabsContent>
