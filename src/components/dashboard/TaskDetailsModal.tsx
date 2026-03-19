@@ -708,6 +708,19 @@ export default function TaskDetailsModal() {
                 )}
               </div>
             )}
+            </div>
+
+            {/* Right Panel - AI Assistant */}
+            {!isEditing && selectedTask && !selectedTask.isDemo && (
+              <div className="w-[400px] flex-shrink-0 hidden lg:flex">
+                <TaskAssistantPanel
+                  task={selectedTask}
+                  onRefreshTask={() => {
+                    // Trigger refetch of the task
+                  }}
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
