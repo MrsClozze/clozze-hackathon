@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
+import ClozzeAIInlineAssistant from "@/components/assistant/ClozzeAIInlineAssistant";
+import type { ParsedListingData } from "@/hooks/useClozzeAICreate";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useListings } from "@/contexts/ListingsContext";
