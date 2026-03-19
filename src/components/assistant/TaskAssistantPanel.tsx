@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Volume2, VolumeX, Trash2, Zap, Database, Globe } from "lucide-react";
+import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
@@ -81,11 +81,13 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     isRecording,
     isPlayingAudio,
     transcript,
+    hasLastResponse,
     setTranscript,
     startRecording,
     stopRecording,
     playResponse,
     stopPlayback,
+    replayLastResponse,
   } = useTaskVoice();
 
   // Show suggested actions from config when no server suggestions yet
@@ -169,6 +171,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  const handleReplay = () => {
+    if (!isPlayingAudio && hasLastResponse) {
+      replayLastResponse();
+    }
+  };
+
   const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
 
   const taskContext = useMemo(() => ({
@@ -192,6 +200,19 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Voice playback indicator */}
+          {isPlayingAudio && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 mr-1">
+              <div className="flex gap-0.5 items-end h-3">
+                <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" style={{ animationDelay: '0ms' }} />
+                <div className="w-0.5 h-2 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+                <div className="w-0.5 h-3 bg-primary animate-pulse rounded-full" style={{ animationDelay: '300ms' }} />
+                <div className="w-0.5 h-2 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+                <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" style={{ animationDelay: '0ms' }} />
+              </div>
+              <span className="text-[10px] text-primary font-medium">Speaking</span>
+            </div>
+          )}
           {lastAssistantMessage?.content && (
             <Button
               variant="ghost"
@@ -205,6 +226,17 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               ) : (
                 <Volume2 className="h-4 w-4 text-muted-foreground" />
               )}
+            </Button>
+          )}
+          {hasLastResponse && !isPlayingAudio && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleReplay}
+              title="Replay last response"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           )}
           {messages.length > 0 && (

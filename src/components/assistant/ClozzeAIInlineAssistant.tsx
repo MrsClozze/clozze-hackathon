@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine } from "lucide-react";
+import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,10 +65,13 @@ export default function ClozzeAIInlineAssistant({
 
   const {
     isRecording,
+    isPlayingAudio,
     transcript,
     setTranscript,
     startRecording,
     stopRecording,
+    playResponse,
+    stopPlayback,
   } = useTaskVoice();
 
   const flowLabel = FLOW_LABELS[flow];
@@ -191,6 +194,22 @@ export default function ClozzeAIInlineAssistant({
           <span className="text-sm font-medium text-foreground">
             Clozze AI — {flowLabel.icon} {flowLabel.title}
           </span>
+          {isPlayingAudio && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10">
+              <div className="flex gap-0.5 items-end h-2.5">
+                <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" />
+                <div className="w-0.5 h-1.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+                <div className="w-0.5 h-2.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '300ms' }} />
+                <div className="w-0.5 h-1.5 bg-primary animate-pulse rounded-full" style={{ animationDelay: '150ms' }} />
+              </div>
+            </div>
+          )}
+          {isRecording && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-destructive/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+              <span className="text-[10px] text-destructive font-medium">Listening</span>
+            </div>
+          )}
         </div>
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -260,26 +279,56 @@ export default function ClozzeAIInlineAssistant({
             </ScrollArea>
           )}
 
-          {/* Action buttons when structured data is available */}
-          {hasStructuredData && !isLoading && (
+          {/* Action buttons when assistant has responded */}
+          {messages.some(m => m.role === 'assistant' && m.content) && !isLoading && (
             <div className="px-3 py-2 border-t border-primary/10 bg-primary/5 flex flex-wrap gap-2">
+              {hasStructuredData && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={applied ? "outline" : "default"}
+                  className="h-7 text-xs gap-1"
+                  onClick={handleApplyToForm}
+                  disabled={applied}
+                >
+                  {applied ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      Applied
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDownToLine className="h-3 w-3" />
+                      Apply to Form
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
-                variant={applied ? "outline" : "default"}
-                className="h-7 text-xs gap-1"
-                onClick={handleApplyToForm}
-                disabled={applied}
+                variant="ghost"
+                className="h-7 text-xs gap-1 text-muted-foreground"
+                onClick={() => {
+                  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+                  if (lastAssistant) {
+                    if (isPlayingAudio) {
+                      stopPlayback();
+                    } else {
+                      playResponse(cleanContent(lastAssistant.content));
+                    }
+                  }
+                }}
               >
-                {applied ? (
+                {isPlayingAudio ? (
                   <>
-                    <Check className="h-3 w-3" />
-                    Applied
+                    <VolumeX className="h-3 w-3" />
+                    Stop
                   </>
                 ) : (
                   <>
-                    <ArrowDownToLine className="h-3 w-3" />
-                    Apply to Form
+                    <Volume2 className="h-3 w-3" />
+                    Listen
                   </>
                 )}
               </Button>
