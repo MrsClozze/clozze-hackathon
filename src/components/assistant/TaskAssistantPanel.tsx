@@ -24,6 +24,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   const typeConfig = getTaskTypeConfig(task.title);
   const { buyers } = useBuyers();
   const { listings } = useListings();
+  const [confirmAction, setConfirmAction] = useState<{ type: string; label: string; description: string } | null>(null);
 
   // Build context info for display
   const contextInfo = useMemo(() => {
