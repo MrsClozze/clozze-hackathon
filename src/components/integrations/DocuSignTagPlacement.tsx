@@ -55,11 +55,11 @@ interface DocuSignTagPlacementProps {
 }
 
 const TAG_TYPES = [
-  { type: "signHere" as const, label: "Signature", icon: PenTool, color: "bg-yellow-500" },
-  { type: "initialHere" as const, label: "Initials", icon: Type, color: "bg-blue-500" },
-  { type: "dateSigned" as const, label: "Date Signed", icon: Calendar, color: "bg-green-500" },
-  { type: "fullName" as const, label: "Full Name", icon: User, color: "bg-purple-500" },
-  { type: "email" as const, label: "Email", icon: Mail, color: "bg-orange-500" },
+  { type: "signHere" as const, label: "Signature", icon: PenTool, borderColor: "border-yellow-500", bgColor: "bg-yellow-500/20", textColor: "text-yellow-700", dotColor: "bg-yellow-500" },
+  { type: "initialHere" as const, label: "Initials", icon: Type, borderColor: "border-blue-500", bgColor: "bg-blue-500/20", textColor: "text-blue-700", dotColor: "bg-blue-500" },
+  { type: "dateSigned" as const, label: "Date Signed", icon: Calendar, borderColor: "border-green-500", bgColor: "bg-green-500/20", textColor: "text-green-700", dotColor: "bg-green-500" },
+  { type: "fullName" as const, label: "Full Name", icon: User, borderColor: "border-purple-500", bgColor: "bg-purple-500/20", textColor: "text-purple-700", dotColor: "bg-purple-500" },
+  { type: "email" as const, label: "Email", icon: Mail, borderColor: "border-orange-500", bgColor: "bg-orange-500/20", textColor: "text-orange-700", dotColor: "bg-orange-500" },
 ];
 
 const RECIPIENT_COLORS = [
@@ -86,6 +86,7 @@ export function DocuSignTagPlacement({
   const [selectedRecipientIndex, setSelectedRecipientIndex] = useState(0);
   const [draggingTagId, setDraggingTagId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const justFinishedDrag = useRef(false);
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
 
@@ -123,7 +124,11 @@ export function DocuSignTagPlacement({
   }, [currentDocIndex, currentPage, files, renderPage]);
 
   const handlePageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (draggingTagId) return;
+    // Prevent placing a tag right after finishing a drag or deleting
+    if (draggingTagId || justFinishedDrag.current) {
+      justFinishedDrag.current = false;
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -140,7 +145,10 @@ export function DocuSignTagPlacement({
     setTags((prev) => [...prev, newTag]);
   };
 
-  const removeTag = (tagId: string) => {
+  const removeTag = (tagId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    justFinishedDrag.current = true;
     setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
@@ -171,8 +179,11 @@ export function DocuSignTagPlacement({
   );
 
   const handleMouseUp = useCallback(() => {
+    if (draggingTagId) {
+      justFinishedDrag.current = true;
+    }
     setDraggingTagId(null);
-  }, []);
+  }, [draggingTagId]);
 
   useEffect(() => {
     if (draggingTagId) {
@@ -313,7 +324,7 @@ export function DocuSignTagPlacement({
                 return (
                   <div
                     key={tag.id}
-                    className={`absolute flex items-center gap-1 px-1.5 py-0.5 rounded border-2 text-xs font-medium cursor-grab active:cursor-grabbing shadow-md ${recipientColor} ${
+                    className={`absolute flex items-center gap-1 px-1.5 py-0.5 rounded border-2 text-xs font-medium cursor-grab active:cursor-grabbing shadow-md ${config.borderColor} ${config.bgColor} ${config.textColor} ${
                       draggingTagId === tag.id ? "opacity-70 z-50" : "z-10"
                     }`}
                     style={{
@@ -323,14 +334,12 @@ export function DocuSignTagPlacement({
                     }}
                     onMouseDown={(e) => handleTagMouseDown(e, tag.id)}
                   >
-                    <GripVertical className="h-3 w-3 text-muted-foreground" />
-                    <Icon className="h-3 w-3" />
-                    <span className="text-[10px]">{config.label}</span>
+                    <GripVertical className="h-3 w-3 opacity-50" />
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-semibold whitespace-nowrap">{config.label}</span>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeTag(tag.id);
-                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => removeTag(tag.id, e)}
                       className="ml-0.5 hover:text-destructive"
                     >
                       <Trash2 className="h-3 w-3" />
