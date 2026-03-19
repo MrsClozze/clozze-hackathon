@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
 import ProfileContactsTab from "./ProfileContactsTab";
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
