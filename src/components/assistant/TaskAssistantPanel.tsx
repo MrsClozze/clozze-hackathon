@@ -44,7 +44,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
       taskStatus: task.status,
       taskPriority: task.priority,
       taskNotes: task.notes || undefined,
-      taskAddress: task.address || undefined,
+      taskAddress: task.address || (listing ? `${listing.address}, ${listing.city}` : undefined),
       buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : undefined,
       buyerStatus: buyer?.status || undefined,
       buyerPreApproved: buyer?.preApprovedAmount || undefined,

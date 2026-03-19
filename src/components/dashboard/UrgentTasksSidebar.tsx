@@ -75,7 +75,13 @@ export default function UrgentTasksSidebar() {
                           {task.title}
                         </h4>
                         <p className="text-xs text-text-muted mt-1">
-                          {task.address || "No address"}
+                          {task.address || (() => {
+                            if (task.listingId) {
+                              const listing = listings.find(l => l.id === task.listingId);
+                              if (listing) return `${listing.address}, ${listing.city}`;
+                            }
+                            return "No address";
+                          })()}
                         </p>
                       </div>
                     </div>
