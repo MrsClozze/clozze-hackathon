@@ -263,26 +263,56 @@ export default function ClozzeAIInlineAssistant({
             </ScrollArea>
           )}
 
-          {/* Action buttons when structured data is available */}
-          {hasStructuredData && !isLoading && (
+          {/* Action buttons when assistant has responded */}
+          {messages.some(m => m.role === 'assistant' && m.content) && !isLoading && (
             <div className="px-3 py-2 border-t border-primary/10 bg-primary/5 flex flex-wrap gap-2">
+              {hasStructuredData && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={applied ? "outline" : "default"}
+                  className="h-7 text-xs gap-1"
+                  onClick={handleApplyToForm}
+                  disabled={applied}
+                >
+                  {applied ? (
+                    <>
+                      <Check className="h-3 w-3" />
+                      Applied
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDownToLine className="h-3 w-3" />
+                      Apply to Form
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
-                variant={applied ? "outline" : "default"}
-                className="h-7 text-xs gap-1"
-                onClick={handleApplyToForm}
-                disabled={applied}
+                variant="ghost"
+                className="h-7 text-xs gap-1 text-muted-foreground"
+                onClick={() => {
+                  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+                  if (lastAssistant) {
+                    if (isPlayingAudio) {
+                      stopPlayback();
+                    } else {
+                      playResponse(cleanContent(lastAssistant.content));
+                    }
+                  }
+                }}
               >
-                {applied ? (
+                {isPlayingAudio ? (
                   <>
-                    <Check className="h-3 w-3" />
-                    Applied
+                    <VolumeX className="h-3 w-3" />
+                    Stop
                   </>
                 ) : (
                   <>
-                    <ArrowDownToLine className="h-3 w-3" />
-                    Apply to Form
+                    <Volume2 className="h-3 w-3" />
+                    Listen
                   </>
                 )}
               </Button>
