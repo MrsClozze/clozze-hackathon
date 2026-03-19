@@ -12,10 +12,49 @@ const VALID_ACTIONS = [
   'update_notes',
   'save_draft',
   'update_status',
+  'update_priority',
   'save_to_listing',
+  'save_to_listing_description',
+  'save_to_listing_highlights',
+  'save_to_listing_notes',
+  'save_to_listing_marketing',
   'batch_create_tasks',
+  'mark_complete',
 ] as const;
 type ActionType = typeof VALID_ACTIONS[number];
+
+// Deadline logic: context-aware follow-up offsets
+const DEADLINE_OFFSETS: Record<string, number> = {
+  inspection: 5,
+  home_inspection: 5,
+  inspector: 5,
+  title: 10,
+  title_search: 10,
+  appraisal: 7,
+  escrow: 14,
+  closing: 14,
+  survey: 7,
+};
+
+function computeFollowUpDays(taskTitle: string, daysFromNow?: number, targetCloseDate?: string): number {
+  if (typeof daysFromNow === 'number') return daysFromNow;
+
+  const lower = taskTitle.toLowerCase();
+  for (const [keyword, offset] of Object.entries(DEADLINE_OFFSETS)) {
+    if (lower.includes(keyword)) return offset;
+  }
+
+  // If transaction has close date, use 7 days before close or 3 days, whichever is sooner
+  if (targetCloseDate) {
+    const closeDate = new Date(targetCloseDate);
+    const now = new Date();
+    const daysToClose = Math.floor((closeDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysToClose > 10) return Math.min(7, Math.floor(daysToClose / 3));
+    if (daysToClose > 3) return Math.min(3, daysToClose - 1);
+  }
+
+  return 3; // fallback
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,6 +93,22 @@ serve(async (req) => {
     if (taskError || !task) throw new Error('Task not found');
     if (task.user_id !== user.id) throw new Error('Unauthorized');
 
+    // For deadline logic, fetch transaction close date if available
+    let targetCloseDate: string | undefined;
+    if (task.listing_id || task.buyer_id) {
+      const filter = task.listing_id
+        ? `listing_id.eq.${task.listing_id}`
+        : `buyer_id.eq.${task.buyer_id}`;
+      const { data: txn } = await supabase
+        .from('transactions')
+        .select('target_close_date')
+        .or(filter)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+      if (txn?.target_close_date) targetCloseDate = txn.target_close_date;
+    }
+
     let result: any = {};
 
     switch (action as ActionType) {
@@ -87,9 +142,8 @@ serve(async (req) => {
         const { title, notes, daysFromNow, priority } = payload || {};
         if (!title || typeof title !== 'string') throw new Error('Follow-up title is required');
 
-        // Calculate due date relative to now or parent task due date
+        const offsetDays = computeFollowUpDays(task.title, daysFromNow, targetCloseDate);
         const baseDate = task.due_date ? new Date(task.due_date) : new Date();
-        const offsetDays = typeof daysFromNow === 'number' ? daysFromNow : 3;
         const dueDate = new Date(baseDate);
         dueDate.setDate(dueDate.getDate() + offsetDays);
 
@@ -113,7 +167,7 @@ serve(async (req) => {
           .single();
 
         if (error) throw error;
-        result = { taskId: newTask.id, title: newTask.title, dueDate: dueDate.toISOString() };
+        result = { taskId: newTask.id, title: newTask.title, dueDate: dueDate.toISOString(), offsetDays };
         break;
       }
 
@@ -217,34 +271,178 @@ serve(async (req) => {
         break;
       }
 
-      case 'save_to_listing': {
-        // Save AI-generated content to the linked listing record
-        const { field, content } = payload || {};
-        if (!content || typeof content !== 'string') throw new Error('Content is required');
-        if (!task.listing_id) throw new Error('Task is not linked to a listing');
-
-        // Only allow updating safe fields on listings
-        const allowedFields: Record<string, string> = {
-          'description': 'notes', // we don't have a description column, so save to task notes with label
-        };
-
-        // For now, save listing-related content to the task notes with clear labeling
-        const label = field === 'description' ? '[Listing Description]' : `[Listing: ${field || 'content'}]`;
-        const { data: current } = await supabase
-          .from('tasks')
-          .select('notes')
-          .eq('id', taskId)
-          .single();
-
-        const finalNotes = (current?.notes ? current.notes + '\n\n---\n\n' : '') + `${label}\n${content.substring(0, 5000)}`;
+      case 'update_priority': {
+        const { priority } = payload || {};
+        if (!['high', 'medium', 'low'].includes(priority)) {
+          throw new Error('Invalid priority');
+        }
 
         const { error } = await supabase
           .from('tasks')
-          .update({ notes: finalNotes })
+          .update({ priority })
           .eq('id', taskId);
 
         if (error) throw error;
-        result = { saved: true, field: field || 'notes' };
+        result = { updated: true, priority };
+        break;
+      }
+
+      case 'mark_complete': {
+        const { error } = await supabase
+          .from('tasks')
+          .update({ status: 'completed' })
+          .eq('id', taskId);
+
+        if (error) throw error;
+        result = { updated: true, status: 'completed' };
+        break;
+      }
+
+      // === LISTING DESTINATION SAVES ===
+      case 'save_to_listing': {
+        // Legacy: auto-detect best destination
+        const { content, field } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        // Auto-detect destination from content
+        const lower = content.toLowerCase();
+        const isDescription = /listing description|mls description|property description/i.test(lower);
+        const isHighlights = /key features|highlights|selling points|amenities/i.test(lower);
+        const isMarketing = /marketing|social media|email campaign|ad copy/i.test(lower);
+
+        if (isDescription) {
+          const { error } = await supabase
+            .from('listings')
+            .update({ description: content.substring(0, 10000) })
+            .eq('id', task.listing_id);
+          if (error) throw error;
+          result = { saved: true, destination: 'description' };
+        } else if (isHighlights) {
+          const highlights = content.split('\n')
+            .map(l => l.trim().replace(/^[-•*]\s*/, ''))
+            .filter(l => l.length > 2 && l.length < 300);
+          const { error } = await supabase
+            .from('listings')
+            .update({ highlights })
+            .eq('id', task.listing_id);
+          if (error) throw error;
+          result = { saved: true, destination: 'highlights', count: highlights.length };
+        } else if (isMarketing) {
+          const { data: listing } = await supabase
+            .from('listings')
+            .select('marketing_copy')
+            .eq('id', task.listing_id)
+            .single();
+          const existing = (listing?.marketing_copy as Record<string, string>) || {};
+          existing.primary = content.substring(0, 10000);
+          const { error } = await supabase
+            .from('listings')
+            .update({ marketing_copy: existing })
+            .eq('id', task.listing_id);
+          if (error) throw error;
+          result = { saved: true, destination: 'marketing_copy' };
+        } else {
+          // Fallback: append to internal_notes
+          const { data: listing } = await supabase
+            .from('listings')
+            .select('internal_notes')
+            .eq('id', task.listing_id)
+            .single();
+          const notes = Array.isArray(listing?.internal_notes) ? listing.internal_notes : [];
+          notes.push({
+            content: content.substring(0, 10000),
+            source: 'clozze_ai',
+            created_at: new Date().toISOString(),
+            label: field || 'AI Analysis',
+          });
+          const { error } = await supabase
+            .from('listings')
+            .update({ internal_notes: notes })
+            .eq('id', task.listing_id);
+          if (error) throw error;
+          result = { saved: true, destination: 'internal_notes' };
+        }
+        break;
+      }
+
+      case 'save_to_listing_description': {
+        const { content } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        const { error } = await supabase
+          .from('listings')
+          .update({ description: content.substring(0, 10000) })
+          .eq('id', task.listing_id);
+        if (error) throw error;
+        result = { saved: true, destination: 'description' };
+        break;
+      }
+
+      case 'save_to_listing_highlights': {
+        const { content } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        const highlights = content.split('\n')
+          .map(l => l.trim().replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, ''))
+          .filter(l => l.length > 2 && l.length < 300);
+
+        const { error } = await supabase
+          .from('listings')
+          .update({ highlights })
+          .eq('id', task.listing_id);
+        if (error) throw error;
+        result = { saved: true, destination: 'highlights', count: highlights.length };
+        break;
+      }
+
+      case 'save_to_listing_notes': {
+        const { content, label } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        const { data: listing } = await supabase
+          .from('listings')
+          .select('internal_notes')
+          .eq('id', task.listing_id)
+          .single();
+        const notes = Array.isArray(listing?.internal_notes) ? listing.internal_notes : [];
+        notes.push({
+          content: content.substring(0, 10000),
+          source: 'clozze_ai',
+          created_at: new Date().toISOString(),
+          label: label || 'AI Notes',
+        });
+        const { error } = await supabase
+          .from('listings')
+          .update({ internal_notes: notes })
+          .eq('id', task.listing_id);
+        if (error) throw error;
+        result = { saved: true, destination: 'internal_notes' };
+        break;
+      }
+
+      case 'save_to_listing_marketing': {
+        const { content, variant } = payload || {};
+        if (!content || typeof content !== 'string') throw new Error('Content is required');
+        if (!task.listing_id) throw new Error('Task is not linked to a listing');
+
+        const { data: listing } = await supabase
+          .from('listings')
+          .select('marketing_copy')
+          .eq('id', task.listing_id)
+          .single();
+        const copy = (listing?.marketing_copy as Record<string, string>) || {};
+        copy[variant || 'primary'] = content.substring(0, 10000);
+
+        const { error } = await supabase
+          .from('listings')
+          .update({ marketing_copy: copy })
+          .eq('id', task.listing_id);
+        if (error) throw error;
+        result = { saved: true, destination: 'marketing_copy', variant: variant || 'primary' };
         break;
       }
     }
