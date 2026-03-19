@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { BuyerData } from "@/contexts/BuyersContext";
+import { computeBuyerCompletion, BUYER_ONBOARDING_TASKS, type CompletionItem } from "@/lib/completionTracking";
 
 interface BuyerAIContentProps {
   buyer: BuyerData;
@@ -13,18 +17,21 @@ interface BuyerAIContentProps {
 
 export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [auditRunning, setAuditRunning] = useState(false);
   const [auditResult, setAuditResult] = useState<string | null>(null);
   const [structuring, setStructuring] = useState(false);
   const [structuredResult, setStructuredResult] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [creatingTasks, setCreatingTasks] = useState(false);
+
+  const completion = useMemo(() => computeBuyerCompletion(buyer), [buyer]);
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied", description: `${label} copied to clipboard.` });
   };
 
-  // Run buyer profile audit
   const handleProfileAudit = async () => {
     setAuditRunning(true);
     setAuditResult(null);
@@ -56,18 +63,8 @@ Use this exact format:
 - Prioritized list of actions`;
 
       const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: {
-          flow: 'buyer',
-          message: auditPrompt,
-          context: {
-            buyerName: `${buyer.firstName} ${buyer.lastName}`,
-            email: buyer.email,
-            preApprovedAmount: buyer.preApprovedAmount,
-            wantsNeeds: buyer.wantsNeeds,
-          },
-        },
+        body: { flow: 'buyer', message: auditPrompt, context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email, preApprovedAmount: buyer.preApprovedAmount, wantsNeeds: buyer.wantsNeeds } },
       });
-
       if (error) throw error;
       setAuditResult(data?.response || data?.content || 'No audit results generated.');
     } catch (err) {
@@ -78,7 +75,6 @@ Use this exact format:
     }
   };
 
-  // Structure wants/needs
   const handleStructureNeeds = async () => {
     setStructuring(true);
     setStructuredResult(null);
@@ -105,17 +101,8 @@ Organize into:
 - What additional information should the agent gather?`;
 
       const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: {
-          flow: 'buyer',
-          message: prompt,
-          context: {
-            buyerName: `${buyer.firstName} ${buyer.lastName}`,
-            wantsNeeds: buyer.wantsNeeds,
-            preApprovedAmount: buyer.preApprovedAmount,
-          },
-        },
+        body: { flow: 'buyer', message: prompt, context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, wantsNeeds: buyer.wantsNeeds, preApprovedAmount: buyer.preApprovedAmount } },
       });
-
       if (error) throw error;
       setStructuredResult(data?.response || data?.content || 'No structured output generated.');
     } catch (err) {
@@ -126,14 +113,10 @@ Organize into:
     }
   };
 
-  // Save structured needs back to buyer
   const handleSaveStructuredNeeds = async () => {
     if (!structuredResult) return;
     try {
-      const { error } = await supabase
-        .from('buyers')
-        .update({ wants_needs: structuredResult })
-        .eq('id', buyer.id);
+      const { error } = await supabase.from('buyers').update({ wants_needs: structuredResult }).eq('id', buyer.id);
       if (error) throw error;
       onBuyerUpdate?.({ ...buyer, wantsNeeds: structuredResult });
       toast({ title: "Saved", description: "Structured wants/needs saved to buyer profile." });
@@ -142,7 +125,6 @@ Organize into:
     }
   };
 
-  // Generate follow-up draft
   const handleGenerateDraft = async (type: 'follow_up' | 'next_steps' | 'showing') => {
     setGenerating(type);
     try {
@@ -153,20 +135,11 @@ Organize into:
       };
 
       const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: {
-          flow: 'buyer',
-          message: prompts[type],
-          context: {
-            buyerName: `${buyer.firstName} ${buyer.lastName}`,
-            email: buyer.email,
-          },
-        },
+        body: { flow: 'buyer', message: prompts[type], context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email } },
       });
-
       if (error) throw error;
       const content = data?.response || data?.content || '';
       if (content) {
-        // Show in structured result area for review
         setStructuredResult(content);
         toast({ title: "Draft Generated", description: "Review the draft below." });
       }
@@ -177,92 +150,126 @@ Organize into:
     }
   };
 
-  const hasWantsNeeds = buyer.wantsNeeds && buyer.wantsNeeds.trim().length > 0;
-  const hasPreApproval = buyer.preApprovedAmount && buyer.preApprovedAmount > 0;
+  const handleCreateOnboardingTasks = async () => {
+    if (!user) return;
+    setCreatingTasks(true);
+    try {
+      const tasks = BUYER_ONBOARDING_TASKS.map(t => ({
+        user_id: user.id,
+        title: `${t.title} — ${buyer.firstName} ${buyer.lastName}`,
+        priority: t.priority,
+        status: 'pending',
+        buyer_id: buyer.id,
+      }));
+      const { error } = await supabase.from('tasks').insert(tasks);
+      if (error) throw error;
+      toast({ title: "Tasks Created", description: `${tasks.length} buyer onboarding tasks created.` });
+    } catch (err) {
+      console.error('Task creation error:', err);
+      toast({ title: "Error", description: "Failed to create tasks.", variant: "destructive" });
+    } finally {
+      setCreatingTasks(false);
+    }
+  };
+
+  const incompleteItems = completion.items.filter(i => !i.complete);
+  const completeItems = completion.items.filter(i => i.complete);
 
   return (
-    <div className="space-y-6 py-4">
-      {/* Complete Buyer Profile Action */}
-      <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-        <div className="flex items-center justify-between mb-2">
+    <div className="space-y-5 py-4">
+      {/* Progress Bar */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <UserCheck className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-foreground">Complete Buyer Profile</h4>
-              <p className="text-xs text-muted-foreground">AI audit and structured profile completion</p>
-            </div>
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">
+              Buyer Profile {completion.percentage}% Complete
+            </span>
           </div>
-          <Button
-            size="sm"
-            onClick={handleProfileAudit}
-            disabled={auditRunning}
-            className="gap-1.5"
-          >
-            {auditRunning ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</>
-            ) : (
-              <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>
-            )}
-          </Button>
+          <span className="text-xs text-muted-foreground">
+            {completion.completeCount}/{completion.totalCount} fields
+          </span>
         </div>
-
-        {/* Quick actions */}
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-primary/10">
-          {hasWantsNeeds && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={handleStructureNeeds}
-              disabled={structuring}
-            >
-              {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
-              Structure Wants/Needs
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={() => handleGenerateDraft('follow_up')}
-            disabled={!!generating}
-          >
-            {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-            Draft Follow-Up
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={() => handleGenerateDraft('next_steps')}
-            disabled={!!generating}
-          >
-            {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
-            Next Steps
-          </Button>
-        </div>
+        <Progress value={completion.percentage} className="h-2" />
       </div>
 
-      {/* Profile Completeness Summary */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className={`p-3 rounded-lg border ${hasWantsNeeds ? 'bg-muted/20 border-border/50' : 'bg-warning/5 border-warning/20'}`}>
-          <p className="text-xs font-medium text-foreground">{hasWantsNeeds ? '✅' : '⚠️'} Wants/Needs</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{hasWantsNeeds ? 'Recorded' : 'Not set'}</p>
+      {/* Proactive Suggestions (incomplete items) */}
+      {incompleteItems.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Missing Items</h4>
+          <div className="space-y-1.5">
+            {incompleteItems.map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-muted/30 border border-border/50">
+                <div className="flex items-center gap-2">
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  <span className="text-sm text-foreground">{item.label}</span>
+                  <Badge variant="outline" className="text-[9px] h-4">{item.category}</Badge>
+                </div>
+                {item.actionType === 'structure_needs' && buyer.wantsNeeds && (
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary" onClick={handleStructureNeeds} disabled={structuring}>
+                    {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Structure'}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className={`p-3 rounded-lg border ${hasPreApproval ? 'bg-muted/20 border-border/50' : 'bg-warning/5 border-warning/20'}`}>
-          <p className="text-xs font-medium text-foreground">{hasPreApproval ? '✅' : '⚠️'} Pre-Approval</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{hasPreApproval ? `$${buyer.preApprovedAmount!.toLocaleString()}` : 'Not set'}</p>
-        </div>
-        <div className={`p-3 rounded-lg border ${buyer.email ? 'bg-muted/20 border-border/50' : 'bg-warning/5 border-warning/20'}`}>
-          <p className="text-xs font-medium text-foreground">{buyer.email ? '✅' : '⚠️'} Email</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{buyer.email || 'Not set'}</p>
-        </div>
-        <div className={`p-3 rounded-lg border ${buyer.phone ? 'bg-muted/20 border-border/50' : 'bg-warning/5 border-warning/20'}`}>
-          <p className="text-xs font-medium text-foreground">{buyer.phone ? '✅' : '⚠️'} Phone</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{buyer.phone || 'Not set'}</p>
-        </div>
+      )}
+
+      {/* Completed Items */}
+      {completeItems.length > 0 && (
+        <Collapsible>
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+              <span>{completeItems.length} completed</span>
+              <ChevronRight className="h-3 w-3 ml-auto" />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-1 mt-1">
+              {completeItems.map((item) => (
+                <div key={item.key} className="flex items-center gap-2 py-1 px-2.5 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                  <span className="line-through">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Action Row */}
+      <div className="flex flex-wrap gap-2 pt-1 border-t border-border/50">
+        <Button size="sm" onClick={handleProfileAudit} disabled={auditRunning} className="gap-1.5">
+          {auditRunning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</> : <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>}
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleCreateOnboardingTasks} disabled={creatingTasks} className="gap-1.5">
+          {creatingTasks ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
+          Create Onboarding Tasks
+        </Button>
+      </div>
+
+      {/* Quick Drafts */}
+      <div className="flex flex-wrap gap-2">
+        {buyer.wantsNeeds && (
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
+            {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
+            Structure Wants/Needs
+          </Button>
+        )}
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
+          {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+          Draft Follow-Up
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
+          {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
+          Next Steps
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
+          {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
+          Showing Coordination
+        </Button>
       </div>
 
       {/* Audit Results */}
@@ -271,31 +278,21 @@ Organize into:
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">Profile Audit Results</h4>
+              <h4 className="text-sm font-semibold text-foreground">Profile Audit</h4>
             </div>
             <div className="flex gap-1">
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCopy(auditResult, 'Audit')}>
                 <Copy className="h-3 w-3 mr-1" /> Copy
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAuditResult(null)}>
-                Dismiss
-              </Button>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAuditResult(null)}>Dismiss</Button>
             </div>
           </div>
           <div className="text-sm">
             {auditResult.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) {
-                return <h3 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace('## ', '')}</h3>;
-              }
-              if (line.startsWith('- [ ] ')) {
-                return <p key={i} className="text-sm text-muted-foreground ml-2">☐ {line.replace('- [ ] ', '')}</p>;
-              }
-              if (line.startsWith('- ')) {
-                return <p key={i} className="text-sm text-muted-foreground ml-2">• {line.replace('- ', '')}</p>;
-              }
-              if (line.trim()) {
-                return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
-              }
+              if (line.startsWith('## ')) return <h3 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace('## ', '')}</h3>;
+              if (line.startsWith('- [ ] ')) return <p key={i} className="text-sm text-muted-foreground ml-2">☐ {line.replace('- [ ] ', '')}</p>;
+              if (line.startsWith('- ')) return <p key={i} className="text-sm text-muted-foreground ml-2">• {line.replace(/^- \[x?\] /, '').replace(/^- /, '')}</p>;
+              if (line.trim()) return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
               return null;
             })}
           </div>
@@ -314,29 +311,13 @@ Organize into:
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCopy(structuredResult, 'Output')}>
                 <Copy className="h-3 w-3 mr-1" /> Copy
               </Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={handleSaveStructuredNeeds}>
-                Save to Profile
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleSaveStructuredNeeds}>
+                <Save className="h-3 w-3" /> Save to Profile
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setStructuredResult(null)}>
-                Dismiss
-              </Button>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setStructuredResult(null)}>Dismiss</Button>
             </div>
           </div>
-          <div className="text-sm whitespace-pre-wrap text-muted-foreground">
-            {structuredResult}
-          </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!auditResult && !structuredResult && (
-        <div className="text-center py-6 space-y-2">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-            <Sparkles className="h-6 w-6 text-primary" />
-          </div>
-          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-            Run a profile audit to see what's complete and what's missing, or use the quick actions above to structure needs and generate drafts.
-          </p>
+          <div className="text-sm whitespace-pre-wrap text-muted-foreground">{structuredResult}</div>
         </div>
       )}
     </div>
