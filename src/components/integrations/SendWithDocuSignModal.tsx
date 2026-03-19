@@ -500,16 +500,33 @@ export function SendWithDocuSignModal({
             )}
 
             {files.length < 10 && (
-              <button
+              <div
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors group"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('border-primary', 'bg-primary/5'); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('border-primary', 'bg-primary/5'); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove('border-primary', 'bg-primary/5');
+                  const dt = e.dataTransfer;
+                  if (dt?.files?.length) {
+                    const input = fileInputRef.current;
+                    if (input) {
+                      const dataTransfer = new DataTransfer();
+                      Array.from(dt.files).forEach(f => dataTransfer.items.add(f));
+                      input.files = dataTransfer.files;
+                      input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }
+                }}
+                className="w-full border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors group cursor-pointer"
               >
                 <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
                 <p className="text-sm font-medium">
-                  {files.length === 0 ? "Click to upload document(s)" : "Add another document"}
+                  {files.length === 0 ? "Click to upload or drag & drop" : "Add another document"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX (max 25MB each, up to 10 files)</p>
-              </button>
+              </div>
             )}
             <input
               ref={fileInputRef}
