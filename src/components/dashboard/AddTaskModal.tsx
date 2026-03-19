@@ -193,6 +193,7 @@ export default function AddTaskModal({
     setRecurrencePattern("");
     setRecurrenceEndDate(undefined);
     setIncludeWeekends(false);
+    setAiGeneratedTasks([]);
   };
 
   const handleAddAssignee = (userId: string) => {

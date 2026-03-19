@@ -47,6 +47,8 @@ export default function ClozzeAIInlineAssistant({
   const [input, setInput] = useState("");
   const [applied, setApplied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevFlowRef = useRef(flow);
+  const prevFormDataRef = useRef(existingFormData);
   const { toast } = useToast();
 
   const {
@@ -70,6 +72,17 @@ export default function ClozzeAIInlineAssistant({
   } = useTaskVoice();
 
   const flowLabel = FLOW_LABELS[flow];
+
+  // Reset conversation when flow changes (context isolation)
+  useEffect(() => {
+    if (prevFlowRef.current !== flow) {
+      clearConversation();
+      setInput("");
+      setApplied(false);
+      setIsExpanded(false);
+      prevFlowRef.current = flow;
+    }
+  }, [flow, clearConversation]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
