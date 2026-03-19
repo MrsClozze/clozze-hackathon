@@ -198,8 +198,10 @@ serve(async (req) => {
 
     if (taskError || !task) throw new Error('Task not found');
 
-    // Verify task belongs to user (or shared team)
-    // For simplicity, we trust RLS on the client side already filtered
+    // STRICT CONTEXT ISOLATION: Verify task belongs to this user
+    if (task.user_id !== user.id) {
+      throw new Error('Unauthorized: task does not belong to this user');
+    }
     
     const context: any = { task };
 
@@ -208,14 +210,14 @@ serve(async (req) => {
 
     if (task.listing_id) {
       promises.push(
-        supabase.from('listings').select('*').eq('id', task.listing_id).single()
+        supabase.from('listings').select('*').eq('id', task.listing_id).eq('user_id', user.id).single()
           .then(({ data }) => { if (data) context.listing = data; })
       );
     }
 
     if (task.buyer_id) {
       promises.push(
-        supabase.from('buyers').select('*').eq('id', task.buyer_id).single()
+        supabase.from('buyers').select('*').eq('id', task.buyer_id).eq('user_id', user.id).single()
           .then(({ data }) => { if (data) context.buyer = data; })
       );
     }

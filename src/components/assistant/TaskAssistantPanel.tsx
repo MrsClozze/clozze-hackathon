@@ -5,6 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
+import type { AutoContextData } from "@/lib/taskTypeConfigs";
 import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
 import TaskAssistantSuggestions from "./TaskAssistantSuggestions";
@@ -34,16 +35,33 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     return parts;
   }, [task, buyers, listings]);
 
-  // Build auto-context message
-  const autoContextMessage = useMemo(() => {
+  // Build auto-context data from real entity data
+  const autoContextData = useMemo((): AutoContextData => {
     const buyer = task.buyerId ? buyers.find(b => b.id === task.buyerId) : null;
     const listing = task.listingId ? listings.find(l => l.id === task.listingId) : null;
-    return buildAutoContextMessage(task, {
+    return {
+      taskTitle: task.title,
+      taskStatus: task.status,
+      taskPriority: task.priority,
+      taskNotes: task.notes || undefined,
+      taskAddress: task.address || undefined,
       buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : undefined,
+      buyerStatus: buyer?.status || undefined,
+      buyerPreApproved: buyer?.preApprovedAmount || undefined,
+      buyerWantsNeeds: buyer?.wantsNeeds || undefined,
       listingAddress: listing ? `${listing.address}, ${listing.city}` : undefined,
+      listingPrice: listing?.price || undefined,
+      listingBeds: listing?.bedrooms || undefined,
+      listingBaths: listing?.bathrooms || undefined,
+      listingSqFt: listing?.sqFeet || undefined,
+      listingStatus: listing?.status || undefined,
       sellerName: listing?.sellerFirstName ? `${listing.sellerFirstName} ${listing.sellerLastName || ''}`.trim() : undefined,
-    });
+    };
   }, [task, buyers, listings]);
+
+  const autoContextMessage = useMemo(() => {
+    return buildAutoContextMessage(autoContextData);
+  }, [autoContextData]);
 
   const {
     messages,
@@ -51,6 +69,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     suggestedActions,
     researchSources,
     isResearching,
+    loadingPhase,
     error,
     sendMessage,
     cancelStream,
@@ -97,7 +116,6 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
 
   const handleCreateTasks = async (content: string) => {
     try {
-      // Parse lines into individual tasks
       const lines = content.split('\n').filter(l => l.trim());
       for (const line of lines.slice(0, 10)) {
         await executeAction("create_task", { title: line.trim() });
@@ -187,6 +205,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         messages={messages}
         isLoading={isLoading}
         isResearching={isResearching}
+        loadingPhase={loadingPhase}
         researchSources={researchSources}
         autoContextMessage={messages.length === 0 ? autoContextMessage : undefined}
         onSaveToNotes={handleSaveToNotes}
