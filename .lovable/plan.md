@@ -31,3 +31,32 @@ The `scope: 'others'` option revokes all refresh tokens except the current one. 
 
 No database changes required.
 
+---
+
+# Future Roadmap: Record-Level Marketing & Outreach
+
+## Status: Future Initiative (not in current phase)
+
+## Overview
+AI-assisted outbound communications tied to buyer and listing records, enabling agents to send market updates, comps, listing outreach, and nurture messages through connected channels.
+
+## Planned Capabilities
+1. **Record-level communication preferences** — per-buyer and per-listing settings for outreach frequency, channel, and content type
+2. **AI-generated market update emails/texts** — using Clozze AI + Firecrawl research to draft comps updates, price change alerts, and listing-related outreach
+3. **Manual send first, automation later** — agents review and approve all outbound before any automation is introduced
+4. **Integration with connected Gmail and Twilio** — leverage existing OAuth connections for email; Twilio for SMS
+5. **Approval controls** — agents stay in control of what gets sent and when; no unsupervised outbound
+6. **Communication logging** — every sent message logged inside the relevant buyer or listing record with timestamp and content
+
+## Prerequisites
+- Solid completion tracking and guided workflow foundation (Phase 7-8)
+- Gmail and Twilio integrations stable
+- Clear UX for send approval and message preview
+
+## Build Order (when initiated)
+1. Define communication preferences schema (per-record settings)
+2. Draft generation from record context (reuse existing AI flows)
+3. Manual send via Gmail/Twilio with preview + confirm
+4. Logging of sent messages to record
+5. Recurring/scheduled sends (later phase)
+6. Automation rules with agent approval gates (later phase)
