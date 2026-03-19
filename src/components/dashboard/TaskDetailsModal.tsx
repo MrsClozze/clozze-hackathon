@@ -709,6 +709,7 @@ export default function TaskDetailsModal() {
               </div>
             )}
             </div>
+            </div>
 
             {/* Right Panel - AI Assistant */}
             {!isEditing && selectedTask && !selectedTask.isDemo && (
