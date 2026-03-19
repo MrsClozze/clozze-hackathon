@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AttachedEmailsTab from "./AttachedEmailsTab";
 import ProfileContactsTab from "./ProfileContactsTab";
+import BuyerAIContent from "./BuyerAIContent";
 
 const BUYER_STATUSES = [
   { value: "Active", label: "Active", color: "bg-success" },
@@ -16,7 +17,7 @@ const BUYER_STATUSES = [
   { value: "Closed", label: "Closed", color: "bg-secondary" },
   { value: "Off-Market", label: "Off-Market", color: "bg-muted-foreground" },
 ] as const;
-import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2 } from "lucide-react";
+import { Edit2, Save, X, CheckCircle2, ChevronDown, ChevronRight, Folder, Camera, Plus, Trash2, Sparkles } from "lucide-react";
 import { useState, useRef } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import TaskDetailsModal from "./TaskDetailsModal";
@@ -221,8 +222,12 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-11 bg-card-elevated border border-card-border rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-11 bg-card-elevated border border-card-border rounded-lg p-1">
             <TabsTrigger value="details" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Details</TabsTrigger>
+            <TabsTrigger value="ai-content" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Profile
+            </TabsTrigger>
             <TabsTrigger value="contacts" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Contacts</TabsTrigger>
             <TabsTrigger value="communication" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Communication</TabsTrigger>
           </TabsList>
@@ -575,6 +580,10 @@ export default function BuyerDetailsModal({ open, onOpenChange, buyer, onBuyerUp
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="ai-content">
+            <BuyerAIContent buyer={currentBuyer} onBuyerUpdate={onBuyerUpdate} />
           </TabsContent>
 
           <TabsContent value="contacts">

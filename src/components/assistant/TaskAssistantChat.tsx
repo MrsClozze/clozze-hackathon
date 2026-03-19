@@ -180,7 +180,7 @@ export default function TaskAssistantChat({
       <div className="p-4 space-y-4">
         {messages.map((msg) => {
           const actions = msg.role === "assistant" && msg.content && !isLoading
-            ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId } : undefined)
+            ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId, buyerId: taskContext.buyerId } : undefined)
             : [];
 
           return (

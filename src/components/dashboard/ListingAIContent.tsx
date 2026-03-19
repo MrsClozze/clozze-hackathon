@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2 } from "lucide-react";
+import { FileText, Tag, Megaphone, ScrollText, Copy, ChevronDown, ChevronRight, Sparkles, Trash2, RefreshCw, Wand2, Loader2, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,9 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
   const [highlightsOpen, setHighlightsOpen] = useState(true);
   const [notesOpen, setNotesOpen] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [auditResult, setAuditResult] = useState<string | null>(null);
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -79,20 +82,294 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     }
   };
 
+  // Regenerate content via Clozze AI
+  const handleRegenerate = async (type: 'description' | 'highlights' | 'marketing', variant?: string) => {
+    setRegenerating(type);
+    try {
+      const prompts: Record<string, string> = {
+        description: `Write a compelling MLS-ready listing description for this property: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, listed at $${listing.price?.toLocaleString()}. ${listing.highlights.length > 0 ? 'Key features: ' + listing.highlights.join(', ') : ''} Write only the description text, no headers or labels.`,
+        highlights: `Generate 6-8 property highlights/key selling points for: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'Description: ' + listing.description.substring(0, 300) : ''} Return only a bullet list of features, one per line, starting with a dash.`,
+        marketing: `Write a ${variant || 'social media'} marketing copy for: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'MLS Description: ' + listing.description.substring(0, 300) : ''} Write only the copy text, optimized for ${variant || 'social media'}.`,
+      };
+
+      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
+        body: {
+          flow: 'listing',
+          message: prompts[type],
+          context: {
+            address: listing.address,
+            city: listing.city,
+            price: listing.price,
+            bedrooms: listing.bedrooms,
+            bathrooms: listing.bathrooms,
+            sqFeet: listing.sqFeet,
+          },
+        },
+      });
+
+      if (error) throw error;
+      const generated = data?.response || data?.content || '';
+      if (!generated) throw new Error('No content generated');
+
+      if (type === 'description') {
+        const cleaned = generated.replace(/^#+\s.*\n?/gm, '').trim();
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({ description: cleaned } as any)
+          .eq('id', listing.id);
+        if (updateError) throw updateError;
+        onListingUpdate?.({ ...listing, description: cleaned });
+        setDescriptionDraft(cleaned);
+        toast({ title: "Generated", description: "New listing description saved." });
+      } else if (type === 'highlights') {
+        const highlights = generated.split('\n')
+          .map((l: string) => l.trim().replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, ''))
+          .filter((l: string) => l.length > 2 && l.length < 300);
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({ highlights } as any)
+          .eq('id', listing.id);
+        if (updateError) throw updateError;
+        onListingUpdate?.({ ...listing, highlights });
+        toast({ title: "Generated", description: `${highlights.length} highlights saved.` });
+      } else if (type === 'marketing') {
+        const key = variant || 'social';
+        const updatedCopy = { ...listing.marketingCopy, [key]: generated.trim() };
+        const { error: updateError } = await supabase
+          .from('listings')
+          .update({ marketing_copy: updatedCopy } as any)
+          .eq('id', listing.id);
+        if (updateError) throw updateError;
+        onListingUpdate?.({ ...listing, marketingCopy: updatedCopy });
+        toast({ title: "Generated", description: `${key} marketing copy saved.` });
+      }
+    } catch (err: any) {
+      console.error('Regenerate error:', err);
+      toast({ title: "Error", description: "Failed to generate content. Please try again.", variant: "destructive" });
+    } finally {
+      setRegenerating(null);
+    }
+  };
+
+  // Run listing readiness audit
+  const handlePrepareAudit = async () => {
+    setAuditRunning(true);
+    setAuditResult(null);
+    try {
+      const auditPrompt = `Run a listing readiness audit for this property. Evaluate what is complete, what is missing, and recommend next steps.
+
+Property: ${listing.address}, ${listing.city}${listing.zipcode ? ' ' + listing.zipcode : ''}${listing.county ? ', ' + listing.county : ''}
+Price: $${listing.price?.toLocaleString() || 'Not set'}
+Beds: ${listing.bedrooms ?? 'N/A'} | Baths: ${listing.bathrooms ?? 'N/A'} | Sq Ft: ${listing.sqFeet ?? 'N/A'}
+Status: ${listing.status}
+Days on Market: ${listing.daysOnMarket ?? 'N/A'}
+Seller: ${listing.sellerFirstName || ''} ${listing.sellerLastName || ''} | Email: ${listing.sellerEmail || 'N/A'} | Phone: ${listing.sellerPhone || 'N/A'}
+Description: ${listing.description ? 'Yes (' + listing.description.length + ' chars)' : 'MISSING'}
+Highlights: ${listing.highlights.length > 0 ? listing.highlights.length + ' items' : 'MISSING'}
+Marketing Copy: ${Object.keys(listing.marketingCopy).length > 0 ? Object.keys(listing.marketingCopy).join(', ') : 'MISSING'}
+Internal Notes: ${listing.internalNotes.length > 0 ? listing.internalNotes.length + ' entries' : 'None'}
+Commission: ${listing.commissionPercentage || 'N/A'}%
+Listing Start: ${listing.listingStartDate || 'Not set'}
+Listing End: ${listing.listingEndDate || 'Not set'}
+
+Use this exact format:
+## ✅ Complete Information
+- List what data is already available
+
+## ⚠️ Missing Information
+- List each missing item as: - [ ] Item description
+
+## 📋 Recommended Actions
+- Specific next steps the agent should take
+
+## 📌 Suggested Next Steps
+- Prioritized list of what to do next`;
+
+      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
+        body: {
+          flow: 'listing',
+          message: auditPrompt,
+          context: {
+            address: listing.address,
+            city: listing.city,
+            price: listing.price,
+          },
+        },
+      });
+
+      if (error) throw error;
+      setAuditResult(data?.response || data?.content || 'No audit results generated.');
+    } catch (err) {
+      console.error('Audit error:', err);
+      toast({ title: "Error", description: "Failed to run audit. Please try again.", variant: "destructive" });
+    } finally {
+      setAuditRunning(false);
+    }
+  };
+
+  // Action handlers from audit results
+  const handleAuditAction = async (actionType: string) => {
+    if (actionType === 'generate_description') {
+      await handleRegenerate('description');
+    } else if (actionType === 'generate_highlights') {
+      await handleRegenerate('highlights');
+    } else if (actionType === 'generate_marketing') {
+      await handleRegenerate('marketing', 'social');
+    }
+  };
+
   const hasAnyContent = listing.description || listing.highlights.length > 0 ||
     listing.internalNotes.length > 0 || Object.keys(listing.marketingCopy).length > 0;
 
+  // Determine what's missing for quick action buttons
+  const missingDescription = !listing.description;
+  const missingHighlights = listing.highlights.length === 0;
+  const missingMarketing = Object.keys(listing.marketingCopy).length === 0;
+
   return (
     <div className="space-y-6 py-4">
-      {!hasAnyContent && (
-        <div className="text-center py-12 space-y-3">
+      {/* Prepare Listing Action */}
+      <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <ClipboardList className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Prepare Listing</h4>
+              <p className="text-xs text-muted-foreground">AI readiness audit with actionable outputs</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={handlePrepareAudit}
+            disabled={auditRunning}
+            className="gap-1.5"
+          >
+            {auditRunning ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</>
+            ) : (
+              <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>
+            )}
+          </Button>
+        </div>
+
+        {/* Quick actions for missing content */}
+        {(missingDescription || missingHighlights || missingMarketing) && !auditResult && (
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-primary/10">
+            {missingDescription && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleRegenerate('description')}
+                disabled={!!regenerating}
+              >
+                {regenerating === 'description' ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                Generate Description
+              </Button>
+            )}
+            {missingHighlights && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleRegenerate('highlights')}
+                disabled={!!regenerating}
+              >
+                {regenerating === 'highlights' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3" />}
+                Generate Highlights
+              </Button>
+            )}
+            {missingMarketing && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => handleRegenerate('marketing', 'social')}
+                disabled={!!regenerating}
+              >
+                {regenerating === 'marketing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Megaphone className="h-3 w-3" />}
+                Generate Marketing Copy
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Audit Results */}
+      {auditResult && (
+        <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <h4 className="text-sm font-semibold text-foreground">Readiness Audit Results</h4>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setAuditResult(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+          <div className="text-sm prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+            {/* Render audit as structured text */}
+            {auditResult.split('\n').map((line, i) => {
+              if (line.startsWith('## ')) {
+                return <h3 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace('## ', '')}</h3>;
+              }
+              if (line.startsWith('- [ ] ')) {
+                return <p key={i} className="text-sm text-muted-foreground ml-2">☐ {line.replace('- [ ] ', '')}</p>;
+              }
+              if (line.startsWith('- [x] ') || line.startsWith('- ')) {
+                const text = line.replace(/^- \[x?\] /, '').replace(/^- /, '');
+                return <p key={i} className="text-sm text-muted-foreground ml-2">• {text}</p>;
+              }
+              if (line.trim()) {
+                return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
+              }
+              return null;
+            })}
+          </div>
+
+          {/* Action buttons from audit */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+            {missingDescription && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleAuditAction('generate_description')} disabled={!!regenerating}>
+                {regenerating === 'description' ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                Generate Description
+              </Button>
+            )}
+            {missingHighlights && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleAuditAction('generate_highlights')} disabled={!!regenerating}>
+                {regenerating === 'highlights' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3" />}
+                Generate Highlights
+              </Button>
+            )}
+            {missingMarketing && (
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleAuditAction('generate_marketing')} disabled={!!regenerating}>
+                {regenerating === 'marketing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Megaphone className="h-3 w-3" />}
+                Generate Marketing
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => handleCopy(auditResult, 'Audit Results')}>
+              <Copy className="h-3 w-3" /> Copy Audit
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!hasAnyContent && !auditResult && (
+        <div className="text-center py-8 space-y-3">
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
             <Sparkles className="h-7 w-7 text-primary" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">No AI content yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-              Use Clozze AI from a task linked to this listing to generate descriptions, highlights, marketing copy, and research notes.
+              Run a readiness audit above, or use Clozze AI from a linked task to generate descriptions, highlights, and marketing copy.
             </p>
           </div>
         </div>
@@ -115,6 +392,16 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
                   </Button>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => { setDescriptionDraft(listing.description); setEditingDescription(true); }}>
                     Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleRegenerate('description')}
+                    disabled={!!regenerating}
+                  >
+                    {regenerating === 'description' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                    Regenerate
                   </Button>
                 </>
               )}
@@ -160,9 +447,21 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
                 </Badge>
               ))}
             </div>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs mt-2 text-muted-foreground" onClick={() => handleCopy(listing.highlights.join('\n'), 'Highlights')}>
-              <Copy className="h-3 w-3 mr-1" /> Copy All
-            </Button>
+            <div className="flex gap-1 mt-2">
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => handleCopy(listing.highlights.join('\n'), 'Highlights')}>
+                <Copy className="h-3 w-3 mr-1" /> Copy All
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground"
+                onClick={() => handleRegenerate('highlights')}
+                disabled={!!regenerating}
+              >
+                {regenerating === 'highlights' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Regenerate
+              </Button>
+            </div>
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -188,6 +487,15 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
                     <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground" onClick={() => handleCopy(value, key)}>
                       <Copy className="h-3 w-3" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-xs text-muted-foreground"
+                      onClick={() => handleRegenerate('marketing', key)}
+                      disabled={!!regenerating}
+                    >
+                      {regenerating === 'marketing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    </Button>
                     <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground hover:text-destructive" onClick={() => handleDeleteMarketingVariant(key)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -196,6 +504,17 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{value}</p>
               </div>
             ))}
+            {/* Add new variant */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1 w-full"
+              onClick={() => handleRegenerate('marketing', `variant_${Object.keys(listing.marketingCopy).length + 1}`)}
+              disabled={!!regenerating}
+            >
+              {regenerating === 'marketing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Megaphone className="h-3 w-3" />}
+              Generate New Variant
+            </Button>
           </CollapsibleContent>
         </Collapsible>
       )}
