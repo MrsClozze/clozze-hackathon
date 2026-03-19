@@ -18,6 +18,15 @@ export interface DocuSignEnvelope {
   created_at: string;
 }
 
+interface CustomTab {
+  type: string;
+  recipientIndex: number;
+  documentId: string;
+  pageNumber: string;
+  xPercent: number;
+  yPercent: number;
+}
+
 export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: string; listingId?: string }) {
   const { user } = useAuth();
   const [envelopes, setEnvelopes] = useState<DocuSignEnvelope[]>([]);
@@ -89,6 +98,7 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     listingId?: string;
     enableReminders?: boolean;
     enableExpiration?: boolean;
+    customTabs?: CustomTab[];
   }) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
@@ -163,7 +173,6 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     if (response.error) throw new Error(response.error.message);
     if (response.data?.error) throw new Error(response.data.error);
 
-    // The response contains base64 PDF
     const base64 = response.data?.data?.documentBase64;
     if (!base64) return null;
 
@@ -176,5 +185,26 @@ export function useDocuSignEnvelopes(filters?: { taskId?: string; buyerId?: stri
     return new Blob([byteArray], { type: 'application/pdf' });
   }, []);
 
-  return { envelopes, loading, sendEnvelope, refreshStatus, downloadSignedDocument, refetch: fetchEnvelopes };
+  const getEmbeddedSigningUrl = useCallback(async (envelopeId: string, recipientEmail: string, recipientName: string, returnUrl?: string): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await supabase.functions.invoke('sync-docusign', {
+      body: {
+        action: 'create_recipient_view',
+        envelopeId,
+        recipientEmail,
+        recipientName,
+        returnUrl: returnUrl || window.location.href,
+      },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (response.error) throw new Error(response.error.message);
+    if (response.data?.error) throw new Error(response.data.error);
+
+    return response.data?.data?.url || null;
+  }, []);
+
+  return { envelopes, loading, sendEnvelope, refreshStatus, downloadSignedDocument, getEmbeddedSigningUrl, refetch: fetchEnvelopes };
 }

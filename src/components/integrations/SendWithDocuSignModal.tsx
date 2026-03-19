@@ -12,10 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, Plus, X, Send, FileText, ArrowLeft, ArrowRight, CheckCircle2, User, Mail } from "lucide-react";
+import { Loader2, Upload, Plus, X, Send, FileText, ArrowLeft, ArrowRight, CheckCircle2, User, Mail, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDocuSignAuth } from "@/hooks/useDocuSignAuth";
 import { useDocuSignEnvelopes } from "@/hooks/useDocuSignEnvelopes";
+import { DocuSignTagPlacement, PlacedTag } from "./DocuSignTagPlacement";
 import docusignLogo from "@/assets/docusign-logo-new.png";
 
 interface Recipient {
@@ -39,7 +40,7 @@ interface SendWithDocuSignModalProps {
   onSent?: (envelopeId: string) => void;
 }
 
-type ModalStep = "compose" | "review";
+type ModalStep = "compose" | "place_tags" | "review";
 
 export function SendWithDocuSignModal({
   open,
@@ -66,6 +67,7 @@ export function SendWithDocuSignModal({
   const [sending, setSending] = useState(false);
   const [enableReminders, setEnableReminders] = useState(true);
   const [enableExpiration, setEnableExpiration] = useState(true);
+  const [placedTags, setPlacedTags] = useState<PlacedTag[]>([]);
 
   // Reset all state when the modal opens or when the client context changes
   useEffect(() => {
@@ -80,6 +82,7 @@ export function SendWithDocuSignModal({
       setEnableReminders(true);
       setEnableExpiration(true);
       setStep("compose");
+      setPlacedTags([]);
     }
   }, [open, buyerId, listingId, taskId]);
 
@@ -147,11 +150,11 @@ export function SendWithDocuSignModal({
   };
 
   const validRecipients = recipients.filter(r => r.name.trim() && r.email.trim());
-  const canProceedToReview = validRecipients.length > 0 && files.length > 0;
+  const canProceedToTags = validRecipients.length > 0 && files.length > 0;
   const resolvedSubject = subject || (files.length > 0 ? `Please sign: ${files[0].file.name}` : "Please sign the attached document");
 
-  const handleGoToReview = () => {
-    if (!canProceedToReview) {
+  const handleGoToTagPlacement = () => {
+    if (!canProceedToTags) {
       if (files.length === 0) {
         toast({ title: "Document required", description: "Please upload at least one document to send for signature", variant: "destructive" });
       } else {
@@ -159,6 +162,11 @@ export function SendWithDocuSignModal({
       }
       return;
     }
+    setStep("place_tags");
+  };
+
+  const handleTagsConfirmed = (tags: PlacedTag[]) => {
+    setPlacedTags(tags);
     setStep("review");
   };
 
@@ -171,6 +179,16 @@ export function SendWithDocuSignModal({
         documentId: String(idx + 1),
       }));
 
+      // Convert placed tags to DocuSign tab format
+      const customTabs = placedTags.length > 0 ? placedTags.map((tag) => ({
+        type: tag.type,
+        recipientIndex: tag.recipientIndex,
+        documentId: String(tag.documentIndex + 1),
+        pageNumber: String(tag.pageNumber),
+        xPercent: tag.xPercent,
+        yPercent: tag.yPercent,
+      })) : undefined;
+
       const result = await sendEnvelope({
         documents,
         recipients: validRecipients,
@@ -181,6 +199,7 @@ export function SendWithDocuSignModal({
         listingId,
         enableReminders,
         enableExpiration,
+        customTabs,
       });
 
       toast({
@@ -231,6 +250,34 @@ export function SendWithDocuSignModal({
     );
   }
 
+  // Tag placement step
+  if (step === "place_tags") {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <img src={docusignLogo} alt="DocuSign" className="h-5 object-contain" />
+              <Tag className="h-4 w-4" />
+              Place Signature Tags
+            </DialogTitle>
+            <DialogDescription>
+              Click on the document to place signature, initial, and other tags for each signer. Drag to reposition.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <DocuSignTagPlacement
+              files={files}
+              recipients={validRecipients}
+              onConfirm={handleTagsConfirmed}
+              onBack={() => setStep("compose")}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   // Review step
   if (step === "review") {
     return (
@@ -247,6 +294,19 @@ export function SendWithDocuSignModal({
           </DialogHeader>
 
           <div className="space-y-5 py-4">
+            {/* Data mapping indicator */}
+            {defaultRecipients.length > 0 && (
+              <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+                <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Auto-filled from client data
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recipient information was automatically populated from the selected client profile.
+                </p>
+              </div>
+            )}
+
             {/* Documents summary */}
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-1.5">
@@ -298,6 +358,30 @@ export function SendWithDocuSignModal({
               </div>
             </div>
 
+            {/* Tag placement summary */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/10">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Tag className="h-4 w-4 text-primary" />
+                Signature Tags
+              </Label>
+              {placedTags.length > 0 ? (
+                <div className="space-y-1">
+                  {validRecipients.map((r, idx) => {
+                    const recipientTags = placedTags.filter(t => t.recipientIndex === idx);
+                    return (
+                      <p key={idx} className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{r.name}:</span>{" "}
+                        {recipientTags.length} tag(s) —{" "}
+                        {recipientTags.map(t => t.type === "signHere" ? "Signature" : t.type === "initialHere" ? "Initials" : t.type === "dateSigned" ? "Date" : t.type === "fullName" ? "Name" : "Email").join(", ")}
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Default placement (bottom of page 1)</p>
+              )}
+            </div>
+
             {/* Email details */}
             <div className="space-y-2 p-3 rounded-lg border bg-muted/10">
               <Label className="text-sm font-medium">Email Details</Label>
@@ -337,18 +421,11 @@ export function SendWithDocuSignModal({
               </div>
             </div>
 
-            {/* Signature placement info */}
-            <div className="p-3 rounded-lg border border-accent bg-accent/20">
-              <p className="text-xs text-muted-foreground">
-                <strong className="text-foreground">Signature placement:</strong> A signature field will be automatically placed at the bottom of page 1 of each document. Signers can reposition or add additional fields during the signing process.
-              </p>
-            </div>
-
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button variant="outline" onClick={() => setStep("compose")} className="flex-1 gap-1.5">
+              <Button variant="outline" onClick={() => setStep("place_tags")} className="flex-1 gap-1.5">
                 <ArrowLeft className="h-4 w-4" />
-                Edit
+                Edit Tags
               </Button>
               <Button
                 onClick={handleSend}
@@ -384,6 +461,19 @@ export function SendWithDocuSignModal({
         </DialogHeader>
 
         <div className="space-y-5 py-4">
+          {/* Data mapping indicator when auto-filled */}
+          {defaultRecipients.length > 0 && (
+            <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+              <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Client data auto-filled
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Recipient details have been pre-populated from the selected client profile. You can edit them below.
+              </p>
+            </div>
+          )}
+
           {/* Document Upload */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
@@ -517,11 +607,11 @@ export function SendWithDocuSignModal({
               Cancel
             </Button>
             <Button
-              onClick={handleGoToReview}
-              disabled={!canProceedToReview}
+              onClick={handleGoToTagPlacement}
+              disabled={!canProceedToTags}
               className="flex-1 bg-primary text-primary-foreground gap-1.5"
             >
-              Review
+              Place Tags
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
