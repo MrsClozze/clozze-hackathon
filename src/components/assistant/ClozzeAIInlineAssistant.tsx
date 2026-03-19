@@ -47,6 +47,8 @@ export default function ClozzeAIInlineAssistant({
   const [input, setInput] = useState("");
   const [applied, setApplied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevFlowRef = useRef(flow);
+  const prevFormDataRef = useRef(existingFormData);
   const { toast } = useToast();
 
   const {
