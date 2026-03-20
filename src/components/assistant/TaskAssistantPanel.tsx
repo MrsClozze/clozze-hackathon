@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw } from "lucide-react";
+import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
+import { useConversationMode } from "@/hooks/useConversationMode";
 import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
 import { recordAction } from "@/lib/workflowState";
 import type { AutoContextData } from "@/lib/taskTypeConfigs";
 import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
 import TaskAssistantSuggestions from "./TaskAssistantSuggestions";
+import ConversationModeOverlay from "./ConversationModeOverlay";
 import type { Task } from "@/contexts/TasksContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
@@ -92,6 +94,33 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     stopPlayback,
     replayLastResponse,
   } = useTaskVoice();
+
+  // Conversation Mode — voice-first interaction loop
+  const {
+    state: conversationState,
+    liveTranscript: conversationTranscript,
+    isActive: isConversationActive,
+    startConversation,
+    endConversation,
+  } = useConversationMode({
+    sendMessage,
+    messages,
+    isLoading,
+  });
+
+  const handleStartConversation = useCallback(async () => {
+    try {
+      await startConversation();
+    } catch (err: any) {
+      toast({
+        title: "Voice Unavailable",
+        description: err?.message?.includes("getUserMedia")
+          ? "Please allow microphone access in your browser."
+          : "Could not start voice session. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [startConversation, toast]);
 
   // Show suggested actions from config when no server suggestions yet
   const displaySuggestions = suggestedActions.length > 0 
@@ -273,7 +302,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   }), [task.listingId, task.buyerId]);
 
   return (
-    <div className="flex flex-col h-full border-l border-border bg-background">
+    <div className="flex flex-col h-full border-l border-border bg-background relative">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-2">
@@ -288,8 +317,20 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Conversation Mode button */}
+          {!isConversationActive && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleStartConversation}
+              title="Start Conversation Mode"
+            >
+              <Mic className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
           {/* Voice playback indicator */}
-          {isPlayingAudio && (
+          {isPlayingAudio && !isConversationActive && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 mr-1">
               <div className="flex gap-0.5 items-end h-3">
                 <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" style={{ animationDelay: '0ms' }} />
@@ -301,7 +342,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <span className="text-[10px] text-primary font-medium">Speaking</span>
             </div>
           )}
-          {lastAssistantMessage?.content && (
+          {lastAssistantMessage?.content && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -316,7 +357,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               )}
             </Button>
           )}
-          {hasLastResponse && !isPlayingAudio && (
+          {hasLastResponse && !isPlayingAudio && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -327,7 +368,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           )}
-          {messages.length > 0 && (
+          {messages.length > 0 && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -351,6 +392,13 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <span className="text-muted-foreground/50">•</span>
               <Globe className="h-3 w-3 text-primary animate-pulse" />
               <span className="text-primary">Live Research</span>
+            </>
+          )}
+          {isConversationActive && (
+            <>
+              <span className="text-muted-foreground/50">•</span>
+              <Mic className="h-3 w-3 text-primary" />
+              <span className="text-primary">Voice</span>
             </>
           )}
         </div>
@@ -378,7 +426,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
       />
 
       {/* Suggestions */}
-      {messages.length === 0 && (
+      {messages.length === 0 && !isConversationActive && (
         <TaskAssistantSuggestions
           suggestions={displaySuggestions}
           onSelect={sendMessage}
@@ -386,17 +434,28 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         />
       )}
 
-      {/* Input */}
-      <TaskAssistantInput
-        onSend={sendMessage}
-        isLoading={isLoading}
-        onCancel={cancelStream}
-        isRecording={isRecording}
-        transcript={transcript}
-        onStartRecording={startRecording}
-        onStopRecording={stopRecording}
-        onTranscriptChange={setTranscript}
-      />
+      {/* Input — hidden during conversation mode */}
+      {!isConversationActive && (
+        <TaskAssistantInput
+          onSend={sendMessage}
+          isLoading={isLoading}
+          onCancel={cancelStream}
+          isRecording={isRecording}
+          transcript={transcript}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onTranscriptChange={setTranscript}
+        />
+      )}
+
+      {/* Conversation Mode Overlay */}
+      {isConversationActive && (
+        <ConversationModeOverlay
+          state={conversationState}
+          liveTranscript={conversationTranscript}
+          onEnd={endConversation}
+        />
+      )}
 
       {/* Confirmation Dialog for Direct Execution */}
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>

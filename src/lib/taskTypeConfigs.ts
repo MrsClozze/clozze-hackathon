@@ -303,6 +303,44 @@ export function stripActionMarkers(content: string): string {
   return content.replace(/\s*\[ACTION:\w+\|[^\]]+\]/g, '');
 }
 
+/** Strip [SPOKEN]...[/SPOKEN] and [FULL]...[/FULL] wrapper tags from dual-format responses */
+export function stripConversationTags(content: string): string {
+  // Remove [SPOKEN]...[/SPOKEN] block entirely
+  let cleaned = content.replace(/\[SPOKEN\][\s\S]*?\[\/SPOKEN\]/g, '');
+  // Remove [FULL] and [/FULL] wrapper tags but keep their content
+  cleaned = cleaned.replace(/\[FULL\]/g, '').replace(/\[\/FULL\]/g, '');
+  return cleaned.trim();
+}
+
+/** Parse spoken and full response from dual-format AI output */
+export function parseSpokenResponse(content: string): { spoken: string; full: string } {
+  const spokenMatch = content.match(/\[SPOKEN\]([\s\S]*?)\[\/SPOKEN\]/);
+  const fullMatch = content.match(/\[FULL\]([\s\S]*?)\[\/FULL\]/);
+
+  if (spokenMatch) {
+    return {
+      spoken: spokenMatch[1].trim(),
+      full: fullMatch ? fullMatch[1].trim() : stripConversationTags(content),
+    };
+  }
+
+  // Fallback: strip markdown for a natural spoken version
+  const spoken = content
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\*{1,2}(.*?)\*{1,2}/g, '$1')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/`{1,3}.*?`{1,3}/gs, '')
+    .replace(/\[ACTION:.*?\]/g, '')
+    .replace(/---/g, '')
+    .replace(/^\s*[-*]\s/gm, '')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ' ')
+    .trim()
+    .substring(0, 500);
+
+  return { spoken, full: content };
+}
+
 export function parseResponseActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {
   // First, check for inline action markers (new format)
   const inlineActions = parseInlineActions(content, taskContext);
