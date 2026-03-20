@@ -1,11 +1,13 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone, CheckCircle2, ArrowUpCircle, Mail, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { parseResponseActions, stripActionMarkers } from "@/lib/taskTypeConfigs";
+import type { ParsedAction } from "@/lib/taskTypeConfigs";
 import type { AssistantMessage, LoadingPhase } from "@/hooks/useTaskAssistant";
 
 interface TaskAssistantChatProps {
@@ -27,6 +29,8 @@ interface TaskAssistantChatProps {
   onSaveToListingMarketing?: (content: string) => void;
   onMarkComplete?: () => void;
   onUpdatePriority?: (priority: string) => void;
+  /** Called after any action executes, with the action type for workflow continuity */
+  onActionExecuted?: (actionType: string) => void;
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
@@ -54,6 +58,14 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   copy_text: Copy,
 };
 
+/** Human-readable descriptions for grouped action confirmations */
+const GROUPED_ACTION_STEPS: Record<string, string[]> = {
+  resolve_group: [
+    'Save a draft message covering all identified gaps',
+    'Create a follow-up task to track resolution',
+  ],
+};
+
 export default function TaskAssistantChat({
   messages,
   isLoading,
@@ -71,9 +83,11 @@ export default function TaskAssistantChat({
   onSaveToListingHighlights,
   onSaveToListingNotes,
   onSaveToListingMarketing,
+  onActionExecuted,
 }: TaskAssistantChatProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [pendingGroupedAction, setPendingGroupedAction] = useState<ParsedAction | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -86,7 +100,7 @@ export default function TaskAssistantChat({
     toast({ title: "Copied", description: "Content copied to clipboard." });
   };
 
-  const handleAction = (actionType: string, content: string) => {
+  const executeAction = (actionType: string, content: string) => {
     const cleanContent = stripActionMarkers(content);
     switch (actionType) {
       case 'save_notes':
@@ -124,10 +138,28 @@ export default function TaskAssistantChat({
         onSaveDraft?.(cleanContent);
         onCreateFollowUp?.(cleanContent);
         toast({ title: "Grouped Resolution", description: "Draft saved and follow-up task created." });
-        return;
+        break;
       case 'copy_text':
         handleCopy(content);
-        break;
+        return; // Don't track copy as a workflow action
+    }
+    // Notify parent for workflow continuity
+    onActionExecuted?.(actionType);
+  };
+
+  const handleAction = (action: ParsedAction) => {
+    // Grouped actions require confirmation
+    if (action.type === 'resolve_group') {
+      setPendingGroupedAction(action);
+      return;
+    }
+    executeAction(action.type, action.content);
+  };
+
+  const handleConfirmGrouped = () => {
+    if (pendingGroupedAction) {
+      executeAction(pendingGroupedAction.type, pendingGroupedAction.content);
+      setPendingGroupedAction(null);
     }
   };
 
@@ -173,156 +205,190 @@ export default function TaskAssistantChat({
   }
 
   return (
-    <ScrollArea className="flex-1" ref={scrollRef as any}>
-      <div className="p-4 space-y-4">
-        {messages.map((msg) => {
-          const isComplete = msg.role === "assistant" && msg.content && !isLoading;
-          const actions = isComplete
-            ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId, buyerId: taskContext.buyerId } : undefined)
-            : [];
-          
-          const displayContent = msg.role === "assistant" 
-            ? stripActionMarkers(msg.content || (isLoading ? "..." : ""))
-            : msg.content;
+    <>
+      <ScrollArea className="flex-1" ref={scrollRef as any}>
+        <div className="p-4 space-y-4">
+          {messages.map((msg) => {
+            const isComplete = msg.role === "assistant" && msg.content && !isLoading;
+            const actions = isComplete
+              ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId, buyerId: taskContext.buyerId } : undefined)
+              : [];
+            
+            const displayContent = msg.role === "assistant" 
+              ? stripActionMarkers(msg.content || (isLoading ? "..." : ""))
+              : msg.content;
 
-          const inlineActions = actions.filter(a => a.inline);
-          const bottomActions = actions.filter(a => !a.inline);
-          const footerActions = bottomActions.length > 0 ? bottomActions : (inlineActions.length > 0 ? inlineActions : []);
+            // Only show inline actions as prominent buttons; don't duplicate in footer
+            const inlineActions = actions.filter(a => a.inline);
+            const legacyActions = actions.filter(a => !a.inline);
 
-          return (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.role === "assistant" && (
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center mt-1">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              )}
+            return (
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 border border-border"
-                }`}
+                key={msg.id}
+                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {msg.role === "assistant" ? (
-                  <div className="space-y-2">
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {displayContent}
-                      </ReactMarkdown>
-                    </div>
-                    {/* Inline action buttons — prominent, contextual */}
-                    {isComplete && inlineActions.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-2">
-                        {inlineActions.map((action, i) => {
-                          const Icon = ACTION_ICONS[action.type] || Save;
-                          const isGrouped = action.type === 'resolve_group';
-                          return (
-                            <Button
-                              key={`inline-${action.type}-${i}`}
-                              variant={isGrouped ? "default" : "outline"}
-                              size="sm"
-                              className={`h-7 px-3 text-xs ${isGrouped ? 'bg-primary text-primary-foreground' : ''}`}
-                              onClick={() => handleAction(action.type, action.content)}
-                            >
-                              <Icon className="h-3 w-3 mr-1.5" />
-                              {action.label}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {/* Footer action bar */}
-                    {isComplete && (
-                      <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => handleCopy(msg.content)}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy
-                        </Button>
-                        {footerActions.map((action, i) => {
-                          const Icon = ACTION_ICONS[action.type] || Save;
-                          return (
-                            <Button
-                              key={`${action.type}-${i}`}
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                              onClick={() => handleAction(action.type, action.content)}
-                            >
-                              <Icon className="h-3 w-3 mr-1" />
-                              {action.label}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    )}
+                {msg.role === "assistant" && (
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center mt-1">
+                    <Bot className="h-4 w-4 text-primary" />
                   </div>
-                ) : (
-                  <p>{msg.content}</p>
+                )}
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 border border-border"
+                  }`}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="space-y-2">
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {displayContent}
+                        </ReactMarkdown>
+                      </div>
+                      {/* Inline action buttons — prominent, contextual */}
+                      {isComplete && inlineActions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2">
+                          {inlineActions.map((action, i) => {
+                            const Icon = ACTION_ICONS[action.type] || Save;
+                            const isGrouped = action.type === 'resolve_group';
+                            return (
+                              <Button
+                                key={`inline-${action.type}-${i}`}
+                                variant={isGrouped ? "default" : "outline"}
+                                size="sm"
+                                className={`h-7 px-3 text-xs ${isGrouped ? 'bg-primary text-primary-foreground' : ''}`}
+                                onClick={() => handleAction(action)}
+                              >
+                                <Icon className="h-3 w-3 mr-1.5" />
+                                {action.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Footer: Copy + legacy (non-inline) actions only */}
+                      {isComplete && (
+                        <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => handleCopy(msg.content)}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                          {legacyActions.map((action, i) => {
+                            const Icon = ACTION_ICONS[action.type] || Save;
+                            return (
+                              <Button
+                                key={`${action.type}-${i}`}
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => handleAction(action)}
+                              >
+                                <Icon className="h-3 w-3 mr-1" />
+                                {action.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
+                </div>
+                {msg.role === "user" && (
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center mt-1">
+                    <User className="h-4 w-4 text-accent-foreground" />
+                  </div>
                 )}
               </div>
-              {msg.role === "user" && (
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center mt-1">
-                  <User className="h-4 w-4 text-accent-foreground" />
-                </div>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
 
-        {/* Loading indicators */}
-        {isLoading && loadingPhase !== 'idle' && (
-          <div className="flex items-center gap-2 text-xs pl-10">
-            {(() => {
-              const phase = PHASE_DISPLAY[loadingPhase];
-              const Icon = phase.icon;
-              return (
-                <>
-                  <Icon className={`h-3 w-3 ${loadingPhase === 'context' ? 'animate-spin' : 'animate-pulse'} ${phase.className}`} />
-                  <span className={phase.className}>{phase.label}</span>
-                </>
-              );
-            })()}
-          </div>
-        )}
-
-        {isLoading && loadingPhase === 'idle' && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
-          <div className="flex items-center gap-2 text-muted-foreground text-xs pl-10">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Preparing…
-          </div>
-        )}
-
-        {researchSources.length > 0 && (
-          <div className="pl-10">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Globe className="h-3 w-3" />
-              <span>Sources used</span>
+          {/* Loading indicators */}
+          {isLoading && loadingPhase !== 'idle' && (
+            <div className="flex items-center gap-2 text-xs pl-10">
+              {(() => {
+                const phase = PHASE_DISPLAY[loadingPhase];
+                const Icon = phase.icon;
+                return (
+                  <>
+                    <Icon className={`h-3 w-3 ${loadingPhase === 'context' ? 'animate-spin' : 'animate-pulse'} ${phase.className}`} />
+                    <span className={phase.className}>{phase.label}</span>
+                  </>
+                );
+              })()}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {researchSources.map((source, i) => (
-                <a
-                  key={i}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors truncate max-w-[200px]"
-                  title={source.title}
-                >
-                  {source.title}
-                </a>
-              ))}
+          )}
+
+          {isLoading && loadingPhase === 'idle' && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
+            <div className="flex items-center gap-2 text-muted-foreground text-xs pl-10">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Preparing…
             </div>
-          </div>
-        )}
-      </div>
-    </ScrollArea>
+          )}
+
+          {researchSources.length > 0 && (
+            <div className="pl-10">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <Globe className="h-3 w-3" />
+                <span>Sources used</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {researchSources.map((source, i) => (
+                  <a
+                    key={i}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors truncate max-w-[200px]"
+                    title={source.title}
+                  >
+                    {source.title}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Grouped Action Confirmation Dialog */}
+      <AlertDialog open={!!pendingGroupedAction} onOpenChange={(open) => !open && setPendingGroupedAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" />
+              {pendingGroupedAction?.label || 'Grouped Resolution'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>This will perform the following actions:</p>
+                <ul className="space-y-2">
+                  {(GROUPED_ACTION_STEPS[pendingGroupedAction?.type || ''] || []).map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground">You can review and edit the draft after it's saved.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmGrouped}>
+              Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
