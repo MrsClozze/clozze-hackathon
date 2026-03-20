@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine, Volume2, VolumeX } from "lucide-react";
+import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine, Volume2, VolumeX, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -262,7 +262,12 @@ export default function ClozzeAIInlineAssistant({
                 {/* Loading indicator */}
                 {isLoading && loadingPhase !== 'idle' && (
                   <div className="flex items-center gap-2 text-xs pl-8">
-                    {loadingPhase === 'thinking' ? (
+                    {loadingPhase === 'researching' ? (
+                      <>
+                        <Globe className="h-3 w-3 animate-pulse text-primary" />
+                        <span className="text-primary">Researching property details…</span>
+                      </>
+                    ) : loadingPhase === 'thinking' ? (
                       <>
                         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                         <span className="text-muted-foreground">Analyzing your request…</span>

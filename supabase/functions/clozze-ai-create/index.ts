@@ -9,6 +9,105 @@ const corsHeaders = {
 
 type FlowType = 'create_task' | 'add_buyer' | 'add_listing';
 
+// --- Research intent detection for listing flow ---
+
+const RESEARCH_PHRASES = [
+  'research', 'look up', 'look this up', 'find the details', 'pull the info',
+  'pull info', 'search for', 'find out', 'get the details', 'get details',
+  'do some research', 'can you research', 'grab the info', 'check on',
+  'what can you find', 'scrape', 'look into', 'dig up',
+];
+
+function hasResearchIntent(message: string): boolean {
+  const lower = message.toLowerCase();
+  return RESEARCH_PHRASES.some(phrase => lower.includes(phrase));
+}
+
+function extractAddress(message: string): string | null {
+  // Match common US address patterns: number + street name + optional city/state/zip
+  // e.g. "479 8th Street Imperial Beach California 91932"
+  // e.g. "123 Main St, Austin, TX 78701"
+  const patterns = [
+    // Number + Street + City + State/Zip  
+    /(\d+\s+[\w\s]+(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|way|court|ct|circle|cir|place|pl|terrace|ter)[\s,]+[\w\s]+(?:,\s*)?(?:[A-Z]{2}\s*)?\d{5}(?:-\d{4})?)/i,
+    // Number + Street + City + State name
+    /(\d+\s+[\w\s]+(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|way|court|ct|circle|cir|place|pl|terrace|ter)[\s,]+[\w\s]+(?:california|texas|florida|new york|arizona|nevada|colorado|oregon|washington|georgia|virginia|illinois|ohio|michigan|carolina|tennessee|maryland|massachusetts|indiana|minnesota|missouri|wisconsin|connecticut|iowa|arkansas|kansas|kentucky|louisiana|mississippi|alabama|utah|oklahoma|nebraska|maine|idaho|hawaii|montana|delaware|vermont|wyoming|alaska|rhode island|new hampshire|new jersey|new mexico|south dakota|north dakota|west virginia|south carolina|north carolina)[\s,]*\d{0,5})/i,
+    // Simpler: number + street + at least one more word (city)
+    /(\d+\s+\w+\s+(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|way|court|ct|circle|cir|place|pl|terrace|ter)[\s,]+\w[\w\s,]*)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match) {
+      return match[1].trim().replace(/,\s*$/, '');
+    }
+  }
+
+  // Fallback: look for a zip code and grab surrounding words
+  const zipMatch = message.match(/((?:\d+\s+)?[\w\s,]+\d{5}(?:-\d{4})?)/);
+  if (zipMatch) {
+    const candidate = zipMatch[1].trim();
+    // Must contain at least a number (street number) and a zip
+    if (/\d+\s+\w/.test(candidate) && /\d{5}/.test(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function firecrawlSearch(apiKey: string, query: string, category: string): Promise<any[]> {
+  try {
+    const response = await fetch('https://api.firecrawl.dev/v1/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        limit: 5,
+        scrapeOptions: { formats: ['markdown'] },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Firecrawl search error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const results = data.data || data.results || [];
+    return results.slice(0, 5).map((r: any) => ({
+      title: r.title || r.url || 'Untitled',
+      url: r.url || '',
+      snippet: r.description || r.markdown?.substring(0, 300) || '',
+      category,
+    }));
+  } catch (err) {
+    console.error('Firecrawl search error:', err);
+    return [];
+  }
+}
+
+async function researchProperty(apiKey: string, address: string): Promise<{ results: any[]; categories: string[] }> {
+  const queries = [
+    { query: `${address} property listing details bedrooms bathrooms square feet`, category: 'property_data' },
+    { query: `${address} real estate listing Zillow Realtor Redfin`, category: 'listing_sources' },
+    { query: `${address} neighborhood schools nearby amenities`, category: 'neighborhood' },
+  ];
+
+  const allResults = await Promise.all(
+    queries.map(q => firecrawlSearch(apiKey, q.query, q.category))
+  );
+
+  const results = allResults.flat();
+  const categories = [...new Set(results.map(r => r.category))];
+  return { results, categories };
+}
+
+// --- System prompts ---
+
 const FLOW_SYSTEM_PROMPTS: Record<FlowType, string> = {
   create_task: `You are Clozze AI — an intelligent task operator inside Clozze, a real estate platform.
 
@@ -139,6 +238,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -184,7 +284,61 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = FLOW_SYSTEM_PROMPTS[flowType] + formContext + entityContext;
+    // ====== RESEARCH INTENT ROUTING (listing flow only) ======
+    let researchContext = '';
+    let didResearch = false;
+    let researchAddress: string | null = null;
+
+    if (flowType === 'add_listing' && hasResearchIntent(message) && FIRECRAWL_API_KEY) {
+      researchAddress = extractAddress(message);
+
+      if (researchAddress) {
+        console.log('Research intent detected. Address:', researchAddress);
+        const { results, categories } = await researchProperty(FIRECRAWL_API_KEY, researchAddress);
+
+        if (results.length > 0) {
+          didResearch = true;
+          const categoryLabels: Record<string, string> = {
+            property_data: 'Property Details',
+            listing_sources: 'Listing Sources',
+            neighborhood: 'Neighborhood & Schools',
+          };
+
+          const grouped: Record<string, typeof results> = {};
+          for (const r of results) {
+            const cat = r.category || 'general';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(r);
+          }
+
+          const sections = Object.entries(grouped).map(([cat, items]) => {
+            const label = categoryLabels[cat] || cat;
+            return `### ${label}\n${items.map((r: any, i: number) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
+          });
+
+          researchContext = `\n\n## External Research Results for "${researchAddress}"
+${sections.join('\n\n')}
+
+IMPORTANT INSTRUCTIONS FOR USING RESEARCH:
+- Use the research data above to populate the listing JSON as completely as possible.
+- Extract bedrooms, bathrooms, square footage, price, city, zipcode, county from the research if available.
+- Write a compelling MLS-ready description based on what you found.
+- Generate highlights from actual property features found in research.
+- Clearly note which fields were populated from research vs which are still missing.
+- If research data is conflicting between sources, pick the most reliable-looking source and note the discrepancy.
+- Include the address "${researchAddress}" in the listing JSON.
+- Do NOT ask the user to provide details that you already found in research. Only flag truly missing items.`;
+        }
+      }
+    }
+
+    // If research intent was detected but no address found, we'll let the LLM ask for it
+    let addressPrompt = '';
+    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
+      addressPrompt = `\n\nNOTE: The user asked you to research a property, but no clear address was found in their message. Please ask them to provide the full property address so you can look it up.`;
+    }
+
+    const systemPrompt = FLOW_SYSTEM_PROMPTS[flowType] + formContext + entityContext + researchContext + addressPrompt;
 
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
@@ -234,10 +388,19 @@ serve(async (req) => {
     }
 
     // Send metadata first, then stream
-    const metadata = {
+    const metadata: Record<string, any> = {
       flow: flowType,
       suggestions: FLOW_SUGGESTIONS[flowType],
     };
+
+    if (didResearch) {
+      metadata.usedResearch = true;
+      metadata.researchAddress = researchAddress;
+    }
+
+    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
+      metadata.needsAddress = true;
+    }
 
     const metadataEvent = `data: ${JSON.stringify({ metadata })}\n\n`;
     const encoder = new TextEncoder();

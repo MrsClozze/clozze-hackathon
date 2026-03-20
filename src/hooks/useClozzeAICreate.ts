@@ -10,7 +10,7 @@ export interface AICreateMessage {
   timestamp: Date;
 }
 
-export type CreateLoadingPhase = 'idle' | 'thinking' | 'generating';
+export type CreateLoadingPhase = 'idle' | 'thinking' | 'researching' | 'generating';
 
 /** Parsed structured data from AI response */
 export interface ParsedTaskData {
@@ -133,7 +133,17 @@ export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateO
 
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
-    setLoadingPhase('thinking');
+
+    // Detect research intent client-side for immediate UI feedback
+    const lowerMsg = message.toLowerCase();
+    const hasResearch = flow === 'add_listing' && [
+      'research', 'look up', 'look this up', 'find the details', 'pull the info',
+      'pull info', 'search for', 'find out', 'get the details', 'get details',
+      'do some research', 'can you research', 'grab the info', 'check on',
+      'what can you find', 'look into', 'dig up',
+    ].some(p => lowerMsg.includes(p));
+
+    setLoadingPhase(hasResearch ? 'researching' : 'thinking');
 
     const assistantMessageId = crypto.randomUUID();
     let assistantContent = "";
@@ -207,7 +217,12 @@ export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateO
             if (parsed.metadata && !metadataProcessed) {
               metadataProcessed = true;
               setSuggestions(parsed.metadata.suggestions || []);
-              setLoadingPhase('generating');
+              // If research was done, briefly show researching phase before generating
+              if (parsed.metadata.usedResearch) {
+                setLoadingPhase('generating');
+              } else {
+                setLoadingPhase('generating');
+              }
               continue;
             }
 
