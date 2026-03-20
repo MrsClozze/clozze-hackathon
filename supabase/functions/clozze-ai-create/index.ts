@@ -9,7 +9,7 @@ const corsHeaders = {
 
 type FlowType = 'create_task' | 'add_buyer' | 'add_listing';
 
-// --- Research intent detection for listing flow ---
+// --- Research intent & address detection for listing flow ---
 
 const RESEARCH_PHRASES = [
   'research', 'look up', 'look this up', 'find the details', 'pull the info',
@@ -21,6 +21,11 @@ const RESEARCH_PHRASES = [
 function hasResearchIntent(message: string): boolean {
   const lower = message.toLowerCase();
   return RESEARCH_PHRASES.some(phrase => lower.includes(phrase));
+}
+
+// Detect listing creation intent (address present = intent to create)
+function hasListingCreationIntent(message: string): boolean {
+  return extractAddress(message) !== null;
 }
 
 function extractAddress(message: string): string | null {
@@ -166,34 +171,46 @@ Example output format:
 }
 \`\`\``,
 
-  add_listing: `You are Clozze AI — an intelligent task operator inside Clozze, a real estate platform.
+  add_listing: `You are Clozze AI — an intelligent listing operator inside Clozze, a real estate platform.
 
-The user is adding a new listing. You help them structure listing information and generate marketing content.
+The user is creating a new listing. Your job is to BUILD the listing proactively, not act as a form.
+
+CORE BEHAVIOR:
+- When a user provides an address or any property details, IMMEDIATELY start constructing the listing.
+- Do NOT ask the user for all required fields upfront. Instead, use whatever data you have (from research results, user input, or reasonable inference) to populate as many fields as possible.
+- Present what you have built so far. Show the known/inferred details confidently.
+- After presenting the listing, identify ONLY the minimum required missing information that blocks progress (e.g., listing price, seller contact). Ask for those specific blockers — not everything.
+- Offer immediate next actions: "I can draft a message to the seller requesting pricing" or "I can generate the full description now" or "Want me to create follow-up tasks for the missing items?"
+- Always move the user forward. Never pause waiting for input when you can take action.
+
+RESPONSE STRUCTURE:
+1. Lead with what you've done: "I've started building the listing for [address]. Here's what I have so far:"
+2. Show the structured JSON with all populated fields
+3. Briefly note what was sourced from research vs inferred
+4. List only critical missing items (not everything optional)
+5. Offer 2-3 immediate actions the user can take
 
 RULES:
-- Parse the user's description into structured listing data
 - Always wrap structured output in a markdown code block tagged \`\`\`json-listing
-- The JSON object should have fields matching the listing form: sellerFirstName, sellerLastName, sellerEmail, sellerPhone, address, city, zipcode, county, bedrooms, bathrooms, sqFeet, listingPrice
-- Additionally, provide: description (MLS-ready listing description), highlights (array of key feature bullets), missingFields (array of fields that should be filled), researchSuggestions (array of things to research)
-- Outside the JSON block, provide a brief summary
-- If information is incomplete, identify what's missing
-- For descriptions, write compelling MLS-ready copy
+- The JSON object should have fields: sellerFirstName, sellerLastName, sellerEmail, sellerPhone, address, city, zipcode, county, bedrooms, bathrooms, sqFeet, listingPrice
+- Additionally provide: description (MLS-ready listing description), highlights (array of key feature bullets), missingFields (array of CRITICAL missing fields only), nextActions (array of suggested next steps)
+- Write compelling MLS-ready descriptions from whatever data is available
+- If you have beds/baths/sqft from research, USE them — don't ask the user to confirm unless data conflicts
 - Never reference data from other clients or listings
 
 Example output format:
 \`\`\`json-listing
 {
-  "sellerFirstName": "John",
   "address": "123 Oak St",
   "city": "Austin",
   "bedrooms": 3,
   "bathrooms": 2,
   "sqFeet": 1800,
-  "listingPrice": 425000,
+  "listingPrice": null,
   "description": "Stunning 3-bedroom home in the heart of Austin...",
-  "highlights": ["Updated kitchen with granite counters", "Large backyard with mature trees", "Minutes from downtown"],
-  "missingFields": ["sellerEmail", "zipcode", "county"],
-  "researchSuggestions": ["Recent comparable sales within 0.5 miles", "School district ratings", "HOA details if applicable"]
+  "highlights": ["Updated kitchen with granite counters", "Large backyard with mature trees"],
+  "missingFields": ["listingPrice", "sellerEmail"],
+  "nextActions": ["Generate full MLS description", "Draft seller outreach for missing details", "Create listing prep task checklist"]
 }
 \`\`\``,
 };
@@ -284,58 +301,69 @@ serve(async (req) => {
       }
     }
 
-    // ====== RESEARCH INTENT ROUTING (listing flow only) ======
+    // ====== PROACTIVE RESEARCH ROUTING (listing flow) ======
+    // Trigger research when: explicit research intent OR address detected (proactive building)
     let researchContext = '';
     let didResearch = false;
     let researchAddress: string | null = null;
 
-    if (flowType === 'add_listing' && hasResearchIntent(message) && FIRECRAWL_API_KEY) {
-      researchAddress = extractAddress(message);
+    if (flowType === 'add_listing' && FIRECRAWL_API_KEY) {
+      const explicitResearch = hasResearchIntent(message);
+      const hasAddress = hasListingCreationIntent(message);
+      
+      if (explicitResearch || hasAddress) {
+        researchAddress = extractAddress(message);
 
-      if (researchAddress) {
-        console.log('Research intent detected. Address:', researchAddress);
-        const { results, categories } = await researchProperty(FIRECRAWL_API_KEY, researchAddress);
+        if (researchAddress) {
+          console.log('Auto-research triggered for listing. Address:', researchAddress);
+          const { results, categories } = await researchProperty(FIRECRAWL_API_KEY, researchAddress);
 
-        if (results.length > 0) {
-          didResearch = true;
-          const categoryLabels: Record<string, string> = {
-            property_data: 'Property Details',
-            listing_sources: 'Listing Sources',
-            neighborhood: 'Neighborhood & Schools',
-          };
+          if (results.length > 0) {
+            didResearch = true;
+            const categoryLabels: Record<string, string> = {
+              property_data: 'Property Details',
+              listing_sources: 'Listing Sources',
+              neighborhood: 'Neighborhood & Schools',
+            };
 
-          const grouped: Record<string, typeof results> = {};
-          for (const r of results) {
-            const cat = r.category || 'general';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(r);
-          }
+            const grouped: Record<string, typeof results> = {};
+            for (const r of results) {
+              const cat = r.category || 'general';
+              if (!grouped[cat]) grouped[cat] = [];
+              grouped[cat].push(r);
+            }
 
-          const sections = Object.entries(grouped).map(([cat, items]) => {
-            const label = categoryLabels[cat] || cat;
-            return `### ${label}\n${items.map((r: any, i: number) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
-          });
+            const sections = Object.entries(grouped).map(([cat, items]) => {
+              const label = categoryLabels[cat] || cat;
+              return `### ${label}\n${items.map((r: any, i: number) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
+            });
 
-          researchContext = `\n\n## External Research Results for "${researchAddress}"
+            researchContext = `\n\n## External Research Results for "${researchAddress}"
 ${sections.join('\n\n')}
 
-IMPORTANT INSTRUCTIONS FOR USING RESEARCH:
-- Use the research data above to populate the listing JSON as completely as possible.
-- Extract bedrooms, bathrooms, square footage, price, city, zipcode, county from the research if available.
+CRITICAL INSTRUCTIONS:
+- You MUST use this research data to populate the listing JSON as completely as possible RIGHT NOW.
+- Extract bedrooms, bathrooms, square footage, price, city, zipcode, county from the research.
 - Write a compelling MLS-ready description based on what you found.
 - Generate highlights from actual property features found in research.
-- Clearly note which fields were populated from research vs which are still missing.
-- If research data is conflicting between sources, pick the most reliable-looking source and note the discrepancy.
+- Present the listing as ALREADY STARTED — not as a list of questions.
+- Only flag truly missing critical items (like listing price if not found, seller contact).
 - Include the address "${researchAddress}" in the listing JSON.
-- Do NOT ask the user to provide details that you already found in research. Only flag truly missing items.`;
+- Do NOT ask the user to provide details that you already found. Only surface blockers.
+- Offer immediate next actions based on the current state of the listing.`;
+          }
         }
       }
     }
 
-    // If research intent was detected but no address found, we'll let the LLM ask for it
+    // If listing flow and no address found but user seems to want to create a listing
     let addressPrompt = '';
-    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
-      addressPrompt = `\n\nNOTE: The user asked you to research a property, but no clear address was found in their message. Please ask them to provide the full property address so you can look it up.`;
+    if (flowType === 'add_listing' && !researchAddress) {
+      const listingIntentPhrases = ['create a listing', 'new listing', 'add a listing', 'list a property', 'start a listing', 'help me list', 'research'];
+      const hasIntent = listingIntentPhrases.some(p => message.toLowerCase().includes(p)) || hasResearchIntent(message);
+      if (hasIntent) {
+        addressPrompt = `\n\nNOTE: The user wants to create a listing but hasn't provided a property address yet. Ask for the address so you can immediately start building the listing with research data. Frame it as: "Give me the property address and I'll start building the listing right away — I'll pull property details, draft a description, and have it ready for you to review."`;
+      }
     }
 
     const systemPrompt = FLOW_SYSTEM_PROMPTS[flowType] + formContext + entityContext + researchContext + addressPrompt;
@@ -398,7 +426,7 @@ IMPORTANT INSTRUCTIONS FOR USING RESEARCH:
       metadata.researchAddress = researchAddress;
     }
 
-    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
+    if (flowType === 'add_listing' && !researchAddress && !didResearch) {
       metadata.needsAddress = true;
     }
 

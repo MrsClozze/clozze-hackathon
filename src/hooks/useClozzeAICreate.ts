@@ -134,16 +134,20 @@ export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateO
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Detect research intent client-side for immediate UI feedback
+    // Detect research/address intent client-side for immediate UI feedback
     const lowerMsg = message.toLowerCase();
-    const hasResearch = flow === 'add_listing' && [
+    const researchPhrases = [
       'research', 'look up', 'look this up', 'find the details', 'pull the info',
       'pull info', 'search for', 'find out', 'get the details', 'get details',
       'do some research', 'can you research', 'grab the info', 'check on',
       'what can you find', 'look into', 'dig up',
-    ].some(p => lowerMsg.includes(p));
+    ];
+    const hasResearch = flow === 'add_listing' && researchPhrases.some(p => lowerMsg.includes(p));
+    // Also detect address presence — triggers auto-research on backend
+    const hasAddress = flow === 'add_listing' && /\d+\s+\w+\s+(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|way|court|ct|circle|cir|place|pl|terrace|ter)/i.test(message);
+    const willResearch = hasResearch || hasAddress;
 
-    setLoadingPhase(hasResearch ? 'researching' : 'thinking');
+    setLoadingPhase(willResearch ? 'researching' : 'thinking');
 
     const assistantMessageId = crypto.randomUUID();
     let assistantContent = "";

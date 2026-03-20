@@ -265,7 +265,7 @@ export default function ClozzeAIInlineAssistant({
                     {loadingPhase === 'researching' ? (
                       <>
                         <Globe className="h-3 w-3 animate-pulse text-primary" />
-                        <span className="text-primary">Researching property details…</span>
+                        <span className="text-primary">Researching property & building listing…</span>
                       </>
                     ) : loadingPhase === 'thinking' ? (
                       <>
