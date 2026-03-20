@@ -168,7 +168,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { taskId, message, conversationHistory } = body;
+    const { taskId, message, conversationHistory, conversational } = body;
 
     if (!taskId || typeof taskId !== 'string') {
       throw new Error('taskId is required');
