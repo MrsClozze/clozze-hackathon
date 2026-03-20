@@ -322,11 +322,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 relative group"
               onClick={handleStartConversation}
               title="Start Conversation Mode"
             >
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <span className="absolute inset-0 rounded-md bg-primary/10 animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite] group-hover:bg-primary/20 transition-colors" />
+              <AudioLines className="h-4 w-4 text-primary relative z-10" />
             </Button>
           )}
           {/* Voice playback indicator */}
