@@ -301,58 +301,69 @@ serve(async (req) => {
       }
     }
 
-    // ====== RESEARCH INTENT ROUTING (listing flow only) ======
+    // ====== PROACTIVE RESEARCH ROUTING (listing flow) ======
+    // Trigger research when: explicit research intent OR address detected (proactive building)
     let researchContext = '';
     let didResearch = false;
     let researchAddress: string | null = null;
 
-    if (flowType === 'add_listing' && hasResearchIntent(message) && FIRECRAWL_API_KEY) {
-      researchAddress = extractAddress(message);
+    if (flowType === 'add_listing' && FIRECRAWL_API_KEY) {
+      const explicitResearch = hasResearchIntent(message);
+      const hasAddress = hasListingCreationIntent(message);
+      
+      if (explicitResearch || hasAddress) {
+        researchAddress = extractAddress(message);
 
-      if (researchAddress) {
-        console.log('Research intent detected. Address:', researchAddress);
-        const { results, categories } = await researchProperty(FIRECRAWL_API_KEY, researchAddress);
+        if (researchAddress) {
+          console.log('Auto-research triggered for listing. Address:', researchAddress);
+          const { results, categories } = await researchProperty(FIRECRAWL_API_KEY, researchAddress);
 
-        if (results.length > 0) {
-          didResearch = true;
-          const categoryLabels: Record<string, string> = {
-            property_data: 'Property Details',
-            listing_sources: 'Listing Sources',
-            neighborhood: 'Neighborhood & Schools',
-          };
+          if (results.length > 0) {
+            didResearch = true;
+            const categoryLabels: Record<string, string> = {
+              property_data: 'Property Details',
+              listing_sources: 'Listing Sources',
+              neighborhood: 'Neighborhood & Schools',
+            };
 
-          const grouped: Record<string, typeof results> = {};
-          for (const r of results) {
-            const cat = r.category || 'general';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(r);
-          }
+            const grouped: Record<string, typeof results> = {};
+            for (const r of results) {
+              const cat = r.category || 'general';
+              if (!grouped[cat]) grouped[cat] = [];
+              grouped[cat].push(r);
+            }
 
-          const sections = Object.entries(grouped).map(([cat, items]) => {
-            const label = categoryLabels[cat] || cat;
-            return `### ${label}\n${items.map((r: any, i: number) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
-          });
+            const sections = Object.entries(grouped).map(([cat, items]) => {
+              const label = categoryLabels[cat] || cat;
+              return `### ${label}\n${items.map((r: any, i: number) => `${i + 1}. **${r.title}** (${r.url})\n${r.snippet}`).join('\n\n')}`;
+            });
 
-          researchContext = `\n\n## External Research Results for "${researchAddress}"
+            researchContext = `\n\n## External Research Results for "${researchAddress}"
 ${sections.join('\n\n')}
 
-IMPORTANT INSTRUCTIONS FOR USING RESEARCH:
-- Use the research data above to populate the listing JSON as completely as possible.
-- Extract bedrooms, bathrooms, square footage, price, city, zipcode, county from the research if available.
+CRITICAL INSTRUCTIONS:
+- You MUST use this research data to populate the listing JSON as completely as possible RIGHT NOW.
+- Extract bedrooms, bathrooms, square footage, price, city, zipcode, county from the research.
 - Write a compelling MLS-ready description based on what you found.
 - Generate highlights from actual property features found in research.
-- Clearly note which fields were populated from research vs which are still missing.
-- If research data is conflicting between sources, pick the most reliable-looking source and note the discrepancy.
+- Present the listing as ALREADY STARTED — not as a list of questions.
+- Only flag truly missing critical items (like listing price if not found, seller contact).
 - Include the address "${researchAddress}" in the listing JSON.
-- Do NOT ask the user to provide details that you already found in research. Only flag truly missing items.`;
+- Do NOT ask the user to provide details that you already found. Only surface blockers.
+- Offer immediate next actions based on the current state of the listing.`;
+          }
         }
       }
     }
 
-    // If research intent was detected but no address found, we'll let the LLM ask for it
+    // If listing flow and no address found but user seems to want to create a listing
     let addressPrompt = '';
-    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
-      addressPrompt = `\n\nNOTE: The user asked you to research a property, but no clear address was found in their message. Please ask them to provide the full property address so you can look it up.`;
+    if (flowType === 'add_listing' && !researchAddress) {
+      const listingIntentPhrases = ['create a listing', 'new listing', 'add a listing', 'list a property', 'start a listing', 'help me list', 'research'];
+      const hasIntent = listingIntentPhrases.some(p => message.toLowerCase().includes(p)) || hasResearchIntent(message);
+      if (hasIntent) {
+        addressPrompt = `\n\nNOTE: The user wants to create a listing but hasn't provided a property address yet. Ask for the address so you can immediately start building the listing with research data. Frame it as: "Give me the property address and I'll start building the listing right away — I'll pull property details, draft a description, and have it ready for you to review."`;
+      }
     }
 
     const systemPrompt = FLOW_SYSTEM_PROMPTS[flowType] + formContext + entityContext + researchContext + addressPrompt;
