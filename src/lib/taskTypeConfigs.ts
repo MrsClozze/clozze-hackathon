@@ -246,6 +246,22 @@ const VALID_ACTION_TYPES = new Set([
   'create_follow_up',
 ]);
 
+/** Priority order for action types — lower number = higher priority (shown first) */
+const ACTION_PRIORITY: Record<string, number> = {
+  resolve_group: 0,
+  draft_message: 1,
+  save_to_listing_description: 2,
+  save_to_listing_highlights: 3,
+  save_to_listing_marketing: 4,
+  save_to_listing_notes: 5,
+  save_to_listing: 6,
+  create_task: 7,
+  create_tasks: 7,
+  create_follow_up: 8,
+  save_draft: 9,
+  save_notes: 10,
+};
+
 /** Maximum inline action buttons shown per response to prevent button overload */
 const MAX_INLINE_ACTIONS = 5;
 
