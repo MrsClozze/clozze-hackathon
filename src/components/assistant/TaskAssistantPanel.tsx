@@ -95,6 +95,33 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     replayLastResponse,
   } = useTaskVoice();
 
+  // Conversation Mode — voice-first interaction loop
+  const {
+    state: conversationState,
+    liveTranscript: conversationTranscript,
+    isActive: isConversationActive,
+    startConversation,
+    endConversation,
+  } = useConversationMode({
+    sendMessage,
+    messages,
+    isLoading,
+  });
+
+  const handleStartConversation = useCallback(async () => {
+    try {
+      await startConversation();
+    } catch (err: any) {
+      toast({
+        title: "Voice Unavailable",
+        description: err?.message?.includes("getUserMedia")
+          ? "Please allow microphone access in your browser."
+          : "Could not start voice session. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [startConversation, toast]);
+
   // Show suggested actions from config when no server suggestions yet
   const displaySuggestions = suggestedActions.length > 0 
     ? suggestedActions 
