@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw, Mic } from "lucide-react";
+import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw, AudioLines } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
@@ -322,11 +322,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 relative group"
               onClick={handleStartConversation}
               title="Start Conversation Mode"
             >
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <span className="absolute inset-0 rounded-md bg-primary/10 animate-[pulse_2.5s_cubic-bezier(0.4,0,0.6,1)_infinite] group-hover:bg-primary/20 transition-colors" />
+              <AudioLines className="h-4 w-4 text-primary relative z-10" />
             </Button>
           )}
           {/* Voice playback indicator */}
@@ -397,7 +398,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           {isConversationActive && (
             <>
               <span className="text-muted-foreground/50">•</span>
-              <Mic className="h-3 w-3 text-primary" />
+              <AudioLines className="h-3 w-3 text-primary" />
               <span className="text-primary">Voice</span>
             </>
           )}
