@@ -203,6 +203,16 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  /** Record action to workflow state for continuity across sessions */
+  const handleActionExecuted = useCallback((actionType: string) => {
+    // Determine record type and ID for workflow state
+    if (task.listingId) {
+      recordAction('listing', task.listingId, actionType, actionType.replace(/_/g, ' '));
+    } else if (task.buyerId) {
+      recordAction('buyer', task.buyerId, actionType, actionType.replace(/_/g, ' '));
+    }
+  }, [task.listingId, task.buyerId]);
+
   const handleMarkComplete = () => {
     setConfirmAction({
       type: 'mark_complete',
