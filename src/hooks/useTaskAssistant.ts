@@ -30,7 +30,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const sendMessage = useCallback(async (message: string) => {
+  const sendMessage = useCallback(async (message: string, opts?: { conversational?: boolean }) => {
     if (!message.trim() || isLoading) return;
 
     setError(null);
