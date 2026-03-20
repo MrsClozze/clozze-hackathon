@@ -302,7 +302,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
   }), [task.listingId, task.buyerId]);
 
   return (
-    <div className="flex flex-col h-full border-l border-border bg-background">
+    <div className="flex flex-col h-full border-l border-border bg-background relative">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border bg-muted/20">
         <div className="flex items-center gap-2">
@@ -317,8 +317,20 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Conversation Mode button */}
+          {!isConversationActive && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleStartConversation}
+              title="Start Conversation Mode"
+            >
+              <Mic className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
           {/* Voice playback indicator */}
-          {isPlayingAudio && (
+          {isPlayingAudio && !isConversationActive && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 mr-1">
               <div className="flex gap-0.5 items-end h-3">
                 <div className="w-0.5 h-1 bg-primary animate-pulse rounded-full" style={{ animationDelay: '0ms' }} />
@@ -330,7 +342,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <span className="text-[10px] text-primary font-medium">Speaking</span>
             </div>
           )}
-          {lastAssistantMessage?.content && (
+          {lastAssistantMessage?.content && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -345,7 +357,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               )}
             </Button>
           )}
-          {hasLastResponse && !isPlayingAudio && (
+          {hasLastResponse && !isPlayingAudio && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -356,7 +368,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
             </Button>
           )}
-          {messages.length > 0 && (
+          {messages.length > 0 && !isConversationActive && (
             <Button
               variant="ghost"
               size="icon"
@@ -380,6 +392,13 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
               <span className="text-muted-foreground/50">•</span>
               <Globe className="h-3 w-3 text-primary animate-pulse" />
               <span className="text-primary">Live Research</span>
+            </>
+          )}
+          {isConversationActive && (
+            <>
+              <span className="text-muted-foreground/50">•</span>
+              <Mic className="h-3 w-3 text-primary" />
+              <span className="text-primary">Voice</span>
             </>
           )}
         </div>
@@ -407,7 +426,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
       />
 
       {/* Suggestions */}
-      {messages.length === 0 && (
+      {messages.length === 0 && !isConversationActive && (
         <TaskAssistantSuggestions
           suggestions={displaySuggestions}
           onSelect={sendMessage}
@@ -415,17 +434,28 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         />
       )}
 
-      {/* Input */}
-      <TaskAssistantInput
-        onSend={sendMessage}
-        isLoading={isLoading}
-        onCancel={cancelStream}
-        isRecording={isRecording}
-        transcript={transcript}
-        onStartRecording={startRecording}
-        onStopRecording={stopRecording}
-        onTranscriptChange={setTranscript}
-      />
+      {/* Input — hidden during conversation mode */}
+      {!isConversationActive && (
+        <TaskAssistantInput
+          onSend={sendMessage}
+          isLoading={isLoading}
+          onCancel={cancelStream}
+          isRecording={isRecording}
+          transcript={transcript}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onTranscriptChange={setTranscript}
+        />
+      )}
+
+      {/* Conversation Mode Overlay */}
+      {isConversationActive && (
+        <ConversationModeOverlay
+          state={conversationState}
+          liveTranscript={conversationTranscript}
+          onEnd={endConversation}
+        />
+      )}
 
       {/* Confirmation Dialog for Direct Execution */}
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
