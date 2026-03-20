@@ -398,7 +398,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           {isConversationActive && (
             <>
               <span className="text-muted-foreground/50">•</span>
-              <Mic className="h-3 w-3 text-primary" />
+              <AudioLines className="h-3 w-3 text-primary" />
               <span className="text-primary">Voice</span>
             </>
           )}
