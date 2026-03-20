@@ -20,6 +20,7 @@ interface ListingFormData {
   multiUnit: string;
   listingStartDate: string;
   listingEndDate: string;
+  description: string;
   brokerageName: string;
   brokerageAddress: string;
   agentEmail: string;
