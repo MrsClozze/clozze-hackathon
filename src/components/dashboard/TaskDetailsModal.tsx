@@ -195,7 +195,7 @@ export default function TaskDetailsModal() {
   return (
     <>
       <Dialog open={isTaskDetailsModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden [&>button.absolute]:right-auto [&>button.absolute]:left-[calc(100%-400px-2.5rem)] [&>button.absolute]:top-3 [&>button.absolute]:z-10 [&>button.absolute]:[&_svg]:h-5 [&>button.absolute]:[&_svg]:w-5">
           <div className="flex h-[85vh] max-h-[85vh]">
             {/* Left Panel - Task Details */}
             <div className="flex-1 overflow-y-auto p-6 min-w-0">
