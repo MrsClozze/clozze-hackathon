@@ -195,12 +195,20 @@ export default function TaskDetailsModal() {
   return (
     <>
       <Dialog open={isTaskDetailsModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 overflow-hidden [&>button.absolute]:hidden">
           <div className="flex h-[85vh] max-h-[85vh]">
             {/* Left Panel - Task Details */}
-            <div className="flex-1 overflow-y-auto p-6 min-w-0">
+            <div className="flex-1 overflow-y-auto p-6 min-w-0 relative">
+              {/* Custom close button inside left panel */}
+              <button
+                onClick={() => handleCloseModal(false)}
+                className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </button>
           <DialogHeader>
-            <div className="flex items-center justify-between pr-8">
+            <div className="flex items-center justify-between pr-2">
               <div className="flex-1">
                 <DialogTitle className="text-xl">
                   {isEditing ? "Edit Task" : currentTask.title}
