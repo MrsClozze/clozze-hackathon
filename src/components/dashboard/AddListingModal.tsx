@@ -150,7 +150,7 @@ export default function AddListingModal({ open, onOpenChange, onCreated }: AddLi
         totalCommission,
         agentCommission,
         brokerageCommission,
-        description: '',
+        description: formData.get("description") as string || '',
         highlights: [],
         internalNotes: [],
         marketingCopy: {},
