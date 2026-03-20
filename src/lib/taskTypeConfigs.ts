@@ -217,20 +217,70 @@ export function buildAutoContextMessage(ctx: AutoContextData): string {
 
 /**
  * Parse AI response content to determine which action buttons to show.
- * Smart auto-detection: defaults to the most likely save destination.
+ * Supports both inline [ACTION:type|label] markers and legacy pattern detection.
  */
 export interface ParsedAction {
   type: string;
   label: string;
   content: string;
   metadata?: Record<string, any>;
+  /** If true, this action was detected inline (within the text) */
+  inline?: boolean;
+  /** The position in the text where this action marker was found */
+  position?: number;
+}
+
+/** Parse inline [ACTION:type|label] markers from AI response */
+function parseInlineActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {
+  const actions: ParsedAction[] = [];
+  const pattern = /\[ACTION:(\w+)\|([^\]]+)\]/g;
+  let match;
+
+  while ((match = pattern.exec(content)) !== null) {
+    const [, actionType, label] = match;
+    const action: ParsedAction = {
+      type: actionType,
+      label: label.trim(),
+      content,
+      inline: true,
+      position: match.index,
+    };
+
+    if (actionType.startsWith('save_to_listing') && taskContext?.listingId) {
+      action.metadata = { listingId: taskContext.listingId };
+    }
+    if (actionType === 'resolve_group') {
+      action.metadata = { listingId: taskContext?.listingId, buyerId: taskContext?.buyerId };
+    }
+
+    actions.push(action);
+  }
+
+  return actions;
+}
+
+/** Strip [ACTION:...] markers from content for clean display */
+export function stripActionMarkers(content: string): string {
+  return content.replace(/\s*\[ACTION:\w+\|[^\]]+\]/g, '');
 }
 
 export function parseResponseActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {
+  // First, check for inline action markers (new format)
+  const inlineActions = parseInlineActions(content, taskContext);
+  if (inlineActions.length > 0) {
+    const seen = new Set<string>();
+    return inlineActions.filter(a => {
+      const key = `${a.type}:${a.label}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  // Legacy fallback: pattern-based detection
   const actions: ParsedAction[] = [];
   const detectedTypes = new Set<string>();
 
-  // 1. Check for checklist / task list items
   const taskListPattern = /(?:^|\n)\s*[-•✓☐*]\s+(?:\[[ x]\]\s+)?.+/gm;
   const taskMatches = content.match(taskListPattern);
   if (taskMatches && taskMatches.length >= 2) {
@@ -238,122 +288,57 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
       .map(m => m.trim().replace(/^[-•✓☐*]\s+/, '').replace(/^\[[ x]\]\s+/, ''))
       .filter(t => t.length > 5 && t.length < 200);
     if (taskItems.length >= 2) {
-      actions.push({
-        type: 'create_tasks',
-        label: `Create ${taskItems.length} Tasks`,
-        content: taskItems.join('\n'),
-      });
+      actions.push({ type: 'create_tasks', label: `Create ${taskItems.length} Tasks`, content: taskItems.join('\n') });
       detectedTypes.add('create_tasks');
     }
   }
 
-  // 2. Check for follow-up suggestions
   const followUpPattern = /follow[- ]?up|remind|check back|circle back|revisit/i;
   if (followUpPattern.test(content) && !detectedTypes.has('create_tasks')) {
-    actions.push({
-      type: 'create_follow_up',
-      label: 'Create Follow-Up',
-      content,
-    });
+    actions.push({ type: 'create_follow_up', label: 'Create Follow-Up', content });
     detectedTypes.add('create_follow_up');
   }
 
-  // 3. Smart listing destination detection (only if linked to listing)
   if (taskContext?.listingId) {
     const lower = content.toLowerCase();
-
-    // Description detection
-    const isDescription = /listing description|mls description|property description/i.test(lower) &&
-      content.length > 100;
-    // Highlights detection
+    const isDescription = /listing description|mls description|property description/i.test(lower) && content.length > 100;
     const isHighlights = /key features|property highlights|selling points|feature list/i.test(lower);
-    // Marketing detection
-    const isMarketing = /marketing copy|social media post|email campaign|ad copy|promotional/i.test(lower);
-    // Research/analysis detection
+    const isMarketing = /marketing copy|social media post|email campaign|ad copy/i.test(lower);
     const isResearch = /comparable|comps|market analysis|research|findings|based on external/i.test(lower);
 
     if (isDescription) {
-      // Default: Save to Listing Description (primary action)
-      actions.push({
-        type: 'save_to_listing_description',
-        label: 'Save to Description',
-        content,
-        metadata: { listingId: taskContext.listingId },
-      });
+      actions.push({ type: 'save_to_listing_description', label: 'Save to Description', content, metadata: { listingId: taskContext.listingId } });
       detectedTypes.add('save_to_listing');
     } else if (isHighlights) {
-      actions.push({
-        type: 'save_to_listing_highlights',
-        label: 'Save to Highlights',
-        content,
-        metadata: { listingId: taskContext.listingId },
-      });
+      actions.push({ type: 'save_to_listing_highlights', label: 'Save to Highlights', content, metadata: { listingId: taskContext.listingId } });
       detectedTypes.add('save_to_listing');
     } else if (isMarketing) {
-      actions.push({
-        type: 'save_to_listing_marketing',
-        label: 'Save Marketing Copy',
-        content,
-        metadata: { listingId: taskContext.listingId },
-      });
+      actions.push({ type: 'save_to_listing_marketing', label: 'Save Marketing Copy', content, metadata: { listingId: taskContext.listingId } });
       detectedTypes.add('save_to_listing');
     } else if (isResearch) {
-      actions.push({
-        type: 'save_to_listing_notes',
-        label: 'Save to Listing Notes',
-        content,
-        metadata: { listingId: taskContext.listingId },
-      });
+      actions.push({ type: 'save_to_listing_notes', label: 'Save to Listing Notes', content, metadata: { listingId: taskContext.listingId } });
       detectedTypes.add('save_to_listing');
     }
 
-    // If we detected a specific type, also offer the generic save as secondary
     if (detectedTypes.has('save_to_listing') && content.length > 150) {
-      // Add a secondary "Save to Notes" option
-      actions.push({
-        type: 'save_notes',
-        label: 'Save to Task Notes',
-        content,
-      });
+      actions.push({ type: 'save_notes', label: 'Save to Task Notes', content });
       detectedTypes.add('save_notes');
     }
 
-    // If linked to listing but no specific type detected, offer generic save
     if (!detectedTypes.has('save_to_listing') && content.length > 100) {
-      actions.push({
-        type: 'save_to_listing',
-        label: 'Save to Listing',
-        content,
-        metadata: { listingId: taskContext.listingId },
-      });
+      actions.push({ type: 'save_to_listing', label: 'Save to Listing', content, metadata: { listingId: taskContext.listingId } });
       detectedTypes.add('save_to_listing');
     }
   }
 
-  // 4. Draft-like content
-  const draftPatterns = [
-    /subject:/i, /dear\s/i, /hi\s/i, /hello\s/i,
-    /draft/i, /template/i,
-    /^#{1,3}\s+.*(draft|email|message|template)/im,
-  ];
-  const hasDraftContent = draftPatterns.some(p => p.test(content));
-  if (hasDraftContent && content.length > 100 && !detectedTypes.has('save_to_listing')) {
-    actions.push({
-      type: 'save_draft',
-      label: 'Save Draft',
-      content,
-    });
+  const draftPatterns = [/subject:/i, /dear\s/i, /hi\s/i, /hello\s/i, /draft/i, /template/i, /^#{1,3}\s+.*(draft|email|message|template)/im];
+  if (draftPatterns.some(p => p.test(content)) && content.length > 100 && !detectedTypes.has('save_to_listing')) {
+    actions.push({ type: 'save_draft', label: 'Save Draft', content });
     detectedTypes.add('save_draft');
   }
 
-  // 5. Save to notes (for substantial content not already captured)
   if (!detectedTypes.has('save_notes') && !detectedTypes.has('save_draft') && content.length > 150) {
-    actions.push({
-      type: 'save_notes',
-      label: 'Save to Notes',
-      content,
-    });
-    detectedTypes.add('save_notes');
+    actions.push({ type: 'save_notes', label: 'Save to Notes', content });
   }
 
   return actions;
