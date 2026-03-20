@@ -71,7 +71,7 @@ export function useConversationMode({
   // Scribe STT hook — VAD auto-commits when user stops speaking
   const scribe = useScribe({
     modelId: 'scribe_v2_realtime' as any,
-    commitStrategy: 'vad',
+    commitStrategy: 'vad' as any,
     onPartialTranscript: (data: any) => {
       const text = data?.text || '';
       setLiveTranscript(text);
