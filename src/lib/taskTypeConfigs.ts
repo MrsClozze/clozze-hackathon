@@ -230,6 +230,25 @@ export interface ParsedAction {
   position?: number;
 }
 
+/** Allowed action types — only these are rendered as buttons */
+const VALID_ACTION_TYPES = new Set([
+  'draft_message',
+  'create_task',
+  'create_tasks',
+  'save_notes',
+  'save_draft',
+  'save_to_listing',
+  'save_to_listing_description',
+  'save_to_listing_highlights',
+  'save_to_listing_notes',
+  'save_to_listing_marketing',
+  'resolve_group',
+  'create_follow_up',
+]);
+
+/** Maximum inline action buttons shown per response to prevent button overload */
+const MAX_INLINE_ACTIONS = 5;
+
 /** Parse inline [ACTION:type|label] markers from AI response */
 function parseInlineActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {
   const actions: ParsedAction[] = [];
@@ -238,6 +257,10 @@ function parseInlineActions(content: string, taskContext?: { listingId?: string 
 
   while ((match = pattern.exec(content)) !== null) {
     const [, actionType, label] = match;
+
+    // Skip unknown action types — prevents model from inventing unsupported actions
+    if (!VALID_ACTION_TYPES.has(actionType)) continue;
+
     const action: ParsedAction = {
       type: actionType,
       label: label.trim(),
@@ -268,13 +291,16 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
   // First, check for inline action markers (new format)
   const inlineActions = parseInlineActions(content, taskContext);
   if (inlineActions.length > 0) {
+    // Deduplicate by type+label
     const seen = new Set<string>();
-    return inlineActions.filter(a => {
+    const deduped = inlineActions.filter(a => {
       const key = `${a.type}:${a.label}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    // Cap inline actions to prevent button overload
+    return deduped.slice(0, MAX_INLINE_ACTIONS);
   }
 
   // Legacy fallback: pattern-based detection

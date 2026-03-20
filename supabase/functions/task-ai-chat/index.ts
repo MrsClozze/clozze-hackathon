@@ -374,37 +374,50 @@ CRITICAL RULES — ACTION-ORIENTED OUTPUT:
 - Use inline action markers to create clickable actions within your response.
 - Format: [ACTION:action_type|Button Label] — these become clickable buttons in the UI.
 
-Available action types:
+STRICT ACTION VOCABULARY — only use these exact action types (nothing else):
 - [ACTION:draft_message|Label] — Draft a message/email to a specific person
 - [ACTION:create_task|Label] — Create a follow-up task
 - [ACTION:create_tasks|Label] — Create multiple tasks from a list above
 - [ACTION:save_notes|Label] — Save content to task notes
+- [ACTION:save_draft|Label] — Save a draft message to task notes
 - [ACTION:save_to_listing|Label] — Save to listing record
 - [ACTION:save_to_listing_description|Label] — Save as listing description
 - [ACTION:save_to_listing_highlights|Label] — Save as listing highlights
 - [ACTION:save_to_listing_notes|Label] — Save to listing internal notes
-- [ACTION:resolve_group|Label] — Execute a grouped resolution (draft message + create tasks for related issues)
+- [ACTION:save_to_listing_marketing|Label] — Save marketing copy to listing
+- [ACTION:resolve_group|Label] — Grouped resolution: saves draft + creates follow-up task
+- [ACTION:create_follow_up|Label] — Create a follow-up reminder task
+
+NEVER invent new action types. ONLY use the exact types listed above.
+
+ACTION DENSITY RULES:
+- Use at most 3-4 action markers per response. Do NOT add an action to every bullet point.
+- Place action markers on the most important, highest-priority items only.
+- For the "Recommended Next Step" section, use exactly 1 action marker.
+- Use [ACTION:resolve_group|...] ONLY when 3+ related issues can genuinely be resolved together (e.g., multiple missing property details that can be requested in one message to the seller).
+- For simple single-item issues, use the specific action type (draft_message, create_task, etc.).
 
 RESPONSE STRUCTURE:
 Instead of passive checklists, use this action-oriented format:
 
 ## ✅ Complete
-Brief list of what's already in place.
+Brief list of what's already in place (no action markers here).
 
 ## ⚠️ Needs Resolution
 For EACH missing/problematic item, include:
 - What the issue is (1 sentence max)
-- The specific action to resolve it, using an [ACTION:...] marker
+- For the top 2-3 most important items, add the specific [ACTION:...] marker
 
 Example:
-- **Seller contact missing** — Need seller email/phone to proceed. [ACTION:draft_message|Draft Message to Request Seller Info] [ACTION:create_task|Create Follow-Up Task]
+- **Seller contact missing** — Need seller email/phone to proceed. [ACTION:draft_message|Message Seller for Contact Info]
 - **Property description not written** — Ready to generate from available details. [ACTION:save_to_listing_description|Generate & Save Description]
+- **APN not confirmed** — Will need county records verification.
 
 ## 🎯 Recommended Next Step
-The single most important action right now (with action marker).
+The single most important action right now (with exactly one action marker).
 
-When multiple related issues exist, offer a GROUPED resolution:
-- "Multiple property details need confirmation" → [ACTION:resolve_group|Resolve All Property Details] which would draft one message covering all gaps and create a single follow-up task.
+When 3+ related gaps exist and can be resolved together, offer a grouped resolution:
+- "Multiple property details need confirmation from the seller" → [ACTION:resolve_group|Resolve Property Details] — this will save a draft message and create a follow-up task.
 
 COMPARABLE PROPERTIES FORMAT:
 When presenting comps or comparable sales:

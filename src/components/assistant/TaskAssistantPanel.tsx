@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
+import { recordAction } from "@/lib/workflowState";
 import type { AutoContextData } from "@/lib/taskTypeConfigs";
 import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
@@ -202,6 +203,16 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     }
   };
 
+  /** Record action to workflow state for continuity across sessions */
+  const handleActionExecuted = useCallback((actionType: string) => {
+    // Determine record type and ID for workflow state
+    if (task.listingId) {
+      recordAction('listing', task.listingId, actionType, actionType.replace(/_/g, ' '));
+    } else if (task.buyerId) {
+      recordAction('buyer', task.buyerId, actionType, actionType.replace(/_/g, ' '));
+    }
+  }, [task.listingId, task.buyerId]);
+
   const handleMarkComplete = () => {
     setConfirmAction({
       type: 'mark_complete',
@@ -363,6 +374,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         onSaveToListingHighlights={handleSaveToListingHighlights}
         onSaveToListingNotes={handleSaveToListingNotes}
         onSaveToListingMarketing={handleSaveToListingMarketing}
+        onActionExecuted={handleActionExecuted}
       />
 
       {/* Suggestions */}
