@@ -202,13 +202,13 @@ export default function TaskDetailsModal() {
               {/* Custom close button inside left panel */}
               <button
                 onClick={() => handleCloseModal(false)}
-                className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="absolute right-4 top-4 z-10 rounded-sm bg-background/80 p-1 opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close</span>
               </button>
           <DialogHeader>
-            <div className="flex items-center justify-between pr-2">
+            <div className="flex items-center justify-between pr-14">
               <div className="flex-1">
                 <DialogTitle className="text-xl">
                   {isEditing ? "Edit Task" : currentTask.title}
