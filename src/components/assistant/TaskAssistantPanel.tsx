@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
+import { recordAction } from "@/lib/workflowState";
 import type { AutoContextData } from "@/lib/taskTypeConfigs";
 import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
