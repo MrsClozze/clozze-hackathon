@@ -82,6 +82,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
             taskId,
             message: message.trim(),
             conversationHistory,
+            ...(opts?.conversational ? { conversational: true } : {}),
           }),
           signal: abortController.signal,
         }
