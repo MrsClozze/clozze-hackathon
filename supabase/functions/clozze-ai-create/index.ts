@@ -426,7 +426,7 @@ CRITICAL INSTRUCTIONS:
       metadata.researchAddress = researchAddress;
     }
 
-    if (flowType === 'add_listing' && hasResearchIntent(message) && !researchAddress) {
+    if (flowType === 'add_listing' && !researchAddress && !didResearch) {
       metadata.needsAddress = true;
     }
 
