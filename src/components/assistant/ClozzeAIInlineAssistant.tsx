@@ -262,7 +262,12 @@ export default function ClozzeAIInlineAssistant({
                 {/* Loading indicator */}
                 {isLoading && loadingPhase !== 'idle' && (
                   <div className="flex items-center gap-2 text-xs pl-8">
-                    {loadingPhase === 'thinking' ? (
+                    {loadingPhase === 'researching' ? (
+                      <>
+                        <Globe className="h-3 w-3 animate-pulse text-primary" />
+                        <span className="text-primary">Researching property details…</span>
+                      </>
+                    ) : loadingPhase === 'thinking' ? (
                       <>
                         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                         <span className="text-muted-foreground">Analyzing your request…</span>
