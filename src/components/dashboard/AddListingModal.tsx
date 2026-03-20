@@ -339,6 +339,7 @@ export default function AddListingModal({ open, onOpenChange, onCreated }: AddLi
                 if (listing.bathrooms != null) updateFormField("bathrooms", String(listing.bathrooms));
                 if (listing.sqFeet != null) updateFormField("sqFeet", String(listing.sqFeet));
                 if (listing.listingPrice != null) updateFormField("listingPrice", String(listing.listingPrice));
+                if (listing.description) updateFormField("description", listing.description);
               }}
             />
 
