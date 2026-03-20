@@ -315,6 +315,8 @@ export function parseResponseActions(content: string, taskContext?: { listingId?
       seen.add(key);
       return true;
     });
+    // Sort by priority — most important actions first
+    deduped.sort((a, b) => (ACTION_PRIORITY[a.type] ?? 99) - (ACTION_PRIORITY[b.type] ?? 99));
     // Cap inline actions to prevent button overload
     return deduped.slice(0, MAX_INLINE_ACTIONS);
   }

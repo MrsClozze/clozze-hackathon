@@ -61,8 +61,9 @@ const ACTION_ICONS: Record<string, typeof Save> = {
 /** Human-readable descriptions for grouped action confirmations */
 const GROUPED_ACTION_STEPS: Record<string, string[]> = {
   resolve_group: [
-    'Save a draft message covering all identified gaps',
-    'Create a follow-up task to track resolution',
+    'Draft a message to the relevant party covering all identified gaps',
+    'Save the draft to your task notes for review',
+    'Create a follow-up task to track when you receive the response',
   ],
 };
 
