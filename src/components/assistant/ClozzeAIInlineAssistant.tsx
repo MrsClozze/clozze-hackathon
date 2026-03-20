@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine, Volume2, VolumeX } from "lucide-react";
+import { Zap, Send, Mic, MicOff, Square, Trash2, ChevronDown, ChevronUp, Loader2, Sparkles, Bot, User, Copy, Check, ArrowDownToLine, Volume2, VolumeX, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
