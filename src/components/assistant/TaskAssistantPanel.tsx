@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw, Mic } from "lucide-react";
+import { Volume2, VolumeX, Trash2, Zap, Database, Globe, RotateCcw, AudioLines } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
