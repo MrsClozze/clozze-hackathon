@@ -71,6 +71,7 @@ const emptyFormData: FormData = {
   multiUnit: "no",
   listingStartDate: "",
   listingEndDate: "",
+  description: "",
   brokerageName: "",
   brokerageAddress: "",
   agentEmail: "",
