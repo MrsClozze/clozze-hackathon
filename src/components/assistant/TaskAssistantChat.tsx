@@ -2,10 +2,10 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone, CheckCircle2, ArrowUpCircle } from "lucide-react";
+import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Database, Sparkles, CalendarPlus, Home, FileEdit, Tag, Megaphone, CheckCircle2, ArrowUpCircle, Mail, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { parseResponseActions } from "@/lib/taskTypeConfigs";
+import { parseResponseActions, stripActionMarkers } from "@/lib/taskTypeConfigs";
 import type { AssistantMessage, LoadingPhase } from "@/hooks/useTaskAssistant";
 
 interface TaskAssistantChatProps {
@@ -30,33 +30,19 @@ interface TaskAssistantChatProps {
 }
 
 const PHASE_DISPLAY: Record<LoadingPhase, { icon: typeof Database; label: string; className: string }> = {
-  context: {
-    icon: Database,
-    label: 'Analyzing Clozze context…',
-    className: 'text-muted-foreground',
-  },
-  research: {
-    icon: Search,
-    label: 'Researching external data…',
-    className: 'text-primary',
-  },
-  generating: {
-    icon: Sparkles,
-    label: 'Generating response…',
-    className: 'text-primary',
-  },
-  idle: {
-    icon: Loader2,
-    label: '',
-    className: 'text-muted-foreground',
-  },
+  context: { icon: Database, label: 'Analyzing Clozze context…', className: 'text-muted-foreground' },
+  research: { icon: Search, label: 'Researching external data…', className: 'text-primary' },
+  generating: { icon: Sparkles, label: 'Generating response…', className: 'text-primary' },
+  idle: { icon: Loader2, label: '', className: 'text-muted-foreground' },
 };
 
 const ACTION_ICONS: Record<string, typeof Save> = {
   save_notes: Save,
   create_tasks: ListTodo,
+  create_task: CalendarPlus,
   create_follow_up: CalendarPlus,
   save_draft: FileText,
+  draft_message: Mail,
   save_to_listing: Home,
   save_to_listing_description: FileEdit,
   save_to_listing_highlights: Tag,
@@ -64,6 +50,7 @@ const ACTION_ICONS: Record<string, typeof Save> = {
   save_to_listing_marketing: Megaphone,
   mark_complete: CheckCircle2,
   update_priority: ArrowUpCircle,
+  resolve_group: Layers,
   copy_text: Copy,
 };
 
@@ -95,46 +82,56 @@ export default function TaskAssistantChat({
   }, [messages, loadingPhase]);
 
   const handleCopy = (content: string) => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(stripActionMarkers(content));
     toast({ title: "Copied", description: "Content copied to clipboard." });
   };
 
   const handleAction = (actionType: string, content: string) => {
+    const cleanContent = stripActionMarkers(content);
     switch (actionType) {
       case 'save_notes':
-        onSaveToNotes?.(content);
+        onSaveToNotes?.(cleanContent);
         break;
       case 'create_tasks':
-        onCreateTasks?.(content);
+        onCreateTasks?.(cleanContent);
         break;
+      case 'create_task':
       case 'create_follow_up':
-        onCreateFollowUp?.(content);
+        onCreateFollowUp?.(cleanContent);
+        break;
+      case 'draft_message':
+        onSaveDraft?.(cleanContent);
         break;
       case 'save_to_listing':
-        onSaveToListing?.(content);
+        onSaveToListing?.(cleanContent);
         break;
       case 'save_to_listing_description':
-        onSaveToListingDescription?.(content);
+        onSaveToListingDescription?.(cleanContent);
         break;
       case 'save_to_listing_highlights':
-        onSaveToListingHighlights?.(content);
+        onSaveToListingHighlights?.(cleanContent);
         break;
       case 'save_to_listing_notes':
-        onSaveToListingNotes?.(content);
+        onSaveToListingNotes?.(cleanContent);
         break;
       case 'save_to_listing_marketing':
-        onSaveToListingMarketing?.(content);
+        onSaveToListingMarketing?.(cleanContent);
         break;
       case 'save_draft':
-        onSaveDraft?.(content);
+        onSaveDraft?.(cleanContent);
         break;
+      case 'resolve_group':
+        onSaveDraft?.(cleanContent);
+        onCreateFollowUp?.(cleanContent);
+        toast({ title: "Grouped Resolution", description: "Draft saved and follow-up task created." });
+        return;
       case 'copy_text':
         handleCopy(content);
         break;
     }
   };
 
-  // Auto-context empty state with contextual message
+  // Auto-context empty state
   if (messages.length === 0 && autoContextMessage) {
     return (
       <ScrollArea className="flex-1">
@@ -179,9 +176,18 @@ export default function TaskAssistantChat({
     <ScrollArea className="flex-1" ref={scrollRef as any}>
       <div className="p-4 space-y-4">
         {messages.map((msg) => {
-          const actions = msg.role === "assistant" && msg.content && !isLoading
+          const isComplete = msg.role === "assistant" && msg.content && !isLoading;
+          const actions = isComplete
             ? parseResponseActions(msg.content, taskContext ? { listingId: taskContext.listingId, buyerId: taskContext.buyerId } : undefined)
             : [];
+          
+          const displayContent = msg.role === "assistant" 
+            ? stripActionMarkers(msg.content || (isLoading ? "..." : ""))
+            : msg.content;
+
+          const inlineActions = actions.filter(a => a.inline);
+          const bottomActions = actions.filter(a => !a.inline);
+          const footerActions = bottomActions.length > 0 ? bottomActions : (inlineActions.length > 0 ? inlineActions : []);
 
           return (
             <div
@@ -204,10 +210,32 @@ export default function TaskAssistantChat({
                   <div className="space-y-2">
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {msg.content || (isLoading ? "..." : "")}
+                        {displayContent}
                       </ReactMarkdown>
                     </div>
-                    {msg.content && !isLoading && (
+                    {/* Inline action buttons — prominent, contextual */}
+                    {isComplete && inlineActions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {inlineActions.map((action, i) => {
+                          const Icon = ACTION_ICONS[action.type] || Save;
+                          const isGrouped = action.type === 'resolve_group';
+                          return (
+                            <Button
+                              key={`inline-${action.type}-${i}`}
+                              variant={isGrouped ? "default" : "outline"}
+                              size="sm"
+                              className={`h-7 px-3 text-xs ${isGrouped ? 'bg-primary text-primary-foreground' : ''}`}
+                              onClick={() => handleAction(action.type, action.content)}
+                            >
+                              <Icon className="h-3 w-3 mr-1.5" />
+                              {action.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Footer action bar */}
+                    {isComplete && (
                       <div className="flex flex-wrap gap-1 pt-1 border-t border-border/50">
                         <Button
                           variant="ghost"
@@ -218,7 +246,7 @@ export default function TaskAssistantChat({
                           <Copy className="h-3 w-3 mr-1" />
                           Copy
                         </Button>
-                        {actions.map((action, i) => {
+                        {footerActions.map((action, i) => {
                           const Icon = ACTION_ICONS[action.type] || Save;
                           return (
                             <Button
@@ -249,7 +277,7 @@ export default function TaskAssistantChat({
           );
         })}
 
-        {/* Three-phase loading indicator */}
+        {/* Loading indicators */}
         {isLoading && loadingPhase !== 'idle' && (
           <div className="flex items-center gap-2 text-xs pl-10">
             {(() => {
@@ -265,7 +293,6 @@ export default function TaskAssistantChat({
           </div>
         )}
 
-        {/* Fallback loading when phase is idle but still loading */}
         {isLoading && loadingPhase === 'idle' && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
           <div className="flex items-center gap-2 text-muted-foreground text-xs pl-10">
             <Loader2 className="h-3 w-3 animate-spin" />
