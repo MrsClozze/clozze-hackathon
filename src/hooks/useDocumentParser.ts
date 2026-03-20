@@ -20,6 +20,7 @@ interface ListingFormData {
   multiUnit: string;
   listingStartDate: string;
   listingEndDate: string;
+  description: string;
   brokerageName: string;
   brokerageAddress: string;
   agentEmail: string;
@@ -123,6 +124,7 @@ export function useDocumentParser() {
         multiUnit: data.data.multiUnit || "no",
         listingStartDate: data.data.listingStartDate || "",
         listingEndDate: data.data.listingEndDate || "",
+        description: data.data.description || "",
         brokerageName: data.data.brokerageName || "",
         brokerageAddress: data.data.brokerageAddress || "",
         agentEmail: data.data.agentEmail || "",
