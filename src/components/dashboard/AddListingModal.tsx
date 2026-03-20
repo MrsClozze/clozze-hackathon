@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ContactSelect } from "@/components/ui/contact-select";
 import { FileDropZone } from "@/components/ui/file-drop-zone";
 import ClozzeAIInlineAssistant from "@/components/assistant/ClozzeAIInlineAssistant";
