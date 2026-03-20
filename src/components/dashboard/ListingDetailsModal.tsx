@@ -224,7 +224,7 @@ export default function ListingDetailsModal({ open, onOpenChange, listing, onLis
             <TabsTrigger value="details" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Details</TabsTrigger>
             <TabsTrigger value="ai-content" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5" />
-              AI Content
+              AI Assist
             </TabsTrigger>
             <TabsTrigger value="contacts" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Contacts</TabsTrigger>
             <TabsTrigger value="communication" className="rounded-md text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all">Communication</TabsTrigger>
