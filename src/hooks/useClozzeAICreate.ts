@@ -207,7 +207,12 @@ export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateO
             if (parsed.metadata && !metadataProcessed) {
               metadataProcessed = true;
               setSuggestions(parsed.metadata.suggestions || []);
-              setLoadingPhase('generating');
+              // If research was done, briefly show researching phase before generating
+              if (parsed.metadata.usedResearch) {
+                setLoadingPhase('generating');
+              } else {
+                setLoadingPhase('generating');
+              }
               continue;
             }
 
