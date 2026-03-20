@@ -9,7 +9,7 @@ const corsHeaders = {
 
 type FlowType = 'create_task' | 'add_buyer' | 'add_listing';
 
-// --- Research intent detection for listing flow ---
+// --- Research intent & address detection for listing flow ---
 
 const RESEARCH_PHRASES = [
   'research', 'look up', 'look this up', 'find the details', 'pull the info',
@@ -21,6 +21,11 @@ const RESEARCH_PHRASES = [
 function hasResearchIntent(message: string): boolean {
   const lower = message.toLowerCase();
   return RESEARCH_PHRASES.some(phrase => lower.includes(phrase));
+}
+
+// Detect listing creation intent (address present = intent to create)
+function hasListingCreationIntent(message: string): boolean {
+  return extractAddress(message) !== null;
 }
 
 function extractAddress(message: string): string | null {
