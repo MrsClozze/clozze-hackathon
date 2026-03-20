@@ -207,6 +207,8 @@ export default function TaskDetailsModal() {
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close</span>
               </button>
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-2">
               <div className="flex-1">
                 <DialogTitle className="text-xl">
                   {isEditing ? "Edit Task" : currentTask.title}
