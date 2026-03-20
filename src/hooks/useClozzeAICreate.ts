@@ -10,7 +10,7 @@ export interface AICreateMessage {
   timestamp: Date;
 }
 
-export type CreateLoadingPhase = 'idle' | 'thinking' | 'generating';
+export type CreateLoadingPhase = 'idle' | 'thinking' | 'researching' | 'generating';
 
 /** Parsed structured data from AI response */
 export interface ParsedTaskData {
