@@ -235,14 +235,14 @@ export default function ClozzeAIInlineAssistant({
                       </div>
                     )}
                     <div
-                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                      className={`max-w-[92%] rounded-lg px-4 py-3 text-sm leading-relaxed ${
                         msg.role === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-background border border-border"
                       }`}
                     >
                       {msg.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {cleanContent(msg.content) || (isLoading ? "..." : "")}
                           </ReactMarkdown>
