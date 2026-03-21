@@ -242,7 +242,7 @@ export default function ClozzeAIInlineAssistant({
                       }`}
                     >
                       {msg.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_br]:hidden">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {cleanContent(msg.content) || (isLoading ? "..." : "")}
                           </ReactMarkdown>
