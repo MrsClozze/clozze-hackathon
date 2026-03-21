@@ -216,8 +216,8 @@ export default function TaskAssistantChat({
               : [];
             
             const displayContent = msg.role === "assistant" 
-              ? stripActionMarkers(stripConversationTags(msg.content || (isLoading ? "..." : "")))
-              : msg.content;
+              ? normalizeMarkdownSpacing(stripActionMarkers(stripConversationTags(msg.content || (isLoading ? "..." : ""))))
+              : normalizeMarkdownSpacing(msg.content);
 
             // Only show inline actions as prominent buttons; don't duplicate in footer
             const inlineActions = actions.filter(a => a.inline);

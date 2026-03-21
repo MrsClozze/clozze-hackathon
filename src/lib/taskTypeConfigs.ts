@@ -312,6 +312,57 @@ export function stripConversationTags(content: string): string {
   return cleaned.trim();
 }
 
+function isMarkdownBlockLine(line: string): boolean {
+  const trimmed = line.trim();
+  return (
+    trimmed.startsWith('```') ||
+    /^#{1,6}\s/.test(trimmed) ||
+    /^[-*+]\s/.test(trimmed) ||
+    /^\d+\.\s/.test(trimmed) ||
+    /^>\s/.test(trimmed) ||
+    /^\|/.test(trimmed)
+  );
+}
+
+/** Normalize hard-wrapped AI output into readable paragraphs while preserving markdown blocks/lists */
+export function normalizeMarkdownSpacing(content: string): string {
+  const normalized = content.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return normalized;
+
+  const lines = normalized.split('\n');
+  const result: string[] = [];
+  let paragraph: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      result.push(paragraph.join(' '));
+      paragraph = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushParagraph();
+      if (result[result.length - 1] !== '') result.push('');
+      continue;
+    }
+
+    if (isMarkdownBlockLine(line)) {
+      flushParagraph();
+      result.push(trimmed);
+      continue;
+    }
+
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+
+  return result.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** Parse spoken and full response from dual-format AI output */
 export function parseSpokenResponse(content: string): { spoken: string; full: string } {
   const spokenMatch = content.match(/\[SPOKEN\]([\s\S]*?)\[\/SPOKEN\]/);
@@ -320,7 +371,7 @@ export function parseSpokenResponse(content: string): { spoken: string; full: st
   if (spokenMatch) {
     return {
       spoken: spokenMatch[1].trim(),
-      full: fullMatch ? fullMatch[1].trim() : stripConversationTags(content),
+      full: fullMatch ? normalizeMarkdownSpacing(fullMatch[1].trim()) : normalizeMarkdownSpacing(stripConversationTags(content)),
     };
   }
 
@@ -338,7 +389,7 @@ export function parseSpokenResponse(content: string): { spoken: string; full: st
     .trim()
     .substring(0, 500);
 
-  return { spoken, full: content };
+  return { spoken, full: normalizeMarkdownSpacing(content) };
 }
 
 export function parseResponseActions(content: string, taskContext?: { listingId?: string | null; buyerId?: string | null }): ParsedAction[] {

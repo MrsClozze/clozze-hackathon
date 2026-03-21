@@ -173,11 +173,13 @@ export default function ClozzeAIInlineAssistant({
 
   // Strip JSON code blocks from display content for cleaner rendering
   const cleanContent = (content: string) => {
-    return content
-      .replace(/```json-tasks[\s\S]*?```/g, '')
-      .replace(/```json-buyer[\s\S]*?```/g, '')
-      .replace(/```json-listing[\s\S]*?```/g, '')
-      .trim();
+    return normalizeMarkdownSpacing(
+      content
+        .replace(/```json-tasks[\s\S]*?```/g, '')
+        .replace(/```json-buyer[\s\S]*?```/g, '')
+        .replace(/```json-listing[\s\S]*?```/g, '')
+        .trim()
+    );
   };
 
   return (
