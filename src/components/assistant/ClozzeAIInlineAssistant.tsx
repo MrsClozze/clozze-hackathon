@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { useClozzeAICreate, extractStructuredData } from "@/hooks/useClozzeAICreate";
+import { normalizeMarkdownSpacing } from "@/lib/taskTypeConfigs";
 import type { CreationFlow, ParsedTaskData, ParsedBuyerData, ParsedListingData, CreateLoadingPhase } from "@/hooks/useClozzeAICreate";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -172,11 +173,13 @@ export default function ClozzeAIInlineAssistant({
 
   // Strip JSON code blocks from display content for cleaner rendering
   const cleanContent = (content: string) => {
-    return content
-      .replace(/```json-tasks[\s\S]*?```/g, '')
-      .replace(/```json-buyer[\s\S]*?```/g, '')
-      .replace(/```json-listing[\s\S]*?```/g, '')
-      .trim();
+    return normalizeMarkdownSpacing(
+      content
+        .replace(/```json-tasks[\s\S]*?```/g, '')
+        .replace(/```json-buyer[\s\S]*?```/g, '')
+        .replace(/```json-listing[\s\S]*?```/g, '')
+        .trim()
+    );
   };
 
   return (
