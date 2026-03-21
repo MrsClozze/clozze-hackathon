@@ -6,7 +6,7 @@ import { Bot, User, Globe, Copy, Save, Loader2, ListTodo, FileText, Search, Data
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { parseResponseActions, stripActionMarkers, stripConversationTags } from "@/lib/taskTypeConfigs";
+import { parseResponseActions, stripActionMarkers, stripConversationTags, normalizeMarkdownSpacing } from "@/lib/taskTypeConfigs";
 import type { ParsedAction } from "@/lib/taskTypeConfigs";
 import type { AssistantMessage, LoadingPhase } from "@/hooks/useTaskAssistant";
 

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { useClozzeAICreate, extractStructuredData } from "@/hooks/useClozzeAICreate";
+import { normalizeMarkdownSpacing } from "@/lib/taskTypeConfigs";
 import type { CreationFlow, ParsedTaskData, ParsedBuyerData, ParsedListingData, CreateLoadingPhase } from "@/hooks/useClozzeAICreate";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
