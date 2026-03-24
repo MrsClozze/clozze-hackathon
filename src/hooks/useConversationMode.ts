@@ -29,6 +29,7 @@ export function useConversationMode({
   }, []);
 
   const [liveTranscript, setLiveTranscript] = useState('');
+  const [conversationStartIndex, setConversationStartIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const wasLoadingRef = useRef(false);
@@ -148,6 +149,13 @@ export function useConversationMode({
       return;
     }
 
+    // If the spoken text is very long (generated content like analysis/marketing copy),
+    // speak a brief confirmation instead of the entire output
+    const isGeneratedContent = spoken.length > 600 && !content.includes('[SPOKEN]');
+    const textToSpeak = isGeneratedContent
+      ? "Done. I've generated that content for you. You can view the full output in the chat panel."
+      : spoken;
+
     try {
       setState('speaking');
 
@@ -160,13 +168,13 @@ export function useConversationMode({
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ text: spoken }),
+          body: JSON.stringify({ text: textToSpeak }),
         },
       );
 
       if (!response.ok) {
         console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
-        playBrowserTTS(spoken);
+        playBrowserTTS(textToSpeak);
         return;
       }
 
@@ -199,7 +207,7 @@ export function useConversationMode({
     } catch (err) {
       console.error('Conversation TTS error:', err);
       // Fallback to browser speech
-      playBrowserTTS(spoken);
+      playBrowserTTS(textToSpeak);
     }
   }, [setState, resetSilenceTimer, playBrowserTTS]);
 
@@ -208,6 +216,7 @@ export function useConversationMode({
     setState('connecting');
     isActiveRef.current = true;
     processedCountRef.current = messages.length;
+    setConversationStartIndex(messages.length);
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -293,6 +302,7 @@ export function useConversationMode({
     state,
     liveTranscript,
     isActive: state !== 'idle',
+    conversationStartIndex,
     startConversation,
     endConversation,
   };
