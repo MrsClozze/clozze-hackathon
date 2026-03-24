@@ -321,6 +321,7 @@ export function useConversationMode({
 
   const endConversation = useCallback(() => {
     isActiveRef.current = false;
+    isSpeakingRef.current = false;
 
     if (audioRef.current) {
       audioRef.current.pause();
