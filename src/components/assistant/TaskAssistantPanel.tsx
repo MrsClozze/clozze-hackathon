@@ -100,6 +100,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     state: conversationState,
     liveTranscript: conversationTranscript,
     isActive: isConversationActive,
+    conversationStartIndex,
     startConversation,
     endConversation,
   } = useConversationMode({
@@ -457,6 +458,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           onEnd={endConversation}
           messages={messages}
           isLoading={isLoading}
+          conversationStartIndex={conversationStartIndex}
         />
       )}
 
