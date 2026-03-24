@@ -211,7 +211,7 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     setAuditRunning(true);
     setAuditResult(null);
     try {
-      const auditPrompt = `Run a listing readiness audit for this property. Evaluate what is complete, what is missing, and recommend next steps.
+      const auditPrompt = `Run a listing readiness audit for this property. Research the property and evaluate what is complete, what is missing, and recommend next steps.
 
 Property: ${listing.address}, ${listing.city}${listing.zipcode ? ' ' + listing.zipcode : ''}${listing.county ? ', ' + listing.county : ''}
 Price: $${listing.price?.toLocaleString() || 'Not set'}
