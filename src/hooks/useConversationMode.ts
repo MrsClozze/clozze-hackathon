@@ -104,6 +104,9 @@ export function useConversationMode({
     modelId: 'scribe_v2_realtime' as any,
     commitStrategy: 'vad' as any,
     onPartialTranscript: (data: any) => {
+      // Ignore transcripts while TTS is playing (prevents audio bleed)
+      if (isSpeakingRef.current) return;
+
       const text = data?.text || '';
       setLiveTranscript(text);
 
@@ -119,9 +122,15 @@ export function useConversationMode({
       }
     },
     onCommittedTranscript: (data: any) => {
+      // Ignore transcripts while TTS is playing (prevents audio bleed)
+      if (isSpeakingRef.current) return;
+
       const text = (data?.text || '').trim();
-      if (text && stateRef.current === 'listening' && isActiveRef.current) {
+      if (text && stateRef.current === 'listening' && isActiveRef.current && isValidTranscript(text)) {
         handlersRef.current.onTranscriptCommitted(text);
+      } else if (text && !isValidTranscript(text)) {
+        console.warn('Rejected garbled transcript:', text);
+        setLiveTranscript('');
       }
     },
   });
