@@ -35,6 +35,7 @@ export function useConversationMode({
   const wasLoadingRef = useRef(false);
   const processedCountRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActiveRef = useRef(false);
 
   // Stable refs for callbacks used inside useScribe (avoids stale closures)
@@ -47,7 +48,19 @@ export function useConversationMode({
     onTranscriptCommitted: (text: string) => {
       setState('processing');
       setLiveTranscript('');
+
+      // Safety: if stuck in processing for 30s, fall back to listening
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = setTimeout(() => {
+        if (stateRef.current === 'processing' && isActiveRef.current) {
+          console.warn('Conversation thinking timeout — returning to listening');
+          setState('listening');
+          resetSilenceTimer();
+        }
+      }, 30000);
+
       sendMessage(text, { conversational: true }).catch(() => {
+        if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
         if (isActiveRef.current) setState('listening');
       });
     },
@@ -107,6 +120,12 @@ export function useConversationMode({
       stateRef.current === 'processing' &&
       isActiveRef.current
     ) {
+      // Clear thinking timeout — response arrived
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+
       const lastMsg = messages[messages.length - 1];
       if (
         lastMsg?.role === 'assistant' &&
@@ -245,14 +264,25 @@ export function useConversationMode({
         },
       });
 
-      setState('listening');
-      resetSilenceTimer();
+      setState('speaking');
+
+      // Play immediate greeting
+      const greetingText = "Hi, I'm your Clozze AI assistant. What can I help you with today?";
+      try {
+        await playSpokenResponse(`[SPOKEN]${greetingText}[/SPOKEN]`);
+      } catch {
+        // If TTS fails, just move to listening
+        if (isActiveRef.current) {
+          setState('listening');
+          resetSilenceTimer();
+        }
+      }
     } catch (err) {
       isActiveRef.current = false;
       setState('idle');
       throw err;
     }
-  }, [scribe, setState, resetSilenceTimer, messages.length]);
+  }, [scribe, setState, resetSilenceTimer, messages.length, playSpokenResponse]);
 
   const endConversation = useCallback(() => {
     isActiveRef.current = false;
@@ -268,6 +298,10 @@ export function useConversationMode({
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
     }
     // Cancel browser speech if active
     if ('speechSynthesis' in window) {
@@ -292,6 +326,7 @@ export function useConversationMode({
       }
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
       try {
         (scribe as any).disconnect();
       } catch {}
