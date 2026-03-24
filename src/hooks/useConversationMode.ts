@@ -257,6 +257,10 @@ export function useConversationMode({
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    // Cancel browser speech if active
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
 
     try {
       (scribe as any).disconnect();
