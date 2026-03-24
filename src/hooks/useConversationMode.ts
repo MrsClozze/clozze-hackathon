@@ -48,7 +48,19 @@ export function useConversationMode({
     onTranscriptCommitted: (text: string) => {
       setState('processing');
       setLiveTranscript('');
+
+      // Safety: if stuck in processing for 30s, fall back to listening
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = setTimeout(() => {
+        if (stateRef.current === 'processing' && isActiveRef.current) {
+          console.warn('Conversation thinking timeout — returning to listening');
+          setState('listening');
+          resetSilenceTimer();
+        }
+      }, 30000);
+
       sendMessage(text, { conversational: true }).catch(() => {
+        if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
         if (isActiveRef.current) setState('listening');
       });
     },
