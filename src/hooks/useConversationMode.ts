@@ -35,6 +35,7 @@ export function useConversationMode({
   const wasLoadingRef = useRef(false);
   const processedCountRef = useRef(0);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActiveRef = useRef(false);
 
   // Stable refs for callbacks used inside useScribe (avoids stale closures)
@@ -245,14 +246,25 @@ export function useConversationMode({
         },
       });
 
-      setState('listening');
-      resetSilenceTimer();
+      setState('speaking');
+
+      // Play immediate greeting
+      const greetingText = "Hi, I'm your Clozze AI assistant. What can I help you with today?";
+      try {
+        await playSpokenResponse(`[SPOKEN]${greetingText}[/SPOKEN]`);
+      } catch {
+        // If TTS fails, just move to listening
+        if (isActiveRef.current) {
+          setState('listening');
+          resetSilenceTimer();
+        }
+      }
     } catch (err) {
       isActiveRef.current = false;
       setState('idle');
       throw err;
     }
-  }, [scribe, setState, resetSilenceTimer, messages.length]);
+  }, [scribe, setState, resetSilenceTimer, messages.length, playSpokenResponse]);
 
   const endConversation = useCallback(() => {
     isActiveRef.current = false;
