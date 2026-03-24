@@ -299,6 +299,10 @@ export function useConversationMode({
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
     // Cancel browser speech if active
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -322,6 +326,7 @@ export function useConversationMode({
       }
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current);
       try {
         (scribe as any).disconnect();
       } catch {}
