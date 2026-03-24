@@ -83,6 +83,37 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
     toast({ title: "Copied", description: `${label} copied to clipboard.` });
   };
 
+  /** Build a full context snapshot of the buyer record for the AI */
+  const buildBuyerContext = useCallback(() => {
+    return `You are an AI transaction coordinator for a real estate buyer client. You already have full access to this buyer record — NEVER ask for information that is provided below. Use this context to answer questions, generate content, and identify gaps.
+
+=== BUYER RECORD (Current State) ===
+Name: ${buyer.firstName} ${buyer.lastName}
+Email: ${buyer.email || 'NOT SET'}
+Phone: ${buyer.phone || 'NOT SET'}
+Status: ${buyer.status}
+Pre-Approved Amount: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'NOT SET'}
+Commission: ${buyer.commissionPercentage ? buyer.commissionPercentage + '%' : 'NOT SET'}
+Agent Commission: ${buyer.agentCommission ? '$' + buyer.agentCommission.toLocaleString() : 'NOT SET'}
+
+=== WANTS & NEEDS ===
+${buyer.wantsNeeds || 'NOT SET — needs to be captured from the agent'}
+
+=== BROKERAGE INFO ===
+Brokerage: ${buyer.brokerageName || 'NOT SET'}
+Brokerage Address: ${buyer.brokerageAddress || 'NOT SET'}
+Agent Name: ${buyer.agentName || 'NOT SET'}
+Agent Email: ${buyer.agentEmail || 'NOT SET'}
+
+=== INSTRUCTIONS ===
+- NEVER ask for the buyer's name, email, phone, pre-approval amount, or any field shown above that has a value.
+- If a field above says "NOT SET", you may ask for it or note it as a gap.
+- When drafting messages or follow-ups, use the buyer's actual name and known details.
+- Proactively identify profile gaps and offer to fill them or create tasks.
+- Act like a transaction coordinator who already knows the file. Be direct and actionable.
+- Format responses cleanly with markdown.`;
+  }, [buyer]);
+
   /** Send a message to the AI chat */
   const sendChatMessage = useCallback(async (message: string, contentType?: ChatMessage['contentType']) => {
     if (!message.trim() || chatLoading) return;
@@ -100,9 +131,29 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
     setChatLoading(true);
 
     try {
+      // Build conversation history with full record context as first message
+      const contextMessage = { role: 'user' as const, content: buildBuyerContext() };
+      const contextAck = { role: 'assistant' as const, content: 'Understood. I have full access to this buyer record and will use all available data without asking for information I already have.' };
+      const history = [
+        contextMessage,
+        contextAck,
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+      ];
+
       const { content } = await invokeClozzeAICreate({
         flow: 'buyer',
         message: message.trim(),
+        conversationHistory: history,
+        existingFormData: {
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
+          email: buyer.email,
+          phone: buyer.phone,
+          status: buyer.status,
+          preApprovedAmount: buyer.preApprovedAmount,
+          wantsNeeds: buyer.wantsNeeds,
+          commissionPercentage: buyer.commissionPercentage,
+        },
       });
 
       setChatMessages(prev =>
@@ -117,7 +168,7 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
     } finally {
       setChatLoading(false);
     }
-  }, [chatLoading, toast]);
+  }, [chatLoading, toast, buildBuyerContext, chatMessages, buyer]);
 
   /** Apply structured needs to buyer profile */
   const handleApplyToProfile = async (content: string) => {
