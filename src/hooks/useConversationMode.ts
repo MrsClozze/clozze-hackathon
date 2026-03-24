@@ -37,6 +37,20 @@ export function useConversationMode({
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActiveRef = useRef(false);
+  const isSpeakingRef = useRef(false); // Gate: ignore STT while TTS is playing
+
+  // Validate transcript is real speech (not garbled/non-Latin noise)
+  const isValidTranscript = (text: string): boolean => {
+    if (!text || text.length < 2) return false;
+    // Reject if mostly non-Latin characters (garbled transcription from audio bleed)
+    const latinChars = text.replace(/[^a-zA-Z0-9\s.,!?'"()-]/g, '');
+    const latinRatio = latinChars.length / text.length;
+    if (latinRatio < 0.5) return false;
+    // Reject very short nonsense
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return false;
+    return true;
+  };
 
   // Stable refs for callbacks used inside useScribe (avoids stale closures)
   const handlersRef = useRef({
@@ -72,6 +86,7 @@ export function useConversationMode({
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
+      isSpeakingRef.current = false; // Ungate STT on interrupt
       setState('listening');
     },
   };
@@ -90,6 +105,9 @@ export function useConversationMode({
     modelId: 'scribe_v2_realtime' as any,
     commitStrategy: 'vad' as any,
     onPartialTranscript: (data: any) => {
+      // Ignore transcripts while TTS is playing (prevents audio bleed)
+      if (isSpeakingRef.current) return;
+
       const text = data?.text || '';
       setLiveTranscript(text);
 
@@ -105,9 +123,15 @@ export function useConversationMode({
       }
     },
     onCommittedTranscript: (data: any) => {
+      // Ignore transcripts while TTS is playing (prevents audio bleed)
+      if (isSpeakingRef.current) return;
+
       const text = (data?.text || '').trim();
-      if (text && stateRef.current === 'listening' && isActiveRef.current) {
+      if (text && stateRef.current === 'listening' && isActiveRef.current && isValidTranscript(text)) {
         handlersRef.current.onTranscriptCommitted(text);
+      } else if (text && !isValidTranscript(text)) {
+        console.warn('Rejected garbled transcript:', text);
+        setLiveTranscript('');
       }
     },
   });
@@ -180,6 +204,7 @@ export function useConversationMode({
 
     try {
       setState('speaking');
+      isSpeakingRef.current = true; // Gate: mute STT during playback
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
@@ -196,6 +221,7 @@ export function useConversationMode({
 
       if (!response.ok) {
         console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
+        isSpeakingRef.current = false;
         playBrowserTTS(ttsText);
         return;
       }
@@ -207,13 +233,17 @@ export function useConversationMode({
       audioUrlRef.current = url;
 
       // May have been interrupted while waiting for TTS
-      if (stateRef.current !== 'speaking' || !isActiveRef.current) return;
+      if (stateRef.current !== 'speaking' || !isActiveRef.current) {
+        isSpeakingRef.current = false;
+        return;
+      }
 
       const audio = new Audio(url);
       audioRef.current = audio;
 
       audio.onended = () => {
         audioRef.current = null;
+        isSpeakingRef.current = false; // Ungate STT
         if (isActiveRef.current) {
           setState('listening');
           resetSilenceTimer();
@@ -222,12 +252,14 @@ export function useConversationMode({
 
       audio.onerror = () => {
         audioRef.current = null;
+        isSpeakingRef.current = false; // Ungate STT
         if (isActiveRef.current) setState('listening');
       };
 
       await audio.play();
     } catch (err) {
       console.error('Conversation TTS error:', err);
+      isSpeakingRef.current = false;
       // Fallback to browser speech
       playBrowserTTS(textToSpeak);
     }
@@ -289,6 +321,7 @@ export function useConversationMode({
 
   const endConversation = useCallback(() => {
     isActiveRef.current = false;
+    isSpeakingRef.current = false;
 
     if (audioRef.current) {
       audioRef.current.pause();
