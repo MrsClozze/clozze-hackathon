@@ -86,6 +86,7 @@ export function useConversationMode({
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
+      isSpeakingRef.current = false; // Ungate STT on interrupt
       setState('listening');
     },
   };
