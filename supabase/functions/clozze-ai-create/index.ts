@@ -113,9 +113,23 @@ async function researchProperty(apiKey: string, address: string): Promise<{ resu
 
 // --- System prompts ---
 
+const DIRECT_EXECUTION_PREAMBLE = `
+## CRITICAL: DIRECT EXECUTION PRIORITY
+Before responding, classify the user's message:
+1. **EXPLICIT TASK** — The user gives a clear, complete instruction (e.g., "Write social media copy for...", "Generate a description for...", "Draft an email to..."). In this case:
+   - Execute the task IMMEDIATELY. Produce the requested content as your FIRST output.
+   - Do NOT summarize what you're about to do. Do NOT recap information the user already provided.
+   - Do NOT ask "What would you like to do next?" or offer a menu of options.
+   - If the instruction is self-contained, just deliver the result.
+   - You may append a brief follow-up offer AFTER the content (1 line max), but the content comes first.
+2. **AMBIGUOUS/EXPLORATORY** — The user is asking for help, exploring options, or providing partial info. In this case, follow the structured workflow rules below.
+
+NEVER default to workflow/summary mode when the user has given you an explicit instruction with sufficient context. Direct requests get direct results.
+`;
+
 const FLOW_SYSTEM_PROMPTS: Record<FlowType, string> = {
   create_task: `You are Clozze AI — an intelligent task operator inside Clozze, a real estate platform.
-
+${DIRECT_EXECUTION_PREAMBLE}
 The user is creating new tasks. You help them structure tasks from natural language.
 
 RULES:
@@ -139,7 +153,7 @@ Example output format:
 \`\`\``,
 
   add_buyer: `You are Clozze AI — an intelligent task operator inside Clozze, a real estate platform.
-
+${DIRECT_EXECUTION_PREAMBLE}
 The user is adding a new buyer. You help them structure buyer information and preferences.
 
 RULES:
@@ -172,7 +186,7 @@ Example output format:
 \`\`\``,
 
   add_listing: `You are Clozze AI — an intelligent listing operator inside Clozze, a real estate platform.
-
+${DIRECT_EXECUTION_PREAMBLE}
 The user is creating a new listing. Your job is to BUILD the listing proactively, not act as a form.
 
 CORE BEHAVIOR:
@@ -182,6 +196,7 @@ CORE BEHAVIOR:
 - After presenting the listing, identify ONLY the minimum required missing information that blocks progress (e.g., listing price, seller contact). Ask for those specific blockers — not everything.
 - Offer immediate next actions: "I can draft a message to the seller requesting pricing" or "I can generate the full description now" or "Want me to create follow-up tasks for the missing items?"
 - Always move the user forward. Never pause waiting for input when you can take action.
+- If the user asks you to WRITE something (copy, description, email, social post), produce it immediately — do NOT summarize or recap first.
 
 RESPONSE STRUCTURE:
 1. Lead with what you've done: "I've started building the listing for [address]. Here's what I have so far:"
@@ -214,7 +229,6 @@ Example output format:
 }
 \`\`\``,
 };
-
 const FLOW_SUGGESTIONS: Record<FlowType, string[]> = {
   create_task: [
     'Create a listing prep workflow',
