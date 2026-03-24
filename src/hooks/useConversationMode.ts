@@ -175,6 +175,9 @@ export function useConversationMode({
       ? "Done. I've generated that content for you. You can view the full output in the chat panel."
       : spoken;
 
+    // Replace "Clozze" with "Close" for correct pronunciation in TTS
+    const ttsText = textToSpeak.replace(/Clozze/gi, 'Close');
+
     try {
       setState('speaking');
 
