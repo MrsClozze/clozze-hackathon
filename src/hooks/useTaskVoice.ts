@@ -133,7 +133,8 @@ export function useTaskVoice() {
       .replace(/\n{2,}/g, ". ") // Convert double newlines to pauses
       .replace(/\n/g, " ")
       .trim()
-      .substring(0, 3000);
+      .substring(0, 3000)
+      .replace(/Clozze/gi, 'Close'); // Correct pronunciation for TTS
 
     if (!cleanText) return;
 
