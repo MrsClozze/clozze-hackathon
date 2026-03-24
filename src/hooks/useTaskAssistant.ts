@@ -137,8 +137,11 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
               // Transition phase based on whether research was done
               if (parsed.metadata.usedResearch) {
                 setIsResearching(true);
-                // Research already completed by now, so move to generating
-                setLoadingPhase('generating');
+                setLoadingPhase('research');
+                // Brief pause to show research phase before generating
+                setTimeout(() => {
+                  if (abortControllerRef.current) setLoadingPhase('generating');
+                }, 800);
               } else {
                 setLoadingPhase('generating');
               }
