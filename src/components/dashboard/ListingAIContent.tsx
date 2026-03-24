@@ -133,6 +133,43 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     }
   };
 
+  /** Build a full context snapshot of the listing record for the AI */
+  const buildListingContext = useCallback(() => {
+    const fullAddress = `${listing.address}, ${listing.city}${listing.zipcode ? ' ' + listing.zipcode : ''}${listing.county ? ', ' + listing.county : ''}`;
+    return `You are an AI transaction coordinator for a real estate listing. You already have full access to this listing record — NEVER ask for information that is provided below. Use this context to answer questions, generate content, and identify gaps.
+
+=== LISTING RECORD (Current State) ===
+Address: ${fullAddress}
+Price: ${listing.price ? '$' + listing.price.toLocaleString() : 'NOT SET'}
+Status: ${listing.status}
+Bedrooms: ${listing.bedrooms ?? 'NOT SET'}
+Bathrooms: ${listing.bathrooms ?? 'NOT SET'}
+Square Feet: ${listing.sqFeet ?? 'NOT SET'}
+Days on Market: ${listing.daysOnMarket ?? 'N/A'}
+Commission: ${listing.commissionPercentage ? listing.commissionPercentage + '%' : 'NOT SET'}
+Listing Start: ${listing.listingStartDate || 'NOT SET'}
+Listing End: ${listing.listingEndDate || 'NOT SET'}
+
+=== SELLER INFO ===
+Name: ${listing.sellerFirstName || listing.sellerLastName ? `${listing.sellerFirstName || ''} ${listing.sellerLastName || ''}`.trim() : 'NOT SET'}
+Email: ${listing.sellerEmail || 'NOT SET'}
+Phone: ${listing.sellerPhone || 'NOT SET'}
+
+=== CONTENT STATUS ===
+Description: ${listing.description ? 'EXISTS (' + listing.description.length + ' chars): "' + listing.description.substring(0, 200) + '..."' : 'MISSING — needs generation'}
+Highlights: ${listing.highlights.length > 0 ? listing.highlights.length + ' items: ' + listing.highlights.join('; ') : 'MISSING — needs generation'}
+Marketing Copy: ${Object.keys(listing.marketingCopy).length > 0 ? Object.keys(listing.marketingCopy).map(k => `${k}: "${String(listing.marketingCopy[k]).substring(0, 100)}..."`).join('; ') : 'MISSING'}
+Internal Notes: ${listing.internalNotes.length > 0 ? listing.internalNotes.length + ' notes' : 'None'}
+
+=== INSTRUCTIONS ===
+- NEVER ask for the address, price, beds, baths, sqft, seller info, or any field shown above that has a value.
+- If a field above says "NOT SET", you may ask for it OR offer to research/infer it.
+- Use Firecrawl research to enrich missing public property data (neighborhood, schools, nearby amenities, property history).
+- When generating descriptions or highlights, USE the data above — do not ask the user to provide what you already have.
+- Proactively identify gaps and offer to fill them. Act like a transaction coordinator who already knows the file.
+- Format responses cleanly with markdown. Be direct and actionable.`;
+  }, [listing]);
+
   /** Send a message to the AI chat — content appears in the chat, NOT in the fields */
   const sendChatMessage = useCallback(async (message: string, contentType?: ChatMessage['contentType']) => {
     if (!message.trim() || chatLoading) return;
@@ -150,9 +187,36 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     setChatLoading(true);
 
     try {
+      // Build conversation history with full record context as first message
+      const contextMessage = { role: 'user' as const, content: buildListingContext() };
+      const contextAck = { role: 'assistant' as const, content: 'Understood. I have full access to this listing record and will use all available data without asking for information I already have.' };
+      const history = [
+        contextMessage,
+        contextAck,
+        ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+      ];
+
       const { content } = await invokeClozzeAICreate({
         flow: 'listing',
         message: message.trim(),
+        conversationHistory: history,
+        existingFormData: {
+          address: listing.address,
+          city: listing.city,
+          zipcode: listing.zipcode,
+          county: listing.county,
+          price: listing.price,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          sqFeet: listing.sqFeet,
+          status: listing.status,
+          sellerFirstName: listing.sellerFirstName,
+          sellerLastName: listing.sellerLastName,
+          sellerEmail: listing.sellerEmail,
+          sellerPhone: listing.sellerPhone,
+          description: listing.description,
+          highlights: listing.highlights,
+        },
       });
 
       const cleaned = stripAIBlocks(content);
