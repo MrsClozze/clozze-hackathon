@@ -267,7 +267,7 @@ export function useConversationMode({
       setState('speaking');
 
       // Play immediate greeting
-      const greetingText = "Hi, I'm your Clozze AI assistant. What can I help you with today?";
+      const greetingText = "Hi, I'm your Close AI assistant. What can I help you with today?";
       try {
         await playSpokenResponse(`[SPOKEN]${greetingText}[/SPOKEN]`);
       } catch {
