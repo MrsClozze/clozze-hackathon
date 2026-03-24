@@ -42,12 +42,12 @@ export function useConversationMode({
   // Validate transcript is real speech (not garbled/non-Latin noise)
   const isValidTranscript = (text: string): boolean => {
     if (!text || text.length < 2) return false;
-    // Reject if mostly non-Latin characters (garbled transcription from audio bleed)
-    const latinChars = text.replace(/[^a-zA-Z0-9\s.,!?'"()-]/g, '');
+    // Reject if mostly non-Latin/ASCII characters (garbled transcription)
+    const latinChars = text.replace(/[^a-zA-Z0-9\s.,!?'"()\-:;]/g, '');
     const latinRatio = latinChars.length / text.length;
-    if (latinRatio < 0.5) return false;
-    // Reject very short nonsense
-    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (latinRatio < 0.7) return false;
+    // Reject if no recognizable words (at least one 2+ char word)
+    const words = text.split(/\s+/).filter(w => /[a-zA-Z]{2,}/.test(w));
     if (words.length === 0) return false;
     return true;
   };
@@ -105,10 +105,14 @@ export function useConversationMode({
     modelId: 'scribe_v2_realtime' as any,
     commitStrategy: 'vad' as any,
     onPartialTranscript: (data: any) => {
-      // Ignore transcripts while TTS is playing (prevents audio bleed)
       if (isSpeakingRef.current) return;
 
       const text = data?.text || '';
+      // Don't display garbled partial transcripts
+      if (text && !isValidTranscript(text)) {
+        setLiveTranscript('');
+        return;
+      }
       setLiveTranscript(text);
 
       // Interrupt: user started talking while AI is speaking
@@ -116,20 +120,18 @@ export function useConversationMode({
         handlersRef.current.onInterrupt();
       }
 
-      // Reset silence timer
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (stateRef.current === 'listening' && isActiveRef.current) {
         silenceTimerRef.current = setTimeout(() => setLiveTranscript(''), 15000);
       }
     },
     onCommittedTranscript: (data: any) => {
-      // Ignore transcripts while TTS is playing (prevents audio bleed)
       if (isSpeakingRef.current) return;
 
       const text = (data?.text || '').trim();
       if (text && stateRef.current === 'listening' && isActiveRef.current && isValidTranscript(text)) {
         handlersRef.current.onTranscriptCommitted(text);
-      } else if (text && !isValidTranscript(text)) {
+      } else if (text) {
         console.warn('Rejected garbled transcript:', text);
         setLiveTranscript('');
       }

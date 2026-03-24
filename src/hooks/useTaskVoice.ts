@@ -59,14 +59,22 @@ export function useTaskVoice() {
 
     let finalTranscript = "";
 
+    const isCleanText = (t: string) => {
+      if (!t || t.length < 1) return false;
+      const latin = t.replace(/[^a-zA-Z0-9\s.,!?'"()\-:;]/g, '');
+      return latin.length / t.length >= 0.7;
+    };
+
     recognition.onresult = (event: any) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += (finalTranscript ? " " : "") + t;
+          if (isCleanText(t)) {
+            finalTranscript += (finalTranscript ? " " : "") + t;
+          }
         } else {
-          interim = t;
+          if (isCleanText(t)) interim = t;
         }
       }
       setTranscript(finalTranscript + (interim ? " " + interim : ""));
