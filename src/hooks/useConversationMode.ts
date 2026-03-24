@@ -55,6 +55,9 @@ export function useConversationMode({
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setState('listening');
     },
   };
