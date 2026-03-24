@@ -1,8 +1,8 @@
-import { Mic, Loader2, Volume2, Wifi, X } from "lucide-react";
+import { Mic, Loader2, Volume2, Wifi, X, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ConversationState } from "@/hooks/useConversationMode";
-import type { AssistantMessage } from "@/hooks/useTaskAssistant";
+import type { AssistantMessage, LoadingPhase } from "@/hooks/useTaskAssistant";
 import { useEffect, useRef } from "react";
 
 interface ConversationModeOverlayProps {
@@ -11,8 +11,16 @@ interface ConversationModeOverlayProps {
   onEnd: () => void;
   messages?: AssistantMessage[];
   isLoading?: boolean;
+  loadingPhase?: LoadingPhase;
   conversationStartIndex?: number;
 }
+
+const PHASE_CONFIG: Record<LoadingPhase, { label: string; icon: typeof Loader2 }> = {
+  idle: { label: '', icon: Loader2 },
+  context: { label: 'Pulling task details…', icon: Loader2 },
+  research: { label: 'Researching information…', icon: Search },
+  generating: { label: 'Generating response…', icon: Sparkles },
+};
 
 const STATE_CONFIG: Record<
   ConversationState,
@@ -58,6 +66,7 @@ export default function ConversationModeOverlay({
   onEnd,
   messages = [],
   isLoading = false,
+  loadingPhase = 'idle',
   conversationStartIndex = 0,
 }: ConversationModeOverlayProps) {
   const config = STATE_CONFIG[state];
@@ -184,17 +193,27 @@ export default function ConversationModeOverlay({
             );
           })}
 
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-muted/50 rounded-lg px-3.5 py-2.5">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  <span className="animate-pulse">Researching and generating…</span>
+          {/* Loading indicator with phase-aware messaging */}
+          {isLoading && (() => {
+            const phase = loadingPhase === 'idle' ? 'context' : loadingPhase;
+            const phaseInfo = PHASE_CONFIG[phase];
+            const PhaseIcon = phaseInfo.icon;
+            return (
+              <div className="flex justify-start">
+                <div className="bg-muted/50 rounded-lg px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <PhaseIcon className={`h-3.5 w-3.5 text-primary ${phase === 'research' ? 'animate-bounce' : 'animate-spin'}`} />
+                    <span className="animate-pulse">{phaseInfo.label}</span>
+                  </div>
+                  {phase === 'research' && (
+                    <p className="text-[10px] text-muted-foreground/70 mt-1 ml-5.5">
+                      Searching external sources — please don't refresh
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </ScrollArea>
     </div>
