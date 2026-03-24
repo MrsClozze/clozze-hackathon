@@ -268,7 +268,14 @@ serve(async (req) => {
     // ====== LAYER 2: Determine if Firecrawl research is needed ======
     let researchResults: any[] = [];
     let researchCategories: string[] = [];
-    const needsResearch = shouldDoResearch(message, taskType);
+
+    // Check for vague/open-ended requests that need clarification first
+    if (isVagueRequest(message, context)) {
+      // Skip research — the system prompt will guide the LLM to ask clarifying questions
+      console.log('Vague request detected, skipping research to ask clarifying questions');
+    }
+
+    const needsResearch = !isVagueRequest(message, context) && shouldDoResearch(message, taskType);
 
     if (needsResearch && FIRECRAWL_API_KEY) {
       const queryPlan = buildResearchQueries(message, context, taskType);
@@ -470,6 +477,14 @@ DIRECT TASK EXECUTION:
 When the user asks to mark a task complete, change priority, or similar:
 - Confirm the action clearly before suggesting it
 - Use language like "I can mark this task as complete for you"
+
+CLARIFICATION FOR VAGUE REQUESTS:
+When the user gives a broad or vague instruction without specific criteria (e.g., "research homes", "find properties", "look up listings"):
+- Do NOT immediately start researching or generating content
+- Instead, ask 2-3 concise clarifying questions to narrow the scope
+- Example clarifying questions: "What location or neighborhood?", "Any price range in mind?", "How many bedrooms/bathrooms are you looking for?"
+- Once the user provides specifics, THEN proceed with research and results
+- This mirrors how a real assistant would confirm requirements before taking action
 ${conversational ? `
 CONVERSATION MODE — DUAL FORMAT RESPONSE:
 You are in a live voice conversation. Return your response in TWO clearly marked sections:
@@ -585,6 +600,21 @@ ${researchContext}`;
     );
   }
 });
+
+function isVagueRequest(message: string, context: any): boolean {
+  const lowerMsg = message.toLowerCase().trim();
+  const vaguePatterns = [
+    /^research\s+(homes?|properties|houses?|listings?)$/,
+    /^find\s+(homes?|properties|houses?|listings?)$/,
+    /^search\s+(homes?|properties|houses?|listings?)$/,
+    /^look\s+up\s+(homes?|properties|houses?|listings?)$/,
+    /^(what|show|get)\s+(me\s+)?(homes?|properties|houses?|listings?)$/,
+  ];
+  const isVague = vaguePatterns.some(p => p.test(lowerMsg));
+  // Not vague if we already have location context
+  if (isVague && (context.listing?.address || context.task?.address)) return false;
+  return isVague;
+}
 
 function shouldDoResearch(message: string, taskType: string): boolean {
   const researchKeywords = [
