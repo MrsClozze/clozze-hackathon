@@ -405,9 +405,9 @@ Organize into Must-Haves, Nice-to-Haves, Dealbreakers, Budget Analysis, and Ques
                 ))}
 
                 {chatLoading && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pl-8">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Generating…</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground pl-8 py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    <span className="animate-pulse">Researching details and generating content… please don't refresh.</span>
                   </div>
                 )}
               </div>
