@@ -1,20 +1,33 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck, Home, FileText, DollarSign, Layers, Clock } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { ClipboardList, Loader2, Wand2, Copy, UserCheck, MessageSquare, ListTodo, Sparkles, Circle, CheckCircle2, ChevronRight, ChevronDown, ListChecks, Save, ArrowRight, AlertTriangle, Search, FileCheck, Home, FileText, DollarSign, Layers, Clock, Bot, User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeClozzeAICreate } from "@/lib/invokeClozzeAICreate";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { BuyerData } from "@/contexts/BuyersContext";
 import { computeBuyerCompletion, getBuyerPhase, getBuyerTaskBundle, getBuyerGroupedActions, type CompletionItem, type BuyerPhase } from "@/lib/completionTracking";
 import { getWorkflowState, recordAction, setLastNextStep, setGroupedFlowInProgress, getResumeSummary } from "@/lib/workflowState";
+import { normalizeMarkdownSpacing } from "@/lib/taskTypeConfigs";
 
 interface BuyerAIContentProps {
   buyer: BuyerData;
   onBuyerUpdate?: (updatedBuyer: BuyerData) => void;
+}
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  contentType?: 'audit' | 'structured_needs' | 'draft' | 'general';
 }
 
 const PHASE_CONFIG: Record<BuyerPhase, { label: string; description: string; badge: string }> = {
@@ -27,15 +40,15 @@ const PHASE_CONFIG: Record<BuyerPhase, { label: string; description: string; bad
 export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [auditRunning, setAuditRunning] = useState(false);
-  const [auditResult, setAuditResult] = useState<string | null>(null);
-  const [structuring, setStructuring] = useState(false);
-  const [structuredResult, setStructuredResult] = useState<string | null>(null);
-  const [generating, setGenerating] = useState<string | null>(null);
   const [creatingTasks, setCreatingTasks] = useState(false);
   const [justCompleted, setJustCompleted] = useState<string | null>(null);
-  const [groupedFlowRunning, setGroupedFlowRunning] = useState<string | null>(null);
-  const [groupedFlowProgress, setGroupedFlowProgress] = useState<{ total: number; done: number; current: string } | null>(null);
+
+  // AI Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Workflow state
   const workflowState = useMemo(() => getWorkflowState('buyer', buyer.id), [buyer.id]);
@@ -49,10 +62,16 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
   const phaseInfo = PHASE_CONFIG[phase];
   const groupedActions = useMemo(() => getBuyerGroupedActions(completion, phase), [completion, phase]);
 
-  // Persist next step
   useEffect(() => {
     setLastNextStep('buyer', buyer.id, completion.nextStep?.key ?? null);
   }, [completion.nextStep, buyer.id]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
 
   const flashComplete = (key: string) => {
     setJustCompleted(key);
@@ -64,11 +83,61 @@ export default function BuyerAIContent({ buyer, onBuyerUpdate }: BuyerAIContentP
     toast({ title: "Copied", description: `${label} copied to clipboard.` });
   };
 
-  const handleProfileAudit = async () => {
-    setAuditRunning(true);
-    setAuditResult(null);
+  /** Send a message to the AI chat */
+  const sendChatMessage = useCallback(async (message: string, contentType?: ChatMessage['contentType']) => {
+    if (!message.trim() || chatLoading) return;
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: message.trim(),
+      timestamp: new Date(),
+    };
+
+    const assistantId = crypto.randomUUID();
+    setChatMessages(prev => [...prev, userMsg, { id: assistantId, role: 'assistant', content: '', timestamp: new Date(), contentType }]);
+    setChatInput('');
+    setChatLoading(true);
+
     try {
-      const auditPrompt = `Run a buyer readiness audit for this buyer profile. Evaluate what is known, what is missing, and recommend next steps.
+      const { content } = await invokeClozzeAICreate({
+        flow: 'buyer',
+        message: message.trim(),
+      });
+
+      setChatMessages(prev =>
+        prev.map(m => m.id === assistantId ? { ...m, content: content.trim(), contentType: contentType || 'general' } : m)
+      );
+    } catch (err: any) {
+      console.error('AI chat error:', err);
+      setChatMessages(prev =>
+        prev.map(m => m.id === assistantId ? { ...m, content: 'Sorry, I encountered an error. Please try again.' } : m)
+      );
+      toast({ title: "Error", description: "Failed to get AI response.", variant: "destructive" });
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatLoading, toast]);
+
+  /** Apply structured needs to buyer profile */
+  const handleApplyToProfile = async (content: string) => {
+    try {
+      const { error } = await supabase.from('buyers').update({ wants_needs: content }).eq('id', buyer.id);
+      if (error) throw error;
+      onBuyerUpdate?.({ ...buyer, wantsNeeds: content });
+      flashComplete('wantsNeeds');
+      recordAction('buyer', buyer.id, 'apply_structured_needs', 'Applied structured wants/needs');
+      toast({ title: "✓ Saved", description: "Structured wants/needs saved to buyer profile." });
+    } catch {
+      toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
+    }
+  };
+
+  /** Quick-action buttons that send pre-built prompts to the chat */
+  const handleQuickAction = (type: string) => {
+    const prompts: Record<string, { message: string; contentType: ChatMessage['contentType'] }> = {
+      audit: {
+        message: `Run a buyer readiness audit for this buyer profile. Evaluate what is known, what is missing, and recommend next steps.
 
 Buyer: ${buyer.firstName} ${buyer.lastName}
 Email: ${buyer.email || 'N/A'}
@@ -76,117 +145,42 @@ Phone: ${buyer.phone || 'N/A'}
 Status: ${buyer.status}
 Pre-Approved Amount: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'NOT SET'}
 Wants/Needs: ${buyer.wantsNeeds || 'NOT SET'}
-Commission: ${buyer.commissionPercentage || 'N/A'}%
-
-Use this exact format:
-## ✅ Known Information
-- List what we know about this buyer
-
-## ⚠️ Missing Information
-- [ ] Each missing item as a checkbox
-
-## 📋 Recommended Actions
-- What the agent should do next
-
-## 💬 Suggested Questions
-- Questions the agent should ask the buyer
-
-## 📌 Next Steps
-- Prioritized list of actions`;
-
-      const { content } = await invokeClozzeAICreate({
-        flow: 'buyer',
-        message: auditPrompt,
-      });
-      setAuditResult(content || 'No audit results generated.');
-      recordAction('buyer', buyer.id, 'run_audit', 'Ran buyer profile audit');
-    } catch (err) {
-      console.error('Audit error:', err);
-      toast({ title: "Error", description: "Failed to run audit.", variant: "destructive" });
-    } finally {
-      setAuditRunning(false);
-    }
-  };
-
-  const handleStructureNeeds = useCallback(async () => {
-    setStructuring(true);
-    setStructuredResult(null);
-    try {
-      const prompt = `Structure this buyer's wants and needs into clear categories. Take the raw input and organize it.
+Commission: ${buyer.commissionPercentage || 'N/A'}%`,
+        contentType: 'audit',
+      },
+      structure_needs: {
+        message: `Structure this buyer's wants and needs into clear categories. Take the raw input and organize it.
 
 Raw Wants/Needs: "${buyer.wantsNeeds || 'No preferences recorded yet'}"
 Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'Not specified'}
 
-Organize into:
-## 🎯 Must-Haves
-- Critical requirements
-
-## ✨ Nice-to-Haves
-- Preferred but flexible
-
-## 🚫 Dealbreakers
-- Absolute no-gos
-
-## 💰 Budget Analysis
-- Brief assessment of budget vs expectations
-
-## ❓ Questions to Ask
-- What additional information should the agent gather?`;
-
-      const { content } = await invokeClozzeAICreate({
-        flow: 'buyer',
-        message: prompt,
-      });
-      setStructuredResult(content || 'No structured output generated.');
-      recordAction('buyer', buyer.id, 'structure_needs', 'Structured buyer wants/needs');
-    } catch (err) {
-      console.error('Structure error:', err);
-      toast({ title: "Error", description: "Failed to structure needs.", variant: "destructive" });
-    } finally {
-      setStructuring(false);
-    }
-  }, [buyer, toast]);
-
-  const handleSaveStructuredNeeds = async () => {
-    if (!structuredResult) return;
-    try {
-      const { error } = await supabase.from('buyers').update({ wants_needs: structuredResult }).eq('id', buyer.id);
-      if (error) throw error;
-      onBuyerUpdate?.({ ...buyer, wantsNeeds: structuredResult });
-      flashComplete('wantsNeeds');
-      recordAction('buyer', buyer.id, 'save_structured_needs', 'Saved structured wants/needs');
-      toast({ title: "✓ Saved", description: "Structured wants/needs saved to buyer profile." });
-    } catch {
-      toast({ title: "Error", description: "Failed to save.", variant: "destructive" });
-    }
+Organize into Must-Haves, Nice-to-Haves, Dealbreakers, Budget Analysis, and Questions to Ask.`,
+        contentType: 'structured_needs',
+      },
+      follow_up: {
+        message: `Write a professional follow-up message to buyer ${buyer.firstName} ${buyer.lastName}. Their needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Keep it warm, concise, and action-oriented.`,
+        contentType: 'draft',
+      },
+      next_steps: {
+        message: `Write a brief next-steps summary for buyer ${buyer.firstName} ${buyer.lastName}. Status: ${buyer.status}. Needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Format as a clear action list.`,
+        contentType: 'draft',
+      },
+      showing: {
+        message: `Write a showing coordination message for buyer ${buyer.firstName} ${buyer.lastName}. Their preferences: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}.`,
+        contentType: 'draft',
+      },
+      offer_prep: {
+        message: `Write an offer preparation summary for buyer ${buyer.firstName} ${buyer.lastName}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Include key items to prepare before submitting an offer.`,
+        contentType: 'draft',
+      },
+      send_listings: {
+        message: `Write a message to buyer ${buyer.firstName} ${buyer.lastName} introducing curated property listings that match their criteria. Their needs: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}.`,
+        contentType: 'draft',
+      },
+    };
+    const p = prompts[type];
+    if (p) sendChatMessage(p.message, p.contentType);
   };
-
-  const handleGenerateDraft = useCallback(async (type: 'follow_up' | 'next_steps' | 'showing' | 'offer_prep' | 'send_listings') => {
-    setGenerating(type);
-    try {
-      const prompts: Record<string, string> = {
-        follow_up: `Write a professional follow-up message to buyer ${buyer.firstName} ${buyer.lastName}. Their needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Keep it warm, concise, and action-oriented.`,
-        next_steps: `Write a brief next-steps summary for buyer ${buyer.firstName} ${buyer.lastName}. Status: ${buyer.status}. Needs: ${buyer.wantsNeeds || 'not specified'}. Pre-approved: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not yet'}. Format as a clear action list.`,
-        showing: `Write a showing coordination message for buyer ${buyer.firstName} ${buyer.lastName}. Their preferences: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Include scheduling logistics and what to prepare.`,
-        offer_prep: `Write an offer preparation summary for buyer ${buyer.firstName} ${buyer.lastName}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Needs: ${buyer.wantsNeeds || 'not specified'}. Include key items to prepare before submitting an offer: pre-approval confirmation, earnest money, contingencies, and timeline.`,
-        send_listings: `Write a message to buyer ${buyer.firstName} ${buyer.lastName} introducing curated property listings that match their criteria. Their needs: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Keep it professional and include a call to action to schedule viewings.`,
-      };
-
-      const { content } = await invokeClozzeAICreate({
-        flow: 'buyer',
-        message: prompts[type],
-      });
-      if (content) {
-        setStructuredResult(content);
-        recordAction('buyer', buyer.id, `generate_${type}`, `Generated ${type.replace(/_/g, ' ')} draft`);
-        toast({ title: "Draft Generated", description: "Review the draft below." });
-      }
-    } catch {
-      toast({ title: "Error", description: "Failed to generate draft.", variant: "destructive" });
-    } finally {
-      setGenerating(null);
-    }
-  }, [buyer, toast]);
 
   const handleCreateContextTasks = async () => {
     if (!user) return;
@@ -212,44 +206,19 @@ Organize into:
     }
   };
 
-  // Grouped action execution
-  const handleGroupedAction = async (actionId: string) => {
-    const action = groupedActions.find(a => a.id === actionId);
-    if (!action) return;
-
-    setGroupedFlowRunning(actionId);
-    setGroupedFlowInProgress('buyer', buyer.id, actionId);
-
-    const steps = action.actionTypes;
-    for (let i = 0; i < steps.length; i++) {
-      setGroupedFlowProgress({ total: steps.length, done: i, current: steps[i] });
-
-      if (steps[i] === 'structure_needs') {
-        await handleStructureNeeds();
-      } else if (steps[i] === 'send_listings') {
-        await handleGenerateDraft('send_listings');
-      } else if (steps[i] === 'create_showing_tasks') {
-        await handleCreateContextTasks();
-      } else if (steps[i] === 'offer_prep') {
-        await handleGenerateDraft('offer_prep');
-      } else if (steps[i] === 'create_offer_tasks') {
-        await handleCreateContextTasks();
-      }
-    }
-
-    setGroupedFlowProgress(null);
-    setGroupedFlowRunning(null);
-    setGroupedFlowInProgress('buyer', buyer.id, null);
-    recordAction('buyer', buyer.id, `grouped_${actionId}`, `Completed: ${action.label}`);
-    toast({ title: "✓ Flow complete", description: `${action.label} — all steps finished.` });
-  };
-
   const completeItems = completion.items.filter(i => i.complete);
+
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage(chatInput);
+    }
+  };
 
   return (
     <div className="space-y-5 py-4">
       {/* Resume Banner */}
-      {resumeSummary.hasHistory && resumeSummary.lastAction && !groupedFlowRunning && (
+      {resumeSummary.hasHistory && resumeSummary.lastAction && (
         <div className="rounded-lg border border-border bg-muted/30 p-2.5 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <p className="text-xs text-muted-foreground">
@@ -277,24 +246,144 @@ Organize into:
         <Progress value={completion.percentage} className="h-2" />
       </div>
 
-      {/* Grouped Flow Progress */}
-      {groupedFlowProgress && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 text-primary animate-spin" />
-            <span className="text-sm font-semibold text-foreground">
-              Running flow… ({groupedFlowProgress.done + 1}/{groupedFlowProgress.total})
-            </span>
+      {/* AI Chat Section */}
+      <Collapsible open={chatOpen} onOpenChange={setChatOpen}>
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
+            <Bot className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold text-foreground">Clozze AI Assistant</h4>
+            <Badge variant="outline" className="text-[9px] h-4 ml-auto mr-1">chat</Badge>
+            {chatOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
           </div>
-          <Progress value={(groupedFlowProgress.done / groupedFlowProgress.total) * 100} className="h-1.5" />
-          <p className="text-xs text-muted-foreground">
-            Current step: {groupedFlowProgress.current.replace(/_/g, ' ')}
-          </p>
-        </div>
-      )}
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2 rounded-lg border border-border bg-background">
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-1.5 p-3 border-b border-border/50">
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('audit')} disabled={chatLoading}>
+                <Wand2 className="h-3 w-3" /> Run Audit
+              </Button>
+              {buyer.wantsNeeds && (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('structure_needs')} disabled={chatLoading}>
+                  <ClipboardList className="h-3 w-3" /> Structure Needs
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('follow_up')} disabled={chatLoading}>
+                <MessageSquare className="h-3 w-3" /> Draft Follow-Up
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('next_steps')} disabled={chatLoading}>
+                <ListTodo className="h-3 w-3" /> Next Steps
+              </Button>
+              {(phase === 'search_ready' || phase === 'showing') && (
+                <>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('send_listings')} disabled={chatLoading}>
+                    <Home className="h-3 w-3" /> Send Listings
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('showing')} disabled={chatLoading}>
+                    <Search className="h-3 w-3" /> Schedule Showings
+                  </Button>
+                </>
+              )}
+              {phase === 'showing' && (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleQuickAction('offer_prep')} disabled={chatLoading}>
+                  <DollarSign className="h-3 w-3" /> Prepare Offer
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleCreateContextTasks} disabled={creatingTasks}>
+                {creatingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListChecks className="h-3 w-3" />}
+                Create Tasks ({getBuyerTaskBundle(completion, buyer).length})
+              </Button>
+            </div>
 
-      {/* Phase Card — context-aware based on buyer state */}
-      {phase !== 'profiling' && !groupedFlowRunning ? (
+            {/* Chat Messages */}
+            <ScrollArea className="max-h-[400px]" ref={chatScrollRef as any}>
+              <div className="p-3 space-y-3">
+                {chatMessages.length === 0 && !chatLoading && (
+                  <div className="text-center py-6">
+                    <Bot className="h-8 w-8 text-primary/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Ask anything about this buyer, or use the buttons above to generate content.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Generated content will appear here — you decide when to apply it.
+                    </p>
+                  </div>
+                )}
+
+                {chatMessages.map((msg) => (
+                  <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'assistant' && (
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-1">
+                        <Bot className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div className={`max-w-[90%] rounded-lg px-3 py-2.5 text-sm leading-relaxed ${
+                      msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 border border-border'
+                    }`}>
+                      {msg.role === 'assistant' ? (
+                        <div className="space-y-2">
+                          <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_br]:hidden">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {normalizeMarkdownSpacing(msg.content || '...')}
+                            </ReactMarkdown>
+                          </div>
+                          {/* Apply buttons */}
+                          {msg.content && !chatLoading && (
+                            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                              {msg.contentType === 'structured_needs' && (
+                                <Button variant="outline" size="sm" className="h-6 px-2.5 text-xs gap-1 text-primary border-primary/30 hover:bg-primary/10" onClick={() => handleApplyToProfile(msg.content)}>
+                                  <Save className="h-3 w-3" /> Save to Profile
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" onClick={() => handleCopy(msg.content, 'Content')}>
+                                <Copy className="h-3 w-3 mr-1" /> Copy
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p>{msg.content}</p>
+                      )}
+                    </div>
+                    {msg.role === 'user' && (
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center mt-1">
+                        <User className="h-3.5 w-3.5 text-accent-foreground" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {chatLoading && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground pl-8">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Generating…</span>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Chat Input */}
+            <div className="p-3 border-t border-border/50">
+              <div className="flex gap-2">
+                <Textarea
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleChatKeyDown}
+                  placeholder="Ask about this buyer or request content…"
+                  className="min-h-[36px] max-h-[100px] text-sm resize-none py-2"
+                  rows={1}
+                />
+                <Button size="sm" className="h-9 w-9 p-0 shrink-0" onClick={() => sendChatMessage(chatInput)} disabled={!chatInput.trim() || chatLoading}>
+                  {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Phase Card */}
+      {phase !== 'profiling' && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <FileCheck className="h-4 w-4 text-primary" />
@@ -302,36 +391,11 @@ Organize into:
             <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">{phaseInfo.badge}</Badge>
           </div>
           <p className="text-xs text-muted-foreground">{phaseInfo.description}</p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {(phase === 'search_ready' || phase === 'showing') && (
-              <>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('send_listings')} disabled={!!generating}>
-                  {generating === 'send_listings' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Home className="h-3 w-3" />}
-                  Send Listings
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('showing')} disabled={!!generating}>
-                  {generating === 'showing' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-                  Schedule Showings
-                </Button>
-              </>
-            )}
-            {phase === 'showing' && (
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('offer_prep')} disabled={!!generating}>
-                {generating === 'offer_prep' ? <Loader2 className="h-3 w-3 animate-spin" /> : <DollarSign className="h-3 w-3" />}
-                Prepare Offer
-              </Button>
-            )}
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
-              {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
-              Next Steps
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
-              {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-              Draft Follow-Up
-            </Button>
-          </div>
         </div>
-      ) : !groupedFlowRunning && completion.nextStep ? (
+      )}
+
+      {/* Next Step */}
+      {completion.nextStep && phase === 'profiling' && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
           <div className="flex items-center gap-2">
             <ArrowRight className="h-4 w-4 text-primary" />
@@ -344,46 +408,6 @@ Organize into:
           {completion.nextStep.resolution && (
             <p className="text-xs text-muted-foreground">{completion.nextStep.resolution}</p>
           )}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {completion.nextStep.actionType === 'structure_needs' && buyer.wantsNeeds && (
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
-                {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                Structure
-              </Button>
-            )}
-            {!completion.nextStep.actionType && (
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleCreateContextTasks} disabled={creatingTasks}>
-                {creatingTasks ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
-                Create Task to Resolve
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Grouped Actions */}
-      {groupedActions.length > 0 && !groupedFlowRunning && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Layers className="h-3.5 w-3.5" /> Quick Flows
-          </h4>
-          <div className="space-y-1.5">
-            {groupedActions.map(action => (
-              <button
-                key={action.id}
-                className="w-full text-left rounded-lg border border-border bg-muted/20 hover:bg-muted/40 p-2.5 transition-colors"
-                onClick={() => handleGroupedAction(action.id)}
-                disabled={!!generating || !!groupedFlowRunning}
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="text-sm font-medium text-foreground">{action.label}</span>
-                  <Badge variant="outline" className="text-[9px] h-4 ml-auto">{action.actionTypes.length} steps</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 ml-5">{action.description}</p>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -429,11 +453,6 @@ Organize into:
                   <span className="text-sm text-foreground">{item.label}</span>
                   <Badge variant="outline" className="text-[9px] h-4">{item.category}</Badge>
                 </div>
-                {item.actionType === 'structure_needs' && buyer.wantsNeeds && (
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary" onClick={handleStructureNeeds} disabled={structuring}>
-                    {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Structure'}
-                  </Button>
-                )}
               </div>
             ))}
           </div>
@@ -461,86 +480,6 @@ Organize into:
             </div>
           </CollapsibleContent>
         </Collapsible>
-      )}
-
-      {/* Action Row */}
-      <div className="flex flex-wrap gap-2 pt-1 border-t border-border/50">
-        <Button size="sm" onClick={handleProfileAudit} disabled={auditRunning} className="gap-1.5">
-          {auditRunning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing…</> : <><Wand2 className="h-3.5 w-3.5" /> Run Audit</>}
-        </Button>
-        <Button variant="outline" size="sm" onClick={handleCreateContextTasks} disabled={creatingTasks} className="gap-1.5">
-          {creatingTasks ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ListChecks className="h-3.5 w-3.5" />}
-          Create Tasks ({getBuyerTaskBundle(completion, buyer).length})
-        </Button>
-      </div>
-
-      {/* Quick Drafts — only in profiling phase */}
-      {phase === 'profiling' && !groupedFlowRunning && (
-        <div className="flex flex-wrap gap-2">
-          {buyer.wantsNeeds && (
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleStructureNeeds} disabled={structuring}>
-              {structuring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardList className="h-3 w-3" />}
-              Structure Wants/Needs
-            </Button>
-          )}
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('follow_up')} disabled={!!generating}>
-            {generating === 'follow_up' ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageSquare className="h-3 w-3" />}
-            Draft Follow-Up
-          </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleGenerateDraft('next_steps')} disabled={!!generating}>
-            {generating === 'next_steps' ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListTodo className="h-3 w-3" />}
-            Next Steps
-          </Button>
-        </div>
-      )}
-
-      {/* Audit Results */}
-      {auditResult && (
-        <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">Profile Audit</h4>
-            </div>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCopy(auditResult, 'Audit')}>
-                <Copy className="h-3 w-3 mr-1" /> Copy
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAuditResult(null)}>Dismiss</Button>
-            </div>
-          </div>
-          <div className="text-sm">
-            {auditResult.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) return <h3 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace('## ', '')}</h3>;
-              if (line.startsWith('- [ ] ')) return <p key={i} className="text-sm text-muted-foreground ml-2">☐ {line.replace('- [ ] ', '')}</p>;
-              if (line.startsWith('- ')) return <p key={i} className="text-sm text-muted-foreground ml-2">• {line.replace(/^- \[x?\] /, '').replace(/^- /, '')}</p>;
-              if (line.trim()) return <p key={i} className="text-sm text-muted-foreground">{line}</p>;
-              return null;
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Structured Result / Draft */}
-      {structuredResult && (
-        <div className="bg-muted/30 rounded-lg p-4 border border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold text-foreground">AI Output</h4>
-            </div>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleCopy(structuredResult, 'Output')}>
-                <Copy className="h-3 w-3 mr-1" /> Copy
-              </Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleSaveStructuredNeeds}>
-                <Save className="h-3 w-3" /> Save to Profile
-              </Button>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setStructuredResult(null)}>Dismiss</Button>
-            </div>
-          </div>
-          <div className="text-sm whitespace-pre-wrap text-muted-foreground">{structuredResult}</div>
-        </div>
       )}
     </div>
   );
