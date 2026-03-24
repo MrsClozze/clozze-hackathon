@@ -268,7 +268,14 @@ serve(async (req) => {
     // ====== LAYER 2: Determine if Firecrawl research is needed ======
     let researchResults: any[] = [];
     let researchCategories: string[] = [];
-    const needsResearch = shouldDoResearch(message, taskType);
+
+    // Check for vague/open-ended requests that need clarification first
+    if (isVagueRequest(message, context)) {
+      // Skip research — the system prompt will guide the LLM to ask clarifying questions
+      console.log('Vague request detected, skipping research to ask clarifying questions');
+    }
+
+    const needsResearch = !isVagueRequest(message, context) && shouldDoResearch(message, taskType);
 
     if (needsResearch && FIRECRAWL_API_KEY) {
       const queryPlan = buildResearchQueries(message, context, taskType);
