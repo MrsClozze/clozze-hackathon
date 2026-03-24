@@ -175,6 +175,9 @@ export function useConversationMode({
       ? "Done. I've generated that content for you. You can view the full output in the chat panel."
       : spoken;
 
+    // Replace "Clozze" with "Close" for correct pronunciation in TTS
+    const ttsText = textToSpeak.replace(/Clozze/gi, 'Close');
+
     try {
       setState('speaking');
 
@@ -187,13 +190,13 @@ export function useConversationMode({
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ text: textToSpeak }),
+          body: JSON.stringify({ text: ttsText }),
         },
       );
 
       if (!response.ok) {
         console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
-        playBrowserTTS(textToSpeak);
+        playBrowserTTS(ttsText);
         return;
       }
 
@@ -267,7 +270,7 @@ export function useConversationMode({
       setState('speaking');
 
       // Play immediate greeting
-      const greetingText = "Hi, I'm your Clozze AI assistant. What can I help you with today?";
+      const greetingText = "Hi, I'm your Close AI assistant. What can I help you with today?";
       try {
         await playSpokenResponse(`[SPOKEN]${greetingText}[/SPOKEN]`);
       } catch {
