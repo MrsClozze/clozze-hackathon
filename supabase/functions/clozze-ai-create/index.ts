@@ -245,7 +245,10 @@ serve(async (req) => {
     const body = await req.json();
     const { flow, message, conversationHistory, existingFormData } = body;
 
-    if (!flow || !['create_task', 'add_buyer', 'add_listing'].includes(flow)) {
+    // Normalize shorthand flow names (listing → add_listing, buyer → add_buyer)
+    const FLOW_ALIASES: Record<string, string> = { listing: 'add_listing', buyer: 'add_buyer', task: 'create_task' };
+    const normalizedFlow = FLOW_ALIASES[flow] || flow;
+    if (!normalizedFlow || !['create_task', 'add_buyer', 'add_listing'].includes(normalizedFlow)) {
       throw new Error('Invalid flow type');
     }
     if (!message || typeof message !== 'string' || message.length > 5000) {
@@ -268,7 +271,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error('Authentication failed');
 
-    const flowType = flow as FlowType;
+    const flowType = normalizedFlow as FlowType;
 
     // Build context from existing form data if provided
     let formContext = '';
