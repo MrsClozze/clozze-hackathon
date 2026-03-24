@@ -138,8 +138,12 @@ function buildContextPrompt(context: any): string {
 - Name: ${b.first_name} ${b.last_name}
 - Email: ${b.email || 'N/A'} | Phone: ${b.phone || 'N/A'}
 - Status: ${b.status || 'N/A'}
-- Pre-Approved Amount: ${b.pre_approved_amount ? '$' + b.pre_approved_amount.toLocaleString() : 'N/A'}
-- Wants/Needs: ${b.wants_needs || 'Not specified'}`);
+- Pre-Approved Amount: ${b.pre_approved_amount ? '$' + Number(b.pre_approved_amount).toLocaleString() : 'N/A'}
+- Commission Percentage: ${b.commission_percentage ? b.commission_percentage + '%' : 'N/A'}
+- Agent Commission: ${b.agent_commission ? '$' + Number(b.agent_commission).toLocaleString() : 'N/A'}
+- Wants/Needs: ${b.wants_needs || 'Not specified'}
+- Created: ${b.created_at ? new Date(b.created_at).toLocaleDateString() : 'N/A'}
+- Last Updated: ${b.updated_at ? new Date(b.updated_at).toLocaleDateString() : 'N/A'}`);
   }
 
   if (context.transaction) {
