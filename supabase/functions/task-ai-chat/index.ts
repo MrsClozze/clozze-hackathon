@@ -573,10 +573,15 @@ function isVagueRequest(message: string, context: any): boolean {
     /^search\s+(homes?|properties|houses?|listings?)$/,
     /^look\s+up\s+(homes?|properties|houses?|listings?)$/,
     /^(what|show|get)\s+(me\s+)?(homes?|properties|houses?|listings?)$/,
+    /^find\s+(me\s+)?(some|a few|several)\s+(options?|places?|homes?)$/,
+    /^help\s+me\s+find/,
+    /^can\s+you\s+(find|search|look|research)\b/,
   ];
   const isVague = vaguePatterns.some(p => p.test(lowerMsg));
   // Not vague if we already have location context
   if (isVague && (context.listing?.address || context.task?.address)) return false;
+  // Not vague if the message itself contains an address-like pattern
+  if (isVague && /\d+\s+\w+\s+(st|street|ave|avenue|blvd|dr|drive|rd|road|ln|lane|way|ct|court)/i.test(lowerMsg)) return false;
   return isVague;
 }
 
@@ -587,13 +592,11 @@ function shouldDoResearch(message: string, taskType: string): boolean {
     'county', 'zoning', 'flood', 'tax', 'market', 'pricing', 'price',
     'builder', 'permit', 'walkability', 'transit', 'crime',
     'what am i missing', 'missing information', 'what else',
+    'options', 'homes near', 'homes in', 'properties near', 'properties in',
+    'sold near', 'sold in', 'recently sold', 'active listings',
+    'what can you find', 'dig up', 'pull info', 'grab info', 'check on',
   ];
   const lowerMessage = message.toLowerCase();
-  
-  if (['comps_pricing', 'home_inspection'].includes(taskType)) {
-    if (researchKeywords.some(kw => lowerMessage.includes(kw))) return true;
-  }
-  
   return researchKeywords.some(kw => lowerMessage.includes(kw));
 }
 
