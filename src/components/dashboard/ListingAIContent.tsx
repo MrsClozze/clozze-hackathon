@@ -103,25 +103,38 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
     }
   };
 
+  // Strip AI JSON code blocks and surrounding boilerplate from generated content
+  const stripAIBlocks = (text: string): string => {
+    return text
+      .replace(/```json-listing[\s\S]*?```/g, '')
+      .replace(/```json-buyer[\s\S]*?```/g, '')
+      .replace(/```json-tasks[\s\S]*?```/g, '')
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/^#+\s.*\n?/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
   const handleRegenerate = useCallback(async (type: 'description' | 'highlights' | 'marketing', variant?: string): Promise<ListingData | null> => {
     setRegenerating(type);
     try {
+      const fullAddress = `${listing.address}, ${listing.city}${listing.zipcode ? ' ' + listing.zipcode : ''}`;
       const prompts: Record<string, string> = {
-        description: `Write a compelling MLS-ready listing description for this property: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, listed at $${listing.price?.toLocaleString()}. ${listing.highlights.length > 0 ? 'Key features: ' + listing.highlights.join(', ') : ''} Write only the description text, no headers or labels.`,
-        highlights: `Generate 6-8 property highlights/key selling points for: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'Description: ' + listing.description.substring(0, 300) : ''} Return only a bullet list of features, one per line, starting with a dash.`,
-        marketing: `Write a ${variant || 'social media'} marketing copy for: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'MLS Description: ' + listing.description.substring(0, 300) : ''} Write only the copy text, optimized for ${variant || 'social media'}.`,
+        description: `Research and write a compelling MLS-ready listing description for this property at ${fullAddress}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, listed at $${listing.price?.toLocaleString()}. ${listing.highlights.length > 0 ? 'Key features: ' + listing.highlights.join(', ') : ''} Write only the description text — no JSON, no headers, no labels, no code blocks.`,
+        highlights: `Research and generate 6-8 property highlights/key selling points for: ${fullAddress}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'Description: ' + listing.description.substring(0, 300) : ''} Return only a bullet list of features, one per line, starting with a dash. No JSON, no code blocks.`,
+        marketing: `Write a ${variant || 'social media'} marketing copy for: ${fullAddress}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'MLS Description: ' + listing.description.substring(0, 300) : ''} Write only the copy text, optimized for ${variant || 'social media'}. No JSON, no code blocks.`,
       };
 
       const { content } = await invokeClozzeAICreate({
         flow: 'listing',
         message: prompts[type],
       });
-      const generated = content;
+      const generated = stripAIBlocks(content);
 
       let updatedListing = listing;
 
       if (type === 'description') {
-        const cleaned = generated.replace(/^#+\s.*\n?/gm, '').trim();
+        const cleaned = generated;
         await supabase.from('listings').update({ description: cleaned } as any).eq('id', listing.id);
         updatedListing = { ...listing, description: cleaned };
         onListingUpdate?.(updatedListing);
