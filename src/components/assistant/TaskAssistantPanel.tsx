@@ -458,6 +458,7 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           onEnd={endConversation}
           messages={messages}
           isLoading={isLoading}
+          loadingPhase={loadingPhase}
           conversationStartIndex={conversationStartIndex}
         />
       )}

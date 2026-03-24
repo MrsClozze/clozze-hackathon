@@ -586,6 +586,21 @@ ${researchContext}`;
   }
 });
 
+function isVagueRequest(message: string, context: any): boolean {
+  const lowerMsg = message.toLowerCase().trim();
+  const vaguePatterns = [
+    /^research\s+(homes?|properties|houses?|listings?)$/,
+    /^find\s+(homes?|properties|houses?|listings?)$/,
+    /^search\s+(homes?|properties|houses?|listings?)$/,
+    /^look\s+up\s+(homes?|properties|houses?|listings?)$/,
+    /^(what|show|get)\s+(me\s+)?(homes?|properties|houses?|listings?)$/,
+  ];
+  const isVague = vaguePatterns.some(p => p.test(lowerMsg));
+  // Not vague if we already have location context
+  if (isVague && (context.listing?.address || context.task?.address)) return false;
+  return isVague;
+}
+
 function shouldDoResearch(message: string, taskType: string): boolean {
   const researchKeywords = [
     'research', 'find', 'search', 'look up', 'comps', 'comparable',
