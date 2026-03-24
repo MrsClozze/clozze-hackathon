@@ -203,6 +203,7 @@ export function useConversationMode({
 
     try {
       setState('speaking');
+      isSpeakingRef.current = true; // Gate: mute STT during playback
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
@@ -219,6 +220,7 @@ export function useConversationMode({
 
       if (!response.ok) {
         console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
+        isSpeakingRef.current = false;
         playBrowserTTS(ttsText);
         return;
       }
@@ -230,13 +232,17 @@ export function useConversationMode({
       audioUrlRef.current = url;
 
       // May have been interrupted while waiting for TTS
-      if (stateRef.current !== 'speaking' || !isActiveRef.current) return;
+      if (stateRef.current !== 'speaking' || !isActiveRef.current) {
+        isSpeakingRef.current = false;
+        return;
+      }
 
       const audio = new Audio(url);
       audioRef.current = audio;
 
       audio.onended = () => {
         audioRef.current = null;
+        isSpeakingRef.current = false; // Ungate STT
         if (isActiveRef.current) {
           setState('listening');
           resetSilenceTimer();
@@ -245,12 +251,14 @@ export function useConversationMode({
 
       audio.onerror = () => {
         audioRef.current = null;
+        isSpeakingRef.current = false; // Ungate STT
         if (isActiveRef.current) setState('listening');
       };
 
       await audio.play();
     } catch (err) {
       console.error('Conversation TTS error:', err);
+      isSpeakingRef.current = false;
       // Fallback to browser speech
       playBrowserTTS(textToSpeak);
     }
