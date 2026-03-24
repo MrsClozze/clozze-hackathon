@@ -94,11 +94,11 @@ Use this exact format:
 ## 📌 Next Steps
 - Prioritized list of actions`;
 
-      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: { flow: 'buyer', message: auditPrompt, context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email, preApprovedAmount: buyer.preApprovedAmount, wantsNeeds: buyer.wantsNeeds } },
+      const { content } = await invokeClozzeAICreate({
+        flow: 'buyer',
+        message: auditPrompt,
       });
-      if (error) throw error;
-      setAuditResult(data?.response || data?.content || 'No audit results generated.');
+      setAuditResult(content || 'No audit results generated.');
       recordAction('buyer', buyer.id, 'run_audit', 'Ran buyer profile audit');
     } catch (err) {
       console.error('Audit error:', err);
@@ -133,11 +133,11 @@ Organize into:
 ## ❓ Questions to Ask
 - What additional information should the agent gather?`;
 
-      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: { flow: 'buyer', message: prompt, context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, wantsNeeds: buyer.wantsNeeds, preApprovedAmount: buyer.preApprovedAmount } },
+      const { content } = await invokeClozzeAICreate({
+        flow: 'buyer',
+        message: prompt,
       });
-      if (error) throw error;
-      setStructuredResult(data?.response || data?.content || 'No structured output generated.');
+      setStructuredResult(content || 'No structured output generated.');
       recordAction('buyer', buyer.id, 'structure_needs', 'Structured buyer wants/needs');
     } catch (err) {
       console.error('Structure error:', err);
@@ -172,11 +172,10 @@ Organize into:
         send_listings: `Write a message to buyer ${buyer.firstName} ${buyer.lastName} introducing curated property listings that match their criteria. Their needs: ${buyer.wantsNeeds || 'not specified'}. Budget: ${buyer.preApprovedAmount ? '$' + buyer.preApprovedAmount.toLocaleString() : 'not specified'}. Keep it professional and include a call to action to schedule viewings.`,
       };
 
-      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: { flow: 'buyer', message: prompts[type], context: { buyerName: `${buyer.firstName} ${buyer.lastName}`, email: buyer.email } },
+      const { content } = await invokeClozzeAICreate({
+        flow: 'buyer',
+        message: prompts[type],
       });
-      if (error) throw error;
-      const content = data?.response || data?.content || '';
       if (content) {
         setStructuredResult(content);
         recordAction('buyer', buyer.id, `generate_${type}`, `Generated ${type.replace(/_/g, ' ')} draft`);

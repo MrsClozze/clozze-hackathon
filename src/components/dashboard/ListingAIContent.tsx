@@ -112,12 +112,11 @@ export default function ListingAIContent({ listing, onListingUpdate }: ListingAI
         marketing: `Write a ${variant || 'social media'} marketing copy for: ${listing.address}, ${listing.city}. ${listing.bedrooms}bd/${listing.bathrooms}ba, ${listing.sqFeet} sqft, $${listing.price?.toLocaleString()}. ${listing.description ? 'MLS Description: ' + listing.description.substring(0, 300) : ''} Write only the copy text, optimized for ${variant || 'social media'}.`,
       };
 
-      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: { flow: 'listing', message: prompts[type], context: { address: listing.address, city: listing.city, price: listing.price, bedrooms: listing.bedrooms, bathrooms: listing.bathrooms, sqFeet: listing.sqFeet } },
+      const { content } = await invokeClozzeAICreate({
+        flow: 'listing',
+        message: prompts[type],
       });
-      if (error) throw error;
-      const generated = data?.response || data?.content || '';
-      if (!generated) throw new Error('No content generated');
+      const generated = content;
 
       let updatedListing = listing;
 
@@ -224,11 +223,11 @@ Use this exact format:
 ## 📌 Suggested Next Steps
 - Prioritized list of what to do next`;
 
-      const { data, error } = await supabase.functions.invoke('clozze-ai-create', {
-        body: { flow: 'listing', message: auditPrompt, context: { address: listing.address, city: listing.city, price: listing.price } },
+      const { content } = await invokeClozzeAICreate({
+        flow: 'listing',
+        message: auditPrompt,
       });
-      if (error) throw error;
-      setAuditResult(data?.response || data?.content || 'No audit results generated.');
+      setAuditResult(content || 'No audit results generated.');
       recordAction('listing', listing.id, 'run_audit', 'Ran listing readiness audit');
     } catch (err) {
       console.error('Audit error:', err);
