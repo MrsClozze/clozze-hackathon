@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeClozzeAICreate } from "@/lib/invokeClozzeAICreate";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ListingData, ListingInternalNote } from "@/contexts/ListingsContext";
 import { computeListingCompletion, getListingTaskBundle, getListingGroupedActions, type CompletionItem } from "@/lib/completionTracking";

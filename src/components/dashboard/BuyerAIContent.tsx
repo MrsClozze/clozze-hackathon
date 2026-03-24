@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeClozzeAICreate } from "@/lib/invokeClozzeAICreate";
 import type { BuyerData } from "@/contexts/BuyersContext";
 import { computeBuyerCompletion, getBuyerPhase, getBuyerTaskBundle, getBuyerGroupedActions, type CompletionItem, type BuyerPhase } from "@/lib/completionTracking";
 import { getWorkflowState, recordAction, setLastNextStep, setGroupedFlowInProgress, getResumeSummary } from "@/lib/workflowState";
