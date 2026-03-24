@@ -271,7 +271,7 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) throw new Error('Authentication failed');
 
-    const flowType = flow as FlowType;
+    const flowType = normalizedFlow as FlowType;
 
     // Build context from existing form data if provided
     let formContext = '';
