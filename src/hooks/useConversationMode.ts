@@ -120,6 +120,12 @@ export function useConversationMode({
       stateRef.current === 'processing' &&
       isActiveRef.current
     ) {
+      // Clear thinking timeout — response arrived
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+
       const lastMsg = messages[messages.length - 1];
       if (
         lastMsg?.role === 'assistant' &&
