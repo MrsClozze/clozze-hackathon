@@ -55,6 +55,9 @@ export function useConversationMode({
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setState('listening');
     },
   };
@@ -116,6 +119,27 @@ export function useConversationMode({
     wasLoadingRef.current = isLoading;
   }, [isLoading, messages]);
 
+  // ---- Browser speechSynthesis fallback ----
+  const playBrowserTTS = useCallback((text: string) => {
+    if (!('speechSynthesis' in window)) {
+      if (isActiveRef.current) setState('listening');
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.onend = () => {
+      if (isActiveRef.current) {
+        setState('listening');
+        resetSilenceTimer();
+      }
+    };
+    utterance.onerror = () => {
+      if (isActiveRef.current) setState('listening');
+    };
+    window.speechSynthesis.speak(utterance);
+  }, [setState, resetSilenceTimer]);
+
   // ---- TTS playback ----
   const playSpokenResponse = useCallback(async (content: string) => {
     const { spoken } = parseSpokenResponse(content);
@@ -140,7 +164,11 @@ export function useConversationMode({
         },
       );
 
-      if (!response.ok) throw new Error(`TTS ${response.status}`);
+      if (!response.ok) {
+        console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
+        playBrowserTTS(spoken);
+        return;
+      }
 
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
 
@@ -170,9 +198,10 @@ export function useConversationMode({
       await audio.play();
     } catch (err) {
       console.error('Conversation TTS error:', err);
-      if (isActiveRef.current) setState('listening');
+      // Fallback to browser speech
+      playBrowserTTS(spoken);
     }
-  }, [setState, resetSilenceTimer]);
+  }, [setState, resetSilenceTimer, playBrowserTTS]);
 
   // ---- Start / End ----
   const startConversation = useCallback(async () => {
@@ -230,6 +259,10 @@ export function useConversationMode({
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    // Cancel browser speech if active
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
     }
 
     try {

@@ -455,6 +455,8 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           state={conversationState}
           liveTranscript={conversationTranscript}
           onEnd={endConversation}
+          messages={messages}
+          isLoading={isLoading}
         />
       )}
 
