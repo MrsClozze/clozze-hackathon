@@ -3,8 +3,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ConversationState } from "@/hooks/useConversationMode";
 import type { AssistantMessage } from "@/hooks/useTaskAssistant";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useEffect, useRef } from "react";
 
 interface ConversationModeOverlayProps {
@@ -13,6 +11,7 @@ interface ConversationModeOverlayProps {
   onEnd: () => void;
   messages?: AssistantMessage[];
   isLoading?: boolean;
+  conversationStartIndex?: number;
 }
 
 const STATE_CONFIG: Record<
@@ -50,35 +49,62 @@ const STATE_CONFIG: Record<
   },
 };
 
+// Max length for a message to be considered "conversational" vs "generated content"
+const CONVERSATIONAL_MAX_LENGTH = 600;
+
 export default function ConversationModeOverlay({
   state,
   liveTranscript,
   onEnd,
   messages = [],
   isLoading = false,
+  conversationStartIndex = 0,
 }: ConversationModeOverlayProps) {
   const config = STATE_CONFIG[state];
   const Icon = config.icon;
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Get recent conversation messages (last few exchanges)
-  const recentMessages = messages.slice(-6);
-  const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+  // Only show messages that arrived during this conversation session
+  const conversationMessages = messages.slice(conversationStartIndex);
+
+  // Filter: show user messages always, show assistant messages only if short (conversational)
+  // Long generated content stays in the background chat panel
+  const displayMessages = conversationMessages.map((msg) => {
+    if (msg.role === 'user') return msg;
+
+    // Strip tags for length check
+    const cleanLen = msg.content
+      .replace(/\[SPOKEN\][\s\S]*?\[\/SPOKEN\]\s*/g, '')
+      .replace(/\[FULL\][\s\S]*?\[\/FULL\]\s*/g, '')
+      .replace(/\[ACTION:.*?\]/g, '')
+      .trim().length;
+
+    if (cleanLen > CONVERSATIONAL_MAX_LENGTH) {
+      // Replace with a brief summary card
+      return {
+        ...msg,
+        content: '✅ Content generated — view the full output in the chat panel.',
+        _isPlaceholder: true,
+      };
+    }
+    return msg;
+  });
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [displayMessages.length, isLoading]);
 
-  // Strip [SPOKEN]...[/SPOKEN] and [FULL]...[/FULL] markers for display
+  // Strip [SPOKEN]/[FULL] markers for display
   const cleanContent = (content: string) => {
-    // If there's a [FULL] block, show that; otherwise show everything
     const fullMatch = content.match(/\[FULL\]\s*([\s\S]*?)(?:\[\/FULL\]|$)/);
     if (fullMatch) return fullMatch[1].trim();
-    // Strip [SPOKEN] blocks
-    return content.replace(/\[SPOKEN\][\s\S]*?\[\/SPOKEN\]\s*/g, '').trim();
+    return content
+      .replace(/\[SPOKEN\][\s\S]*?\[\/SPOKEN\]\s*/g, '')
+      .replace(/\[ACTION:.*?\]/g, '')
+      .trim();
   };
 
   return (
@@ -86,7 +112,6 @@ export default function ConversationModeOverlay({
       {/* Compact header with state indicator */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <div className="flex items-center gap-3">
-          {/* Small state indicator */}
           <div className="relative">
             {state === 'listening' && (
               <div className="absolute inset-0 -m-1 rounded-full bg-primary/10 animate-ping" style={{ animationDuration: '2s' }} />
@@ -126,10 +151,10 @@ export default function ConversationModeOverlay({
         </div>
       )}
 
-      {/* Conversation feed — shows recent messages in real time */}
+      {/* Conversation feed — only conversational messages, not generated content */}
       <ScrollArea className="flex-1 px-4 py-3" ref={scrollRef}>
         <div className="space-y-3 max-w-full">
-          {recentMessages.length === 0 && !isLoading && (
+          {displayMessages.length === 0 && !isLoading && (
             <div className="flex items-center justify-center h-32">
               <p className="text-sm text-muted-foreground/60">
                 Start speaking — your conversation will appear here
@@ -137,30 +162,27 @@ export default function ConversationModeOverlay({
             </div>
           )}
 
-          {recentMessages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+          {displayMessages.map((msg, i) => {
+            const isPlaceholder = (msg as any)._isPlaceholder;
+            return (
               <div
-                className={`max-w-[90%] rounded-lg px-3.5 py-2.5 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted/50 text-foreground'
-                }`}
+                key={i}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {msg.role === 'assistant' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 leading-relaxed">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {cleanContent(msg.content)}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="leading-relaxed">{msg.content}</p>
-                )}
+                <div
+                  className={`max-w-[90%] rounded-lg px-3.5 py-2.5 text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : isPlaceholder
+                        ? 'bg-muted/30 text-muted-foreground border border-border/50'
+                        : 'bg-muted/50 text-foreground'
+                  }`}
+                >
+                  <p className="leading-relaxed">{cleanContent(msg.content)}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Loading indicator */}
           {isLoading && (
@@ -168,7 +190,7 @@ export default function ConversationModeOverlay({
               <div className="bg-muted/50 rounded-lg px-3.5 py-2.5">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  <span className="animate-pulse">Researching and generating response…</span>
+                  <span className="animate-pulse">Researching and generating…</span>
                 </div>
               </div>
             </div>
