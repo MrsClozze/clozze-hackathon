@@ -37,6 +37,20 @@ export function useConversationMode({
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActiveRef = useRef(false);
+  const isSpeakingRef = useRef(false); // Gate: ignore STT while TTS is playing
+
+  // Validate transcript is real speech (not garbled/non-Latin noise)
+  const isValidTranscript = (text: string): boolean => {
+    if (!text || text.length < 2) return false;
+    // Reject if mostly non-Latin characters (garbled transcription from audio bleed)
+    const latinChars = text.replace(/[^a-zA-Z0-9\s.,!?'"()-]/g, '');
+    const latinRatio = latinChars.length / text.length;
+    if (latinRatio < 0.5) return false;
+    // Reject very short nonsense
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) return false;
+    return true;
+  };
 
   // Stable refs for callbacks used inside useScribe (avoids stale closures)
   const handlersRef = useRef({
