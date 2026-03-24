@@ -569,7 +569,7 @@ Use this exact format:
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 border border-border/50 whitespace-pre-wrap">{listing.description}</div>
+            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3 border border-border/50 whitespace-pre-wrap">{stripAIBlocks(listing.description)}</div>
           )}
         </div>
       )}
