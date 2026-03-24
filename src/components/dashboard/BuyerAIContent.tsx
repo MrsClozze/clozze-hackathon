@@ -168,7 +168,7 @@ Agent Email: ${buyer.agentEmail || 'NOT SET'}
     } finally {
       setChatLoading(false);
     }
-  }, [chatLoading, toast]);
+  }, [chatLoading, toast, buildBuyerContext, chatMessages, buyer]);
 
   /** Apply structured needs to buyer profile */
   const handleApplyToProfile = async (content: string) => {

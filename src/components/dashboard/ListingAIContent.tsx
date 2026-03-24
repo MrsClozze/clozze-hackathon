@@ -232,7 +232,7 @@ Internal Notes: ${listing.internalNotes.length > 0 ? listing.internalNotes.lengt
     } finally {
       setChatLoading(false);
     }
-  }, [chatLoading, toast]);
+  }, [chatLoading, toast, buildListingContext, chatMessages, listing]);
 
   /** Detect what type of content the AI generated */
   const detectContentType = (content: string): ChatMessage['contentType'] => {
