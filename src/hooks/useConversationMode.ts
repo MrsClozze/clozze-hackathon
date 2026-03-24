@@ -190,13 +190,13 @@ export function useConversationMode({
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ text: textToSpeak }),
+          body: JSON.stringify({ text: ttsText }),
         },
       );
 
       if (!response.ok) {
         console.warn(`ElevenLabs TTS failed (${response.status}), falling back to browser speech`);
-        playBrowserTTS(textToSpeak);
+        playBrowserTTS(ttsText);
         return;
       }
 
