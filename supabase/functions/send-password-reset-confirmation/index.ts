@@ -35,7 +35,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { email, firstName, redirectOrigin }: PasswordResetConfirmationRequest = await req.json();
     
     const displayName = escapeHtml(firstName || email.split('@')[0]);
-    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
+    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('preview--'))
       ? redirectOrigin
       : 'https://clozze.lovable.app';
 
