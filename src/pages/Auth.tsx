@@ -238,7 +238,7 @@ export default function Auth() {
     checkOnboardingAndRedirect();
   }, [user, navigate, searchParams, refreshSubscription, toast]);
 
-  // Handle OAuth errors from URL params (Lovable Cloud handles code exchange automatically)
+  // Handle OAuth errors from URL params
   useEffect(() => {
     const errorDesc = searchParams.get('error_description');
     const errorCode = searchParams.get('error_code');
@@ -259,8 +259,8 @@ export default function Auth() {
       });
     }
 
-    // Note: Lovable Cloud OAuth handles code exchange automatically via /~oauth/callback
-    // The session is set by the lovable.auth library, and AuthContext will detect the user
+    // OAuth code exchange is handled automatically via /~oauth/callback
+    // The session is set by the auth library, and AuthContext will detect the user
   }, [searchParams, toast]);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
@@ -374,7 +374,7 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      // For Lovable Cloud OAuth, use the site origin as redirect_uri.
+      // Use the site origin as redirect_uri for OAuth.
       // The platform completes the exchange via /~oauth/callback automatically.
       const redirectUri = window.location.origin;
       const result = await lovable.auth.signInWithOAuth("google", {

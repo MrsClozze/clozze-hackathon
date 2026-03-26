@@ -1,68 +1,80 @@
 # Clozze
 
-Clozze is a deal-centric real estate platform that helps agents and brokers manage transactions, tasks, communication, and AI-assisted workflows in one place.
+**AI-powered, deal-centric real estate platform.**
 
-## Overview
-
-Clozze is built around the transaction, not just contacts. It enables real estate professionals to manage deals from contract to close with structured workflows, centralized communication, and intelligent automation.
-
-The platform includes an AI assistant that can generate content, organize tasks, and perform real-time research to help move deals forward faster.
+Clozze helps agents and brokers manage transactions from contract to close with structured workflows, centralized communication, and intelligent automation — all built around the deal, not just contacts.
 
 ## Features
 
-- AI-powered transaction assistant (voice and chat)
-- Deal and task management
-- Centralized communication hub
-- Calendar and timeline coordination
-- Document-driven workflows
-- Real-time research and data enrichment
+- **AI Transaction Assistant** — Voice and chat-based assistant with real-time property research via Firecrawl, contextual task guidance, and natural language deal management.
+- **Deal & Task Management** — Structured task workflows tied to buyers, listings, and transactions with calendar sync, recurring tasks, and team assignment.
+- **Centralized Communication Hub** — Gmail sync, AI-powered email triage and categorization, suggested responses, and WhatsApp integration.
+- **Calendar Coordination** — Google and Apple Calendar sync with bi-directional event management and deadline tracking.
+- **Document Workflows** — DocuSign and Dotloop integrations for e-signatures, document parsing, and transaction document management.
+- **Team Collaboration** — Multi-agent team management with role-based access, shared calendars and emails, and performance tracking.
+- **AI-Powered Content Generation** — Listing descriptions, buyer communications, and marketing copy generated with tone-matched AI trained on agent preferences.
+- **Transaction Engine** — State machine-driven transaction lifecycle with suggested tasks, guided workflows, and audit history.
 
 ## Tech Stack
 
-This project is built with:
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Backend | Supabase (Postgres, Auth, Edge Functions, Storage) |
+| AI | Google Gemini, OpenAI GPT via AI Gateway |
+| Research | Firecrawl for real-time property and market data |
+| Voice | ElevenLabs Conversational AI Agent |
+| Integrations | Gmail, Google Calendar, Apple Calendar, DocuSign, Dotloop, Follow Up Boss, Stripe |
 
-- Vite  
-- TypeScript  
-- React  
-- shadcn-ui  
-- Tailwind CSS  
+## Project Structure
+
+```
+src/
+├── components/       # UI components organized by feature
+│   ├── assistant/    # AI chat and voice assistant
+│   ├── contacts/     # Contact management
+│   ├── dashboard/    # Dashboard widgets and cards
+│   ├── integrations/ # Third-party integration modals
+│   ├── layout/       # App shell, sidebar, header
+│   ├── onboarding/   # User onboarding flow
+│   ├── team/         # Team management views
+│   ├── transactions/ # Transaction workflow UI
+│   └── ui/           # Shared design system (shadcn)
+├── contexts/         # React contexts (auth, user, data)
+├── hooks/            # Custom hooks for data and integrations
+├── lib/              # Utilities, analytics, task configs
+├── pages/            # Route-level page components
+└── integrations/     # Supabase client and type definitions
+
+supabase/
+└── functions/        # Edge Functions (AI, email, calendar, payments)
+
+docs/
+└── plan.md           # Architecture and roadmap notes
+```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js  
-- npm  
+- Node.js 18+
+- npm
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <YOUR_GIT_URL>
-
-# Navigate into the project
-cd <YOUR_PROJECT_NAME>
-
-# Install dependencies
+git clone <repo-url>
+cd clozze
 npm install
-
-# Start development server
 npm run dev
+```
 
-Development
+The app runs at `http://localhost:8080`.
 
-This project can be developed locally using your preferred IDE.
+## Environment
 
-All changes should be committed through standard Git workflows.
+The project uses Supabase for backend services. Environment variables are configured automatically via the connected Supabase project.
 
-Deployment
+## License
 
-Clozze can be deployed using your preferred hosting platform.
-
-Contributing
-
-Please follow existing code structure and naming conventions when contributing.
-
-Contact
-
-For questions or collaboration, reach out to the Clozze team.
+Proprietary — © 2025 Clozze. All rights reserved.
