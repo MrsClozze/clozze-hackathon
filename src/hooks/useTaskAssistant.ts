@@ -242,12 +242,27 @@ export function useTaskAssistant({ taskId, listingId, buyerId }: UseTaskAssistan
         body: { taskId, action, payload },
       });
       if (error) throw error;
+
+      // Mark action as completed in Worker memory
+      if (isWorkerEnabled()) {
+        const entityId = listingId || buyerId;
+        const entityType = listingId ? 'listing' : buyerId ? 'buyer' : null;
+        if (entityId && entityType) {
+          const workerUrl = import.meta.env.VITE_CLOZZE_AI_WORKER_URL;
+          fetch(`${workerUrl}/memory/${entityType}/${entityId}/update-action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, status: 'completed' }),
+          }).catch(err => console.error('Action status update error:', err));
+        }
+      }
+
       return data;
     } catch (err: any) {
       console.error("Action execution error:", err);
       throw err;
     }
-  }, [taskId]);
+  }, [taskId, listingId, buyerId]);
 
   return {
     messages,
