@@ -19,6 +19,8 @@ export type LoadingPhase = 'idle' | 'context' | 'research' | 'generating';
 
 interface UseTaskAssistantOptions {
   taskId: string;
+  listingId?: string;
+  buyerId?: string;
 }
 
 export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
