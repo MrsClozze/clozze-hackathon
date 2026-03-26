@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAIEndpoint, getAIHeaders, isWorkerEnabled } from "@/lib/aiWorkerConfig";
 
 export type CreationFlow = 'create_task' | 'add_buyer' | 'add_listing';
 
@@ -110,6 +111,8 @@ export function extractStructuredData(content: string, flow: CreationFlow): {
 interface UseClozzeAICreateOptions {
   flow: CreationFlow;
   existingFormData?: Record<string, any>;
+  listingId?: string;
+  buyerId?: string;
 }
 
 export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateOptions) {
