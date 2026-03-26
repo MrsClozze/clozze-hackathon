@@ -97,7 +97,7 @@ serve(async (req) => {
     // Auto-detect document type from content
     if (action === "detect") {
       const detectResponse = await callAI(
-        LOVABLE_API_KEY,
+        AI_API_KEY,
         [
           {
             role: "system",
@@ -283,7 +283,7 @@ IMPORTANT:
     const functionName = documentType === "listing" ? "extract_listing_data" : "extract_buyer_data";
 
     const aiResponse = await callAI(
-      LOVABLE_API_KEY,
+      AI_API_KEY,
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Extract the ${documentType} information from this document:\n\n${documentText}` },
