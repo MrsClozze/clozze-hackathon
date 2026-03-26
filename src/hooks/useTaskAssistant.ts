@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAIEndpoint, getAIHeaders, isWorkerEnabled } from "@/lib/aiWorkerConfig";
 
 export interface AssistantMessage {
   id: string;
@@ -18,9 +19,11 @@ export type LoadingPhase = 'idle' | 'context' | 'research' | 'generating';
 
 interface UseTaskAssistantOptions {
   taskId: string;
+  listingId?: string;
+  buyerId?: string;
 }
 
-export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
+export function useTaskAssistant({ taskId, listingId, buyerId }: UseTaskAssistantOptions) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle');
@@ -69,21 +72,28 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
         content: m.content,
       }));
 
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+
+      const requestBody: Record<string, unknown> = {
+        taskId,
+        message: message.trim(),
+        conversationHistory,
+        ...(opts?.conversational ? { conversational: true } : {}),
+      };
+
+      // When Worker is enabled, include entity IDs and flow for orchestration
+      if (isWorkerEnabled()) {
+        if (listingId) requestBody.listingId = listingId;
+        if (buyerId) requestBody.buyerId = buyerId;
+        requestBody.flow = 'task-ai-chat';
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/task-ai-chat`,
+        getAIEndpoint('task-ai-chat'),
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            taskId,
-            message: message.trim(),
-            conversationHistory,
-            ...(opts?.conversational ? { conversational: true } : {}),
-          }),
+          headers: getAIHeaders(accessToken),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal,
         }
       );
@@ -207,7 +217,7 @@ export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
       setLoadingPhase('idle');
       abortControllerRef.current = null;
     }
-  }, [taskId, messages, isLoading]);
+  }, [taskId, listingId, buyerId, messages, isLoading]);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
