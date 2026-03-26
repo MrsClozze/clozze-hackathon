@@ -72,21 +72,28 @@ export function useTaskAssistant({ taskId, listingId, buyerId }: UseTaskAssistan
         content: m.content,
       }));
 
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+
+      const requestBody: Record<string, unknown> = {
+        taskId,
+        message: message.trim(),
+        conversationHistory,
+        ...(opts?.conversational ? { conversational: true } : {}),
+      };
+
+      // When Worker is enabled, include entity IDs and flow for orchestration
+      if (isWorkerEnabled()) {
+        if (listingId) requestBody.listingId = listingId;
+        if (buyerId) requestBody.buyerId = buyerId;
+        requestBody.flow = 'task-ai-chat';
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/task-ai-chat`,
+        getAIEndpoint('task-ai-chat'),
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            taskId,
-            message: message.trim(),
-            conversationHistory,
-            ...(opts?.conversational ? { conversational: true } : {}),
-          }),
+          headers: getAIHeaders(accessToken),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal,
         }
       );
