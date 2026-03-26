@@ -1,0 +1,105 @@
+project_id = "frokgqqwkgbjmrpxgrmp"
+
+[functions.docusign-auth]
+verify_jwt = false
+
+[functions.docusign-callback]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.customer-portal]
+
+[functions.generate-message-response]
+
+[functions.train-ai-tone]
+
+[functions.send-welcome-email]
+verify_jwt = false
+
+[functions.send-verification-email]
+verify_jwt = false
+
+[functions.send-password-reset-email]
+
+[functions.cleanup-unverified-users]
+verify_jwt = false
+
+[functions.store-oauth-tokens]
+
+[functions.get-oauth-tokens]
+
+[functions.send-password-reset-confirmation]
+verify_jwt = false
+
+[functions.send-whatsapp-verification]
+
+[functions.verify-whatsapp-code]
+
+[functions.send-team-invitation-email]
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.update-team-seats]
+
+[functions.check-team-member-slots]
+
+[functions.sync-google-calendar]
+
+[functions.sync-apple-calendar]
+
+[functions.apple-calendar-auth]
+
+[functions.gmail-auth]
+
+[functions.sync-gmail-emails]
+
+[functions.analyze-email]
+
+[functions.whatsapp-business-webhook]
+verify_jwt = false
+
+[functions.send-whatsapp-business-message]
+
+[functions.dotloop-auth]
+
+[functions.dotloop-callback]
+verify_jwt = false
+
+[functions.sync-dotloop]
+
+[functions.fub-auth]
+
+[functions.fub-callback]
+verify_jwt = false
+
+[functions.sync-fub]
+
+[functions.generate-recurring-tasks]
+verify_jwt = false
+
+[functions.parse-task-input]
+
+[functions.zendesk-cancel-portal]
+verify_jwt = false
+
+[functions.docusign-webhook]
+verify_jwt = false
+
+[functions.sync-docusign]
+
+[functions.task-ai-chat]
+
+[functions.task-ai-action]
+
+[functions.elevenlabs-scribe-token]
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.clozze-ai-create]

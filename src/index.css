@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Real Estate Platform Design System - Dark Bento Style */
+
+@layer base {
+  :root {
+    /* Core Background Colors */
+    --background: 0 0% 7%;
+    --background-elevated: 0 0% 12%;
+    --background-card: 0 0% 9%;
+    --foreground: 0 0% 95%;
+    --foreground-muted: 0 0% 65%;
+
+    /* Bento Card System */
+    --card: 0 0% 9%;
+    --card-elevated: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
+    --card-border: 0 0% 18%;
+
+    /* Premium Purple Accent */
+    --accent-gold: 240 100% 73%;
+    --accent-gold-foreground: 0 0% 98%;
+    --accent-gold-muted: 240 85% 68%;
+
+    /* Partner Action Color */
+    --partner-action: 239 100% 73%;
+    --partner-action-foreground: 0 0% 98%;
+
+    /* Interactive Elements */
+    --primary: 240 100% 73%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 240 90% 68%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 85%;
+    --secondary-hover: 0 0% 20%;
+
+    /* Status Colors */
+    --success: 120 60% 50%;
+    --success-foreground: 0 0% 95%;
+    --warning: 35 100% 55%;
+    --warning-foreground: 0 0% 10%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 95%;
+
+    /* Form Elements */
+    --input: 0 0% 15%;
+    --input-border: 0 0% 25%;
+    --input-focus: 240 100% 73%;
+
+    /* Borders & Rings */
+    --border: 0 0% 18%;
+    --border-subtle: 0 0% 12%;
+    --ring: 240 100% 73%;
+
+    /* Typography Hierarchy */
+    --text-heading: 0 0% 98%;
+    --text-body: 0 0% 85%;
+    --text-muted: 0 0% 65%;
+    --text-subtle: 0 0% 45%;
+
+    /* Spacing & Layout */
+    --radius: 0.75rem;
+    --radius-lg: 1rem;
+    --spacing-bento: 1.5rem;
+
+    /* Shadows & Elevation */
+    --shadow-card: 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
+    --shadow-elevated: 0 8px 30px -8px hsla(0, 0%, 0%, 0.6);
+    --shadow-premium: 0 0 0 1px hsla(240, 100%, 73%, 0.1), 0 4px 20px -4px hsla(0, 0%, 0%, 0.4);
+
+    /* Navigation */
+    --nav-background: 0 0% 6%;
+    --nav-item: 0 0% 15%;
+    --nav-item-active: 240 100% 73%;
+    --nav-item-hover: 0 0% 18%;
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bouncy: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .light {
+    /* Core Background Colors */
+    --background: 0 0% 98%;
+    --background-elevated: 0 0% 100%;
+    --background-card: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --foreground-muted: 0 0% 40%;
+
+    /* Bento Card System */
+    --card: 0 0% 100%;
+    --card-elevated: 0 0% 98%;
+    --card-foreground: 0 0% 10%;
+    --card-border: 0 0% 88%;
+
+    /* Premium Purple Accent */
+    --accent-gold: 240 100% 65%;
+    --accent-gold-foreground: 0 0% 98%;
+    --accent-gold-muted: 240 85% 60%;
+
+    /* Partner Action Color */
+    --partner-action: 239 100% 65%;
+    --partner-action-foreground: 0 0% 98%;
+
+    /* Interactive Elements */
+    --primary: 240 100% 65%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 240 90% 60%;
+
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 20%;
+    --secondary-hover: 0 0% 88%;
+
+    /* Status Colors */
+    --success: 120 60% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 35 100% 50%;
+    --warning-foreground: 0 0% 98%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Form Elements */
+    --input: 0 0% 100%;
+    --input-border: 0 0% 85%;
+    --input-focus: 240 100% 65%;
+
+    /* Borders & Rings */
+    --border: 0 0% 88%;
+    --border-subtle: 0 0% 92%;
+    --ring: 240 100% 65%;
+
+    /* Typography Hierarchy */
+    --text-heading: 0 0% 10%;
+    --text-body: 0 0% 20%;
+    --text-muted: 0 0% 40%;
+    --text-subtle: 0 0% 60%;
+
+    /* Shadows & Elevation */
+    --shadow-card: 0 2px 10px -2px hsla(0, 0%, 0%, 0.08);
+    --shadow-elevated: 0 4px 20px -4px hsla(0, 0%, 0%, 0.12);
+    --shadow-premium: 0 0 0 1px hsla(240, 100%, 65%, 0.15), 0 2px 10px -2px hsla(0, 0%, 0%, 0.08);
+
+    /* Navigation */
+    --nav-background: 0 0% 99%;
+    --nav-item: 0 0% 92%;
+    --nav-item-active: 240 100% 65%;
+    --nav-item-hover: 0 0% 95%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,137 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface TeamStats {
+  totalListings: number;
+  activeListings: number;
+  pendingListings: number;
+  closedListings: number;
+  totalBuyers: number;
+  activeBuyers: number;
+  totalSalesVolume: number;
+  totalCommission: number;
+  avgCommission: number;
+  projectedSalesVolume: number;
+  projectedCommission: number;
+}
+
+export function useTeamData() {
+  const [stats, setStats] = useState<TeamStats>({
+    totalListings: 0,
+    activeListings: 0,
+    pendingListings: 0,
+    closedListings: 0,
+    totalBuyers: 0,
+    activeBuyers: 0,
+    totalSalesVolume: 0,
+    totalCommission: 0,
+    avgCommission: 0,
+    projectedSalesVolume: 0,
+    projectedCommission: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchTeamData() {
+      try {
+        setLoading(true);
+        
+        // Get current user's teams
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error("User not authenticated");
+        }
+
+        // Get team members (including self)
+        const { data: teamMembers, error: teamError } = await supabase
+          .from("team_members")
+          .select("user_id, team_id")
+          .eq("status", "active");
+
+        if (teamError) throw teamError;
+
+        // If user is part of a team, get all team member user_ids
+        const teamUserIds = teamMembers?.map(tm => tm.user_id) || [];
+        
+        // Include current user if they're not in a team
+        const userIds = teamUserIds.length > 0 ? teamUserIds : [user.id];
+
+        // Fetch listings for all team members
+        const { data: listings, error: listingsError } = await supabase
+          .from("listings")
+          .select("*")
+          .in("user_id", userIds);
+
+        if (listingsError) throw listingsError;
+
+        // Fetch buyers using secure function
+        // Note: Financial data (commissions, pre-approval amounts) is only visible to the buyer's owner
+        const { data: buyers, error: buyersError } = await supabase
+          .rpc("get_team_buyers");
+
+        if (buyersError) throw buyersError;
+
+        // Calculate stats
+        const activeListings = listings?.filter(l => l.status === "Active") || [];
+        const pendingListings = listings?.filter(l => l.status === "Pending") || [];
+        const closedListings = listings?.filter(l => l.status === "Closed") || [];
+        const activeBuyers = buyers?.filter(b => b.status === "Active") || [];
+
+        // Only calculate commission from buyers where financial data is visible (is_owner = true)
+        const ownedBuyers = buyers?.filter(b => b.is_owner === true) || [];
+        const closedBuyers = ownedBuyers.filter(b => b.status === "Closed");
+        const pipelineBuyers = ownedBuyers.filter(b => b.status === "Active" || b.status === "Pending");
+
+        // CLOSED metrics - only from Closed records
+        const closedSalesVolume = closedListings.reduce((sum, l) => sum + Number(l.price || 0), 0);
+        const closedListingCommission = closedListings.reduce((sum, l) => sum + Number(l.agent_commission || 0), 0);
+        const closedBuyerCommission = closedBuyers.reduce((sum, b) => {
+          // 50/50 split: (pre_approved_amount * commission_percentage / 100) * 0.5
+          const preApproved = Number(b.pre_approved_amount || 0);
+          const pct = Number(b.commission_percentage || 0);
+          return sum + (preApproved * pct / 100) * 0.5;
+        }, 0);
+        const totalClosedCommission = closedListingCommission + closedBuyerCommission;
+
+        // PROJECTED metrics - Active + Pending records (pipeline)
+        const projectedSalesVolume = [...activeListings, ...pendingListings]
+          .reduce((sum, l) => sum + Number(l.price || 0), 0);
+        const projectedListingCommission = [...activeListings, ...pendingListings]
+          .reduce((sum, l) => sum + Number(l.agent_commission || 0), 0);
+        const projectedBuyerCommission = pipelineBuyers.reduce((sum, b) => {
+          const preApproved = Number(b.pre_approved_amount || 0);
+          const pct = Number(b.commission_percentage || 0);
+          return sum + (preApproved * pct / 100) * 0.5;
+        }, 0);
+        const totalProjectedCommission = projectedListingCommission + projectedBuyerCommission;
+
+        const totalItems = closedListings.length + closedBuyers.length;
+        const avgCommission = totalItems > 0 ? totalClosedCommission / totalItems : 0;
+
+        setStats({
+          totalListings: listings?.length || 0,
+          activeListings: activeListings.length,
+          pendingListings: pendingListings.length,
+          closedListings: closedListings.length,
+          totalBuyers: buyers?.length || 0,
+          activeBuyers: activeBuyers.length,
+          totalSalesVolume: closedSalesVolume,
+          totalCommission: totalClosedCommission,
+          avgCommission,
+          projectedSalesVolume,
+          projectedCommission: totalProjectedCommission,
+        });
+      } catch (err) {
+        console.error("Error fetching team data:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch team data");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTeamData();
+  }, []);
+
+  return { stats, loading, error };
+}
