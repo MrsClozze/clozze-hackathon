@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate an email verification link
     // Prefer the caller-provided origin (preview/published) and fall back to the primary app domain.
-    const baseOrigin = redirectOrigin || 'https://clozze.lovable.app';
+    const baseOrigin = redirectOrigin || 'https://app.clozze.io';
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',

@@ -13,12 +13,12 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const AI_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!AI_API_KEY) {
+      throw new Error('AI_API_KEY is not configured');
     }
 
     // Extract and validate bearer token
@@ -42,7 +42,7 @@ serve(async (req) => {
       }
     );
 
-    // Lovable Cloud uses verify_jwt=false; we MUST pass the token explicitly
+    // verify_jwt=false; we MUST pass the token explicitly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       throw new Error('Unauthorized');

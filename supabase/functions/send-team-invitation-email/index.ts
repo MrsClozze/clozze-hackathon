@@ -90,7 +90,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Escape all user-provided content for HTML
     const safeDisplayName = escapeHtml(inviteeFirstName || inviteeEmail.split('@')[0]);
     const safeInviterName = escapeHtml(inviterName);
-    const acceptUrl = `https://clozze.lovable.app/auth?invitation=${encodeURIComponent(invitationToken)}`;
+    const acceptUrl = `https://app.clozze.io/auth?invitation=${encodeURIComponent(invitationToken)}`;
 
     const emailResponse = await resend.emails.send({
       from: "Clozze <hello@mail.clozze.io>",
