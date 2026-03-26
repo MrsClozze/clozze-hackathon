@@ -15,6 +15,7 @@ export interface AIRequest {
   conversational?: boolean;
   flow?: string; // 'task-ai-chat' | 'clozze-ai-create'
   flowData?: Record<string, unknown>;
+  existingFormData?: Record<string, unknown>;
 }
 
 export interface MemoryEntry {
@@ -24,9 +25,16 @@ export interface MemoryEntry {
   actions?: string[];
 }
 
+export interface ActionRecord {
+  action: string;
+  timestamp: number;
+  details?: string;
+  status: 'pending' | 'completed' | 'failed';
+}
+
 export interface DurableMemoryState {
   conversationHistory: MemoryEntry[];
-  actions: { action: string; timestamp: number; details?: string }[];
+  actions: ActionRecord[];
   workflowState: Record<string, unknown>;
   lastAccessed: number;
 }

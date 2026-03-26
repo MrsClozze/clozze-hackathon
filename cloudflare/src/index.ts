@@ -1,4 +1,5 @@
 import { Env, AIRequest, CORS_HEADERS, DurableMemoryState } from './types';
+import { buildMemoryContext, extractActionsFromResponse } from './context';
 
 export { ListingMemory, BuyerMemory } from './memory';
 
@@ -10,19 +11,16 @@ export default {
 
     const url = new URL(request.url);
 
-    // Health check
     if (url.pathname === '/health') {
       return new Response(JSON.stringify({ status: 'ok', ts: Date.now() }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
-    // Main AI orchestration endpoint
     if (url.pathname === '/ai/chat' && request.method === 'POST') {
       return handleAIChat(request, env);
     }
 
-    // Direct memory access (for debugging / admin)
     if (url.pathname.startsWith('/memory/')) {
       return handleMemoryDirect(request, url, env);
     }
@@ -61,7 +59,7 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
       }
     }
 
-    // 2. Build enriched context from memory
+    // 2. Build enriched context from memory (actionable, not just raw logs)
     const memoryContext = buildMemoryContext(memory, memoryType);
 
     // 3. Determine which edge function to call
@@ -79,7 +77,6 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
     const forwardPayload: Record<string, unknown> = {
       ...body,
       conversationHistory: enrichedHistory,
-      // Pass memory metadata so the edge function knows context is enriched
       _memoryInjected: !!memory,
       _memoryType: memoryType,
     };
@@ -103,7 +100,7 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    // 6. Stream the response through to the client while capturing for memory
+    // 6. Stream the response through while capturing for memory
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const reader = edgeResponse.body?.getReader();
@@ -115,7 +112,6 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    // Stream through and capture response for memory append
     const responseChunks: Uint8Array[] = [];
 
     const pump = async () => {
@@ -133,12 +129,17 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
       } finally {
         await writer.close();
 
-        // After stream completes, append to memory asynchronously
+        // After stream completes, append to memory with action tracking
         if (memoryStub && body.message) {
           const fullResponse = new TextDecoder().decode(
             concatUint8Arrays(responseChunks)
           );
           const assistantContent = extractContentFromSSE(fullResponse);
+
+          // Extract action markers from assistant response
+          const extractedActions = assistantContent
+            ? extractActionsFromResponse(assistantContent)
+            : [];
 
           try {
             await memoryStub.fetch(
@@ -152,6 +153,10 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
                       ? [{ role: 'assistant', content: assistantContent, timestamp: Date.now() }]
                       : []),
                   ],
+                  actions: extractedActions.map(a => ({
+                    action: a,
+                    status: 'pending',
+                  })),
                 }),
               })
             );
@@ -162,7 +167,6 @@ async function handleAIChat(request: Request, env: Env): Promise<Response> {
       }
     };
 
-    // Don't await — let it stream
     pump();
 
     return new Response(readable, {
@@ -190,13 +194,12 @@ async function handleMemoryDirect(
   url: URL,
   env: Env
 ): Promise<Response> {
-  // /memory/listing/:id or /memory/buyer/:id
   const parts = url.pathname.split('/').filter(Boolean);
   if (parts.length < 3) {
     return new Response('Invalid path', { status: 400, headers: CORS_HEADERS });
   }
 
-  const entityType = parts[1]; // 'listing' or 'buyer'
+  const entityType = parts[1];
   const entityId = parts[2];
   const action = parts[3] || 'get';
 
@@ -214,45 +217,6 @@ async function handleMemoryDirect(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function buildMemoryContext(
-  memory: DurableMemoryState | null,
-  type: 'listing' | 'buyer' | null
-): string | null {
-  if (!memory || memory.conversationHistory.length === 0) return null;
-
-  const entityLabel = type === 'listing' ? 'listing' : 'buyer';
-  const recentHistory = memory.conversationHistory.slice(-10);
-
-  let context = `[MEMORY CONTEXT — Prior ${entityLabel} interactions]\n`;
-
-  // Summarize recent actions
-  if (memory.actions.length > 0) {
-    const recentActions = memory.actions.slice(-5);
-    context += `Recent actions taken: ${recentActions.map((a) => a.action).join(', ')}\n`;
-  }
-
-  // Workflow state
-  const wfKeys = Object.keys(memory.workflowState);
-  if (wfKeys.length > 0) {
-    context += `Workflow state: ${JSON.stringify(memory.workflowState)}\n`;
-  }
-
-  // Recent conversation
-  context += `\nRecent conversation:\n`;
-  for (const entry of recentHistory) {
-    const role = entry.role === 'user' ? 'User' : 'Assistant';
-    // Truncate long messages in context
-    const content =
-      entry.content.length > 300
-        ? entry.content.substring(0, 300) + '…'
-        : entry.content;
-    context += `${role}: ${content}\n`;
-  }
-
-  context += `[END MEMORY CONTEXT]\n`;
-  return context;
-}
 
 function extractContentFromSSE(raw: string): string {
   const lines = raw.split('\n');

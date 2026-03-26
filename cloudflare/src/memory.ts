@@ -1,11 +1,11 @@
-import { DurableMemoryState, MemoryEntry, CORS_HEADERS } from './types';
+import { DurableMemoryState, MemoryEntry, ActionRecord, CORS_HEADERS } from './types';
 
-const MAX_HISTORY = 50; // Keep last 50 exchanges per entity
+const MAX_HISTORY = 50;
 const MAX_ACTIONS = 100;
 
 /**
  * Base Durable Object class for entity memory (listing or buyer).
- * Stores conversation history, actions taken, and lightweight workflow state.
+ * Stores conversation history, actions with completion state, and workflow state.
  */
 export class EntityMemory implements DurableObject {
   private state: DurableObjectState;
@@ -24,6 +24,10 @@ export class EntityMemory implements DurableObject {
       workflowState: {},
       lastAccessed: Date.now(),
     };
+    // Migrate legacy actions without status
+    for (const a of this.memory.actions) {
+      if (!a.status) a.status = 'completed';
+    }
     return this.memory;
   }
 
@@ -49,6 +53,9 @@ export class EntityMemory implements DurableObject {
       }
       if (url.pathname === '/update-workflow' && request.method === 'POST') {
         return this.handleUpdateWorkflow(request);
+      }
+      if (url.pathname === '/update-action' && request.method === 'POST') {
+        return this.handleUpdateAction(request);
       }
       if (url.pathname === '/clear' && request.method === 'POST') {
         return this.handleClear();
@@ -77,12 +84,11 @@ export class EntityMemory implements DurableObject {
   private async handleAppend(request: Request): Promise<Response> {
     const body = await request.json() as {
       entries: MemoryEntry[];
-      actions?: { action: string; details?: string }[];
+      actions?: { action: string; details?: string; status?: ActionRecord['status'] }[];
     };
 
     const mem = await this.load();
 
-    // Append conversation entries
     for (const entry of body.entries) {
       mem.conversationHistory.push({
         ...entry,
@@ -90,15 +96,18 @@ export class EntityMemory implements DurableObject {
       });
     }
 
-    // Trim to max history
     if (mem.conversationHistory.length > MAX_HISTORY) {
       mem.conversationHistory = mem.conversationHistory.slice(-MAX_HISTORY);
     }
 
-    // Append actions
     if (body.actions) {
       for (const action of body.actions) {
-        mem.actions.push({ ...action, timestamp: Date.now() });
+        mem.actions.push({
+          action: action.action,
+          details: action.details,
+          status: action.status || 'pending',
+          timestamp: Date.now(),
+        });
       }
       if (mem.actions.length > MAX_ACTIONS) {
         mem.actions = mem.actions.slice(-MAX_ACTIONS);
@@ -117,6 +126,30 @@ export class EntityMemory implements DurableObject {
     const updates = await request.json() as Record<string, unknown>;
     const mem = await this.load();
     mem.workflowState = { ...mem.workflowState, ...updates };
+    mem.lastAccessed = Date.now();
+    await this.save();
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  }
+
+  /** Mark a pending action as completed or failed */
+  private async handleUpdateAction(request: Request): Promise<Response> {
+    const body = await request.json() as {
+      action: string;
+      status: ActionRecord['status'];
+    };
+    const mem = await this.load();
+
+    // Find the most recent matching pending action
+    for (let i = mem.actions.length - 1; i >= 0; i--) {
+      if (mem.actions[i].action === body.action && mem.actions[i].status === 'pending') {
+        mem.actions[i].status = body.status;
+        break;
+      }
+    }
+
     mem.lastAccessed = Date.now();
     await this.save();
 
