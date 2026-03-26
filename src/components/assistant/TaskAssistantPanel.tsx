@@ -413,6 +413,14 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
         </div>
       </div>
 
+      {/* Pending Actions Widget */}
+      {memorySnapshot && (
+        <PendingActionsWidget
+          pendingActions={memorySnapshot.pendingActions}
+          completedCount={memorySnapshot.completedCount}
+        />
+      )}
+
       {/* Chat Messages */}
       <TaskAssistantChat
         messages={messages}
