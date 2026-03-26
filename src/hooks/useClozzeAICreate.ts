@@ -115,7 +115,7 @@ interface UseClozzeAICreateOptions {
   buyerId?: string;
 }
 
-export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateOptions) {
+export function useClozzeAICreate({ flow, existingFormData, listingId, buyerId }: UseClozzeAICreateOptions) {
   const [messages, setMessages] = useState<AICreateMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<CreateLoadingPhase>('idle');
@@ -164,26 +164,28 @@ export function useClozzeAICreate({ flow, existingFormData }: UseClozzeAICreateO
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      const conversationHistory = messages.map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+
+      const requestBody: Record<string, unknown> = {
+        flow,
+        message: message.trim(),
+        conversationHistory,
+        existingFormData,
+      };
+
+      // Route through Worker when enabled for memory-enriched context
+      if (isWorkerEnabled()) {
+        if (listingId) requestBody.listingId = listingId;
+        if (buyerId) requestBody.buyerId = buyerId;
+        requestBody.flow = 'clozze-ai-create';
+      }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clozze-ai-create`,
+        getAIEndpoint('clozze-ai-create'),
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            flow,
-            message: message.trim(),
-            conversationHistory,
-            existingFormData,
-          }),
+          headers: getAIHeaders(accessToken),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal,
         }
       );
