@@ -217,7 +217,7 @@ export function useTaskAssistant({ taskId, listingId, buyerId }: UseTaskAssistan
       setLoadingPhase('idle');
       abortControllerRef.current = null;
     }
-  }, [taskId, messages, isLoading]);
+  }, [taskId, listingId, buyerId, messages, isLoading]);
 
   const cancelStream = useCallback(() => {
     if (abortControllerRef.current) {
