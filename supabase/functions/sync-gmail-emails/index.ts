@@ -226,7 +226,7 @@ serve(async (req) => {
       }
     );
 
-    // Lovable Cloud uses verify_jwt=false; we MUST pass the token explicitly
+    // verify_jwt=false; we MUST pass the token explicitly
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       throw new Error('Unauthorized');
