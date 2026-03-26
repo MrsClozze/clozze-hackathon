@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Generate password reset link
     const baseOrigin = (redirectOrigin && !redirectOrigin.includes('preview--'))
       ? redirectOrigin
-      : 'https://clozze.lovable.app';
+      : 'https://app.clozze.io';
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',

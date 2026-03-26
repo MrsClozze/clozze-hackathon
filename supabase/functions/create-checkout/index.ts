@@ -33,7 +33,7 @@ const getRequestOrigin = (req: Request) => {
   const forwardedHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
   if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
 
-  return "https://lovable.dev";
+  return "https://clozze.io";
 };
 
 serve(async (req) => {

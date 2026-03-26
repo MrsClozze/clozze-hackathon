@@ -37,7 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
     const displayName = escapeHtml(firstName || email.split('@')[0]);
     const baseOrigin = (redirectOrigin && !redirectOrigin.includes('preview--'))
       ? redirectOrigin
-      : 'https://clozze.lovable.app';
+      : 'https://app.clozze.io';
 
     const loginLink = `${baseOrigin}/auth`;
 

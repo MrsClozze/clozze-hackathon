@@ -388,7 +388,7 @@ async function handleCreateRecipientView(ctx: any, body: any) {
   }
 
   const viewRequest = {
-    returnUrl: returnUrl || 'https://clozze.lovable.app',
+    returnUrl: returnUrl || 'https://app.clozze.io',
     authenticationMethod: 'none',
     email: signer.email,
     userName: signer.name,

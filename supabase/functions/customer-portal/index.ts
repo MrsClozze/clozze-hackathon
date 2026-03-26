@@ -25,7 +25,7 @@ const getRequestOrigin = (req: Request) => {
   if (forwardedHost) return `${forwardedProto}://${forwardedHost}`;
 
   // Absolute last resort; should rarely happen.
-  return "https://lovable.dev";
+  return "https://clozze.io";
 };
 
 serve(async (req) => {

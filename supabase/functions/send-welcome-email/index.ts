@@ -78,7 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </ul>
                 <p>To get started, please verify your email address by clicking the verification link in the separate email we just sent you.</p>
                 <p><strong>Important:</strong> You have 3 days to verify your account. After that, you'll need to re-register.</p>
-                <a href="https://clozze.lovable.app" class="button">Get Started with Clozze</a>
+                <a href="https://app.clozze.io" class="button">Get Started with Clozze</a>
                 <p>If you have any questions, feel free to reach out to us at contact@clozze.io</p>
                 <p>Best regards,<br>The Clozze Team</p>
               </div>
