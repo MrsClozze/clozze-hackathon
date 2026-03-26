@@ -166,6 +166,11 @@ export function useClozzeAICreate({ flow, existingFormData, listingId, buyerId }
 
       const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
 
+      const conversationHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const requestBody: Record<string, unknown> = {
         flow,
         message: message.trim(),
