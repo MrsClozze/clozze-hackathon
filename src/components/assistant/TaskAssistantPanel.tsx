@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useTaskAssistant } from "@/hooks/useTaskAssistant";
 import { useTaskVoice } from "@/hooks/useTaskVoice";
 import { useConversationMode } from "@/hooks/useConversationMode";
+import { useEntityMemory } from "@/hooks/useEntityMemory";
 import { getTaskTypeConfig, buildAutoContextMessage } from "@/lib/taskTypeConfigs";
 import { recordAction } from "@/lib/workflowState";
 import type { AutoContextData } from "@/lib/taskTypeConfigs";
@@ -13,6 +14,7 @@ import TaskAssistantChat from "./TaskAssistantChat";
 import TaskAssistantInput from "./TaskAssistantInput";
 import TaskAssistantSuggestions from "./TaskAssistantSuggestions";
 import ConversationModeOverlay from "./ConversationModeOverlay";
+import PendingActionsWidget from "./PendingActionsWidget";
 import type { Task } from "@/contexts/TasksContext";
 import { useBuyers } from "@/contexts/BuyersContext";
 import { useListings } from "@/contexts/ListingsContext";
@@ -80,7 +82,12 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
     cancelStream,
     clearConversation,
     executeAction,
-  } = useTaskAssistant({ taskId: task.id });
+  } = useTaskAssistant({ taskId: task.id, listingId: task.listingId || undefined, buyerId: task.buyerId || undefined });
+
+  // Fetch pending actions from entity memory for the widget
+  const entityType = task.listingId ? 'listing' as const : task.buyerId ? 'buyer' as const : null;
+  const entityId = task.listingId || task.buyerId || null;
+  const { snapshot: memorySnapshot, refresh: refreshMemory } = useEntityMemory(entityType, entityId);
 
   const {
     isRecording,
@@ -235,13 +242,14 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
 
   /** Record action to workflow state for continuity across sessions */
   const handleActionExecuted = useCallback((actionType: string) => {
-    // Determine record type and ID for workflow state
     if (task.listingId) {
       recordAction('listing', task.listingId, actionType, actionType.replace(/_/g, ' '));
     } else if (task.buyerId) {
       recordAction('buyer', task.buyerId, actionType, actionType.replace(/_/g, ' '));
     }
-  }, [task.listingId, task.buyerId]);
+    // Refresh memory snapshot so the pending actions widget updates
+    setTimeout(() => refreshMemory(), 1000);
+  }, [task.listingId, task.buyerId, refreshMemory]);
 
   const handleMarkComplete = () => {
     setConfirmAction({
@@ -405,6 +413,14 @@ export default function TaskAssistantPanel({ task, onRefreshTask }: TaskAssistan
           )}
         </div>
       </div>
+
+      {/* Pending Actions Widget */}
+      {memorySnapshot && (
+        <PendingActionsWidget
+          pendingActions={memorySnapshot.pendingActions}
+          completedCount={memorySnapshot.completedCount}
+        />
+      )}
 
       {/* Chat Messages */}
       <TaskAssistantChat

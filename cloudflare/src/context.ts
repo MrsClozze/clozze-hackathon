@@ -1,9 +1,9 @@
-import { DurableMemoryState } from './types';
+import { DurableMemoryState, ActionRecord } from './types';
 
 /**
  * Builds actionable context from Durable Object memory.
- * Separates completed work from unresolved/pending items
- * so the AI can reason about what still needs attention.
+ * Groups related pending items, separates completed from unresolved,
+ * and instructs the AI to proactively guide the user.
  */
 export function buildMemoryContext(
   memory: DurableMemoryState | null,
@@ -29,10 +29,24 @@ export function buildMemoryContext(
     }
   }
 
+  // Group related pending actions
   if (pendingActions.length > 0) {
-    context += `\nPending / unresolved actions (still need attention):\n`;
-    for (const a of pendingActions) {
-      context += `  ⏳ ${a.action}${a.details ? ` — ${a.details}` : ''}\n`;
+    const groups = groupRelatedActions(pendingActions);
+
+    if (groups.length > 0) {
+      context += `\nUnresolved items requiring attention:\n`;
+      for (const group of groups) {
+        if (group.items.length === 1) {
+          const a = group.items[0];
+          context += `  ⏳ ${a.action}${a.details ? ` — ${a.details}` : ''}\n`;
+        } else {
+          context += `  ⏳ [GROUP] ${group.label} (${group.items.length} related items):\n`;
+          for (const a of group.items) {
+            context += `     - ${a.action}${a.details ? `: ${a.details}` : ''}\n`;
+          }
+          context += `     → Suggest resolving these together in a single step.\n`;
+        }
+      }
     }
   }
 
@@ -48,8 +62,6 @@ export function buildMemoryContext(
   const wfKeys = Object.keys(memory.workflowState);
   if (wfKeys.length > 0) {
     context += `\nWorkflow state: ${JSON.stringify(memory.workflowState)}\n`;
-
-    // Surface specific unresolved items if tracked
     const missing = memory.workflowState.missingFields;
     if (Array.isArray(missing) && missing.length > 0) {
       context += `Outstanding missing fields: ${missing.join(', ')}\n`;
@@ -74,12 +86,73 @@ export function buildMemoryContext(
     }
   }
 
-  // ── Guidance instruction ──
-  context += `\nIMPORTANT: Reference the above context to avoid asking the user for information already discussed. `;
-  context += `Prioritize addressing pending/unresolved items. Do not repeat completed actions.\n`;
+  // ── Behavioral instructions ──
+  context += `\n--- BEHAVIORAL GUIDANCE ---\n`;
+  context += `You are managing this ${entityLabel}'s workflow. Your job is to drive progress, not just respond.\n`;
+
+  if (pendingActions.length > 0) {
+    context += `There are ${pendingActions.length} unresolved item(s). You MUST:\n`;
+    context += `  1. Acknowledge what's already been done (completed actions)\n`;
+    context += `  2. Proactively surface what still needs attention — don't wait for the user to ask\n`;
+    context += `  3. Recommend a specific next step to resolve the most important pending item\n`;
+    context += `  4. If multiple pending items relate to the same issue, suggest resolving them together\n`;
+  } else if (completedActions.length > 0) {
+    context += `All prior actions are completed. Look for the next logical step in the workflow.\n`;
+  }
+
+  context += `Never ask for information already present in this context or in the record data.\n`;
+  context += `For voice (conversational) responses: lead with the single most important pending item.\n`;
   context += `[END MEMORY CONTEXT]\n`;
 
   return context;
+}
+
+/**
+ * Group related pending actions by keyword similarity.
+ * E.g. "get seller info" and "confirm seller email" → grouped under "Seller Information"
+ */
+function groupRelatedActions(actions: ActionRecord[]): { label: string; items: ActionRecord[] }[] {
+  const CATEGORY_KEYWORDS: Record<string, string[]> = {
+    'Seller Information': ['seller', 'owner', 'vendor'],
+    'Buyer Details': ['buyer', 'client', 'borrower', 'pre-approval', 'pre-approved'],
+    'Property Data': ['property', 'listing', 'address', 'mls', 'inspection', 'appraisal', 'survey'],
+    'Documentation': ['document', 'contract', 'disclosure', 'title', 'sign', 'docusign'],
+    'Financial': ['commission', 'price', 'escrow', 'financing', 'lender', 'loan'],
+    'Communication': ['email', 'message', 'call', 'contact', 'reach out', 'follow up', 'draft'],
+    'Scheduling': ['schedule', 'showing', 'appointment', 'calendar', 'date', 'deadline'],
+  };
+
+  const grouped: Map<string, ActionRecord[]> = new Map();
+  const ungrouped: ActionRecord[] = [];
+
+  for (const action of actions) {
+    const text = `${action.action} ${action.details || ''}`.toLowerCase();
+    let matched = false;
+
+    for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(kw => text.includes(kw))) {
+        if (!grouped.has(category)) grouped.set(category, []);
+        grouped.get(category)!.push(action);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) ungrouped.push(action);
+  }
+
+  const result: { label: string; items: ActionRecord[] }[] = [];
+
+  for (const [label, items] of grouped) {
+    result.push({ label, items });
+  }
+
+  // Ungrouped actions remain individual
+  for (const item of ungrouped) {
+    result.push({ label: item.action, items: [item] });
+  }
+
+  return result;
 }
 
 /**
