@@ -43,7 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Generate password reset link
-    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('lovableproject.com'))
+    const baseOrigin = (redirectOrigin && !redirectOrigin.includes('preview--'))
       ? redirectOrigin
       : 'https://clozze.lovable.app';
 
