@@ -23,7 +23,7 @@ interface UseTaskAssistantOptions {
   buyerId?: string;
 }
 
-export function useTaskAssistant({ taskId }: UseTaskAssistantOptions) {
+export function useTaskAssistant({ taskId, listingId, buyerId }: UseTaskAssistantOptions) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('idle');
