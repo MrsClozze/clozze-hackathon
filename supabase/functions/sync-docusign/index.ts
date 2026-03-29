@@ -14,7 +14,7 @@ async function refreshDocuSignToken(refreshToken: string): Promise<{ access_toke
   if (!integrationKey || !secretKey) return null;
 
   try {
-    const resp = await fetch('https://account-d.docusign.com/oauth/token', {
+    const resp = await fetch('https://account.docusign.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -124,7 +124,7 @@ async function getAuthenticatedContext(req: Request) {
   // Get user info for account ID and base URI
   let userInfo: any = null;
   const fetchUserInfo = async (tok: string) => {
-    const resp = await fetch('https://account-d.docusign.com/oauth/userinfo', {
+    const resp = await fetch('https://account.docusign.com/oauth/userinfo', {
       headers: { 'Authorization': `Bearer ${tok}` },
     });
     if (!resp.ok) return null;
