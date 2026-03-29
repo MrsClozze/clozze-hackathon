@@ -6,7 +6,7 @@ Clozze helps agents and brokers manage transactions from contract to close with 
 
 ## Features
 
-- **AI Transaction Assistant** — Voice and chat-based assistant with real-time property research via Firecrawl, contextual task guidance, and natural language deal management.
+- **AI Transaction Assistant** — Voice and chat-based assistant with real-time property research via Firecrawl, powered by ElevenLabs and Cloudflare for fast, edge-based execution.
 - **Deal & Task Management** — Structured task workflows tied to buyers, listings, and transactions with calendar sync, recurring tasks, and team assignment.
 - **Centralized Communication Hub** — Gmail sync, AI-powered email triage and categorization, suggested responses, and WhatsApp integration.
 - **Calendar Coordination** — Google and Apple Calendar sync with bi-directional event management and deadline tracking.
@@ -22,9 +22,10 @@ Clozze helps agents and brokers manage transactions from contract to close with 
 | Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
 | Backend | Supabase (Postgres, Auth, Edge Functions, Storage) |
 | AI | Google Gemini, OpenAI GPT via AI Gateway |
-| Research | Firecrawl for real-time property and market data |
-| Voice | ElevenLabs Conversational AI Agent |
+| Research | Firecrawl for real-time property and market data, processed and delivered via Cloudflare edge infrastructure |
+| Voice | ElevenLabs Voice AI (real-time speech, conversational assistant, TTS/STT) |
 | Integrations | Gmail, Google Calendar, Apple Calendar, DocuSign, Dotloop, Follow Up Boss, Stripe |
+| Edge/Infrastructure | Cloudflare Workers, Edge Runtime, Global CDN
 
 ## Project Structure
 
