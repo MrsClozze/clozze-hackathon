@@ -1,19 +1,36 @@
 # Clozze
 
-**AI-powered, deal-centric real estate platform.**
+**AI-powered, deal-centric real estate platform with conversational voice agents and real-time property research.**
 
-Clozze helps agents and brokers manage transactions from contract to close with structured workflows, centralized communication, and intelligent automation — all built around the deal, not just contacts.
+Clozze acts as your AI transaction coordinator, assistant, and communication hub. It helps agents and brokers manage deals from contract to close with structured workflows, centralized communication, and intelligent automation.
+
+Powered by Cloudflare edge infrastructure, ElevenLabs voice AI, and Firecrawl real-time data retrieval, Clozze brings everything into one unified system.
 
 ## Features
 
-- **AI Transaction Assistant** — Voice and chat-based assistant with real-time property research via Firecrawl, contextual task guidance, and natural language deal management.
-- **Deal & Task Management** — Structured task workflows tied to buyers, listings, and transactions with calendar sync, recurring tasks, and team assignment.
-- **Centralized Communication Hub** — Gmail sync, AI-powered email triage and categorization, suggested responses, and WhatsApp integration.
-- **Calendar Coordination** — Google and Apple Calendar sync with bi-directional event management and deadline tracking.
-- **Document Workflows** — DocuSign and Dotloop integrations for e-signatures, document parsing, and transaction document management.
-- **Team Collaboration** — Multi-agent team management with role-based access, shared calendars and emails, and performance tracking.
-- **AI-Powered Content Generation** — Listing descriptions, buyer communications, and marketing copy generated with tone-matched AI trained on agent preferences.
-- **Transaction Engine** — State machine-driven transaction lifecycle with suggested tasks, guided workflows, and audit history.
+- **AI Transaction Assistant**  
+  Voice and chat-based assistant that can research properties, generate listing content, and guide transactions in real time using Firecrawl, ElevenLabs, and Cloudflare.
+
+- **Deal and Task Management**  
+  Structured workflows tied to buyers, listings, and transactions with calendar sync, recurring tasks, and team assignment.
+
+- **Centralized Communication Hub**  
+  Gmail sync, AI-powered email triage, suggested responses, and unified conversation tracking.
+
+- **Calendar Coordination**  
+  Google and Apple Calendar sync with bi-directional event management and deadline tracking.
+
+- **Document Workflows**  
+  DocuSign and Dotloop integrations for e-signatures, document parsing, and transaction management.
+
+- **Team Collaboration**  
+  Multi-agent team management with role-based access, shared calendars, and performance tracking.
+
+- **AI-Powered Content Generation**  
+  Listing descriptions, buyer messaging, and marketing copy generated with tone-matched AI.
+
+- **Transaction Engine**  
+  State-driven lifecycle with guided workflows, suggested tasks, and audit history.
 
 ## Tech Stack
 
@@ -24,6 +41,7 @@ Clozze helps agents and brokers manage transactions from contract to close with 
 | AI | Google Gemini, OpenAI GPT via AI Gateway |
 | Research | Firecrawl for real-time property and market data |
 | Voice | ElevenLabs Conversational AI Agent |
+| Edge and Infrastructure | Cloudflare Workers, Edge Runtime, Global CDN |
 | Integrations | Gmail, Google Calendar, Apple Calendar, DocuSign, Dotloop, Follow Up Boss, Stripe |
 
 ## Project Structure
@@ -77,4 +95,4 @@ The project uses Supabase for backend services. Environment variables are config
 
 ## License
 
-Proprietary — © 2025 Clozze. All rights reserved.
+Proprietary © 2025 Clozze. All rights reserved.
