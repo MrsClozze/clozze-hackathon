@@ -79,3 +79,5 @@ The project uses Supabase for backend services. Environment variables are config
 ## License
 
 Proprietary — © 2025 Clozze. All rights reserved.
+
+Last updated: March 2026 — Added Cloudflare + voice + AI workflow updates
